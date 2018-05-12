@@ -660,6 +660,31 @@ getStarshipPowerDraw ship =
         + getTogglablePowerDraw .powerDraw ship.shields
 
 
+getStarshipBuildPoints : Starship -> Int
+getStarshipBuildPoints ship =
+    let
+        (Togglable _ computer) =
+            ship.computer
+
+        (Togglable _ defensiveCountermeasures) =
+            ship.defensiveCountermeasures
+
+        (Togglable _ shields) =
+            ship.shields
+    in
+        getFrameBuildPoints ship.frame
+            + getPowerCoreUnitsBuildPoints ship.powerCoreUnits
+            + getThrusterBuildPoints ship
+            + getArmorBuildPoints ship
+            + getComputerBuildPoints computer
+            + getDefensiveCountermeasuresBuildPoints defensiveCountermeasures
+            + getDriftEngineBuildPoints ship
+            + List.foldr ((\(Togglable _ x) -> x) >> getExpansionBayBuildPoints >> (+)) 0 ship.expansionBays
+            + getSensorBuildPoints ship.sensors
+            + getWeaponsBuildPoints ship
+            + shields.buildPoints
+
+
 
 -- Validate Arc Mounted/Turret Mounted Weapon Count
 -- Validate Turret Mounted Class (no Capital weapons)
