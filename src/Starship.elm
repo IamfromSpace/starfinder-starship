@@ -619,6 +619,7 @@ type alias Starship =
 -- Validate Turret Count
 -- Validate Turret Mounted Class (no Capital weapons)
 -- Validate Power Core Count agains max per size + allowed expansions
+-- Validate ExpansionBay Count
 -- Validate PCU Total against max per size + expansions
 -- Validate total power draw
 -- Validate Drift Engines (against miminum PCU)
