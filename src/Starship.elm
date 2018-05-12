@@ -614,6 +614,23 @@ type alias Starship =
     }
 
 
+getTogglablePowerDraw : (a -> Int) -> Togglable a -> Int
+getTogglablePowerDraw powerDrawFn (Togglable isOn a) =
+    if isOn then
+        powerDrawFn a
+    else
+        0
+
+
+getStarshipPowerDraw : Starship -> Int
+getStarshipPowerDraw ship =
+    getThrusterPowerDraw ship
+        + getTogglablePowerDraw getComputerPowerDraw ship.computer
+        + getTogglablePowerDraw getDefensiveCountermeasuresPowerDraw ship.defensiveCountermeasures
+        + List.foldr ((getTogglablePowerDraw getExpansionBayPowerDraw) >> (+)) 0 ship.expansionBays
+        + getWeaponsPowerDraw ship
+
+
 
 -- Validate Arc Mounted/Turret Mounted Weapon Count
 -- Validate Turret Count
