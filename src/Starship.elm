@@ -583,6 +583,15 @@ getMountPointsBuiltPoints ship =
         + (2 * List.length (List.concat ship.turretWeapons))
 
 
+type alias Shields =
+    { name : String
+    , sheildPoints : Int
+    , regenPerMinute : Int
+    , powerDraw : Int
+    , buildPoints : Int
+    }
+
+
 type Togglable a
     = Togglable Bool a
 
@@ -611,6 +620,7 @@ type alias Starship =
     , sensors : Sensor
     , arcWeapons : Arc (List (Togglable Weapon))
     , turretWeapons : List (List (Togglable Weapon))
+    , shields : Togglable Shields
     }
 
 
@@ -629,6 +639,7 @@ getStarshipPowerDraw ship =
         + getTogglablePowerDraw getDefensiveCountermeasuresPowerDraw ship.defensiveCountermeasures
         + List.foldr ((getTogglablePowerDraw getExpansionBayPowerDraw) >> (+)) 0 ship.expansionBays
         + getWeaponsPowerDraw ship
+        + getTogglablePowerDraw .powerDraw ship.shields
 
 
 
