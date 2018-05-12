@@ -26,6 +26,23 @@ type alias Arc a =
     }
 
 
+mapArc : (a -> b) -> Arc a -> Arc b
+mapArc fn arcs =
+    { forward = fn arcs.forward
+    , aft = fn arcs.aft
+    , portSide = fn arcs.portSide
+    , starboard = fn arcs.starboard
+    }
+
+
+appendArcs : Arc appendable -> appendable
+appendArcs arcs =
+    arcs.forward
+        ++ arcs.aft
+        ++ arcs.portSide
+        ++ arcs.starboard
+
+
 type alias Frame =
     { name : String
     , size : Size
@@ -33,17 +50,22 @@ type alias Frame =
     , maxHitPoints : Int
     , damageThreshold : Int
     , criticalThreshold : Int
-    , freeMountPoints :
-        -- Instead of tracking the built in mounts,
-        -- this is the value of them in build points
-        -- that are given "for free"
-        Int
+    , arcMounts : Arc (List WeaponClass)
+    , turretMounts : List WeaponClass
     , expansionBays : Int
     , minimumCrew : Int
     , maximumCrew : Int
-    , buildPoints : Int
-    , turrets : Int
+    , listedBuildPoints : Int
     }
+
+
+getFrameBuildPoints : Frame -> Int
+getFrameBuildPoints { arcMounts, turretMounts } =
+    List.foldr
+        (getMountPointBuiltPoints >> (+))
+        0
+        (appendArcs arcMounts ++ turretMounts)
+        - (2 * (List.length turretMounts))
 
 
 getThrusterPowerDraw : Starship -> Int
@@ -535,11 +557,7 @@ getWeaponBuildPoints weapon =
 
 getAllWeapons : Starship -> List (Togglable Weapon)
 getAllWeapons { arcWeapons, turretWeapons } =
-    arcWeapons.forward
-        ++ arcWeapons.aft
-        ++ arcWeapons.portSide
-        ++ arcWeapons.starboard
-        ++ List.concat turretWeapons
+    appendArcs arcWeapons ++ turretWeapons
 
 
 getAllOnlineWeapons : Starship -> List Weapon
@@ -564,8 +582,8 @@ getWeaponsBuildPoints =
     getAllWeapons >> List.foldr ((\(Togglable _ x) -> x) >> getWeaponBuildPoints >> (+)) 0
 
 
-getMountPointBuiltPoints : Weapon -> Int
-getMountPointBuiltPoints { weaponClass, weaponType } =
+getMountPointBuiltPoints : WeaponClass -> Int
+getMountPointBuiltPoints weaponClass =
     case weaponClass of
         Light ->
             3
@@ -579,8 +597,8 @@ getMountPointBuiltPoints { weaponClass, weaponType } =
 
 getMountPointsBuiltPoints : Starship -> Int
 getMountPointsBuiltPoints ship =
-    List.foldr ((\(Togglable _ x) -> x) >> getMountPointBuiltPoints >> (+)) 0 (getAllWeapons ship)
-        + (2 * List.length (List.concat ship.turretWeapons))
+    List.foldr ((\(Togglable _ x) -> x) >> .weaponClass >> getMountPointBuiltPoints >> (+)) 0 (getAllWeapons ship)
+        + (2 * List.length ship.turretWeapons)
 
 
 type alias Shields =
@@ -619,7 +637,7 @@ type alias Starship =
     , expansionBays : List (Togglable ExpansionBay)
     , sensors : Sensor
     , arcWeapons : Arc (List (Togglable Weapon))
-    , turretWeapons : List (List (Togglable Weapon))
+    , turretWeapons : List (Togglable Weapon)
     , shields : Togglable Shields
     }
 
@@ -644,7 +662,6 @@ getStarshipPowerDraw ship =
 
 
 -- Validate Arc Mounted/Turret Mounted Weapon Count
--- Validate Turret Count
 -- Validate Turret Mounted Class (no Capital weapons)
 -- Validate Power Core Count agains max per size + allowed expansions
 -- Validate ExpansionBay Count
