@@ -603,7 +603,7 @@ getMountPointsBuiltPoints ship =
 
 type alias Shields =
     { name : String
-    , sheildPoints : Int
+    , shieldPoints : Int
     , regenPerMinute : Int
     , powerDraw : Int
     , buildPoints : Int
