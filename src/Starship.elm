@@ -680,6 +680,7 @@ getStarshipBuildPoints ship =
             + List.foldr ((\(Togglable _ x) -> x) >> getExpansionBayBuildPoints >> (+)) 0 ship.expansionBays
             + getSensorBuildPoints ship.sensors
             + getWeaponsBuildPoints ship
+            + getMountPointsBuiltPoints ship
             + shields.buildPoints
 
 
