@@ -48,6 +48,7 @@ type alias Frame =
     , size : Size
     , maneuverability : Maneuverability
     , maxHitPoints : Int
+    , hitPointsIncrement : Int
     , damageThreshold : Int
     , criticalThreshold : Int
     , arcMounts : Arc (List WeaponClass)
