@@ -717,6 +717,56 @@ getStarshipBuildPoints ship =
             + shields.buildPoints
 
 
+getTierFromBuildPoints : Int -> Float
+getTierFromBuildPoints bp =
+    if bp < 25 then
+        1 / 4
+    else if bp < 30 then
+        1 / 3
+    else if bp < 40 then
+        1 / 2
+    else if bp < 55 then
+        1
+    else if bp < 75 then
+        2
+    else if bp < 95 then
+        3
+    else if bp < 115 then
+        4
+    else if bp < 135 then
+        5
+    else if bp < 155 then
+        6
+    else if bp < 180 then
+        7
+    else if bp < 205 then
+        8
+    else if bp < 230 then
+        9
+    else if bp < 270 then
+        10
+    else if bp < 310 then
+        11
+    else if bp < 350 then
+        12
+    else if bp < 400 then
+        13
+    else if bp < 450 then
+        14
+    else if bp < 500 then
+        15
+    else if bp < 600 then
+        16
+    else if bp < 700 then
+        17
+    else if bp < 800 then
+        18
+    else if bp < 900 then
+        19
+    else
+        20
+
+
 
 -- Validate Arc Mounted/Turret Mounted Weapon Count
 -- Validate Turret Mounted Class (no Capital weapons)
