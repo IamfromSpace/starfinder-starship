@@ -60,11 +60,9 @@ type alias Frame =
 
 
 getFrameBuildPoints : Frame -> Int
-getFrameBuildPoints { arcMounts, turretMounts } =
-    List.foldr
-        (getMountPointBuiltPoints >> (+))
-        0
-        (appendArcs arcMounts ++ turretMounts)
+getFrameBuildPoints { listedBuildPoints, arcMounts, turretMounts } =
+    listedBuildPoints
+        - List.foldr (getMountPointBuiltPoints >> (+)) 0 (appendArcs arcMounts ++ turretMounts)
         - (2 * (List.length turretMounts))
 
 
