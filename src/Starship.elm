@@ -770,6 +770,8 @@ getTierFromBuildPoints bp =
 
 -- Validate Arc Mounted/Turret Mounted Weapon Count
 -- Validate Turret Mounted Class (no Capital weapons)
+-- Validate Weapon Mounted Class vs Size (Heavy Weapons on < Medium, etc)
+-- Validate that turret-less frames have no turret mounted weapons
 -- Validate Power Core Count agains max per size + allowed expansions
 -- Validate ExpansionBay Count
 -- Validate PCU Total against max per size + expansions
