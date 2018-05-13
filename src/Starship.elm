@@ -338,9 +338,9 @@ getDefensiveCountermeasuresBuildPoints defensiveCountermeasures =
 
 
 getPowerCoreUnitsBuildPoints : Int -> Int
-getPowerCoreUnitsBuildPoints =
+getPowerCoreUnitsBuildPoints pcu =
     -- Totally ignoring that like 2 numbers are incorrect here, because it's stupid
-    flip (//) 10
+    ((pcu - 1) // 10) + 1
 
 
 getDriftEngineBuildPoints : Starship -> Int
