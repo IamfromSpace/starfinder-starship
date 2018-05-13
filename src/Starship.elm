@@ -62,9 +62,14 @@ type alias Frame =
 
 getFrameBuildPoints : Frame -> Int
 getFrameBuildPoints { listedBuildPoints, arcMounts, turretMounts } =
-    listedBuildPoints
-        - List.foldr (getMountPointBuiltPoints >> (+)) 0 (appendArcs arcMounts ++ turretMounts)
-        - (2 * (List.length turretMounts))
+    let
+        arcCosts =
+            List.map getArcMountPointBuiltPoints (appendArcs arcMounts)
+
+        turretCosts =
+            List.map getTurretMountPointBuiltPoints turretMounts
+    in
+        listedBuildPoints - List.sum (arcCosts ++ turretCosts)
 
 
 getThrusterPowerDraw : Starship -> Int
@@ -573,31 +578,58 @@ getAllOnlineWeapons =
 
 getWeaponsPowerDraw : Starship -> Int
 getWeaponsPowerDraw =
-    getAllOnlineWeapons >> List.foldr (getWeaponPowerDraw >> (+)) 0
+    getAllOnlineWeapons >> List.map getWeaponPowerDraw >> List.sum
 
 
 getWeaponsBuildPoints : Starship -> Int
 getWeaponsBuildPoints =
-    getAllWeapons >> List.foldr ((\(Togglable _ x) -> x) >> getWeaponBuildPoints >> (+)) 0
+    getAllWeapons >> List.map ((\(Togglable _ x) -> x) >> getWeaponBuildPoints) >> List.sum
 
 
-getMountPointBuiltPoints : WeaponClass -> Int
-getMountPointBuiltPoints weaponClass =
+getArcMountPointBuiltPoints : WeaponClass -> Int
+getArcMountPointBuiltPoints weaponClass =
     case weaponClass of
         Light ->
             3
 
         Heavy ->
-            4
+            7
 
         Capital ->
+            12
+
+
+getTurretMountPointBuiltPoints : WeaponClass -> Int
+getTurretMountPointBuiltPoints weaponClass =
+    case weaponClass of
+        Light ->
             5
+
+        Heavy ->
+            11
+
+        Capital ->
+            -- TODO: These scenarios should probably be Maybes
+            100000
 
 
 getMountPointsBuiltPoints : Starship -> Int
 getMountPointsBuiltPoints ship =
-    List.foldr ((\(Togglable _ x) -> x) >> .weaponClass >> getMountPointBuiltPoints >> (+)) 0 (getAllWeapons ship)
-        + (2 * List.length ship.turretWeapons)
+    let
+        getClass =
+            (\(Togglable _ x) -> x) >> .weaponClass
+
+        arcCost =
+            List.map
+                (getClass >> getArcMountPointBuiltPoints)
+                (appendArcs ship.arcWeapons)
+
+        turretCost =
+            List.map
+                (getClass >> getTurretMountPointBuiltPoints)
+                ship.turretWeapons
+    in
+        List.sum (arcCost ++ turretCost)
 
 
 type alias Shields =
@@ -654,7 +686,7 @@ getStarshipPowerDraw ship =
     getThrusterPowerDraw ship
         + getTogglablePowerDraw getComputerPowerDraw ship.computer
         + getTogglablePowerDraw getDefensiveCountermeasuresPowerDraw ship.defensiveCountermeasures
-        + List.foldr ((getTogglablePowerDraw getExpansionBayPowerDraw) >> (+)) 0 ship.expansionBays
+        + List.sum (List.map (getTogglablePowerDraw getExpansionBayPowerDraw) ship.expansionBays)
         + getWeaponsPowerDraw ship
         + getTogglablePowerDraw .powerDraw ship.shields
 
@@ -678,7 +710,7 @@ getStarshipBuildPoints ship =
             + getComputerBuildPoints computer
             + getDefensiveCountermeasuresBuildPoints defensiveCountermeasures
             + getDriftEngineBuildPoints ship
-            + List.foldr ((\(Togglable _ x) -> x) >> getExpansionBayBuildPoints >> (+)) 0 ship.expansionBays
+            + List.sum (List.map ((\(Togglable _ x) -> x) >> getExpansionBayBuildPoints) ship.expansionBays)
             + getSensorBuildPoints ship.sensors
             + getWeaponsBuildPoints ship
             + getMountPointsBuiltPoints ship
