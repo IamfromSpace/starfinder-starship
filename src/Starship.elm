@@ -961,3 +961,42 @@ isSmallEnoughForDriftEngineRating : Starship -> Bool
 isSmallEnoughForDriftEngineRating { driftEngineRating, frame } =
     getSizeCategory frame.size
         <= getSizeCategory (maxiumumSizeForDriftEngineRating driftEngineRating)
+
+
+type BuildError
+    = TooManyWeaponMountsOnArc
+    | TooManyWeaponMountsOnTurret
+    | InvalidWeaponClassOnFrame
+    | IllegalCapitalWeaponOnTurret
+    | IllegalTurretMountsOnTurretlessFrame
+    | PcuRequiresRequiresAdditionalPowerCore
+    | TooManyPowerCores
+    | TooManyExpansionBays
+    | NotEnoughPowerForActiveSystems
+    | PowerCoreTooSmallForDriftEngines
+    | ShipToLargeForDriftEngineRating
+
+
+isTrue : (a -> Bool) -> b -> ( List b, a ) -> ( List b, a )
+isTrue fn err ( errs, value ) =
+    if fn value then
+        ( errs, value )
+    else
+        ( err :: errs, value )
+
+
+validateStarship : Starship -> List BuildError
+validateStarship =
+    (,) []
+        >> isTrue areArcMountPointsValid TooManyWeaponMountsOnArc
+        >> isTrue areTurretMountPointsValid TooManyWeaponMountsOnTurret
+        >> isTrue areWeaponClassesValidForFrame InvalidWeaponClassOnFrame
+        >> isTrue areTurretWeaponClassesValid IllegalCapitalWeaponOnTurret
+        >> isTrue hasTurretIfHasTurretWeapons IllegalTurretMountsOnTurretlessFrame
+        >> isTrue hasEnoughPowerCoresForPcu PcuRequiresRequiresAdditionalPowerCore
+        >> isTrue hasValidPowerCoreCount TooManyPowerCores
+        >> isTrue hasValidExpansionBayCount TooManyExpansionBays
+        >> isTrue hasSufficientPowerCoreUnits NotEnoughPowerForActiveSystems
+        >> isTrue hasSufficientPowerCoreUnitsForDriftEngineRating PowerCoreTooSmallForDriftEngines
+        >> isTrue isSmallEnoughForDriftEngineRating ShipToLargeForDriftEngineRating
+        >> Tuple.first
