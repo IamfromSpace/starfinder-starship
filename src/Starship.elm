@@ -934,7 +934,7 @@ getPowerCoreCount { expansionBays } =
 
 hasEnoughPowerCoresForPcu : Starship -> Bool
 hasEnoughPowerCoresForPcu ship =
-    getPowerCoreCount ship * getMaxPcuPerPowerCore ship.frame.size < ship.powerCoreUnits
+    ship.powerCoreUnits <= getPowerCoreCount ship * getMaxPcuPerPowerCore ship.frame.size
 
 
 hasValidPowerCoreCount : Starship -> Bool
@@ -944,7 +944,7 @@ hasValidPowerCoreCount ship =
 
 hasValidExpansionBayCount : Starship -> Bool
 hasValidExpansionBayCount { expansionBays, frame } =
-    List.length expansionBays < frame.expansionBays
+    List.length expansionBays <= frame.expansionBays
 
 
 hasSufficientPowerCoreUnits : Starship -> Bool
@@ -957,7 +957,7 @@ hasSufficientPowerCoreUnitsForDriftEngineRating ship =
     minimumPowerCoreUnitsForDriftEngineRating ship.driftEngineRating <= ship.powerCoreUnits
 
 
-isSufficientSizeForDriftEngineRating : Starship -> Bool
-isSufficientSizeForDriftEngineRating { driftEngineRating, frame } =
+isSmallEnoughForDriftEngineRating : Starship -> Bool
+isSmallEnoughForDriftEngineRating { driftEngineRating, frame } =
     getSizeCategory frame.size
         <= getSizeCategory (maxiumumSizeForDriftEngineRating driftEngineRating)
