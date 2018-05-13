@@ -349,10 +349,10 @@ getPowerCoreUnitsBuildPoints pcu =
     ((pcu - 1) // 10) + 1
 
 
-getDriftEngineBuildPoints : Starship -> Int
-getDriftEngineBuildPoints { frame, driftEngine } =
+getDriftEngineRatingBuildPoints : Starship -> Int
+getDriftEngineRatingBuildPoints { frame, driftEngineRating } =
     getSizeCategory frame.size
-        * case driftEngine of
+        * case driftEngineRating of
             1 ->
                 2
 
@@ -664,7 +664,7 @@ type alias Starship =
     , computer : Togglable Computer
     , crewQuarters : CrewQuarters
     , defensiveCountermeasures : Togglable Int
-    , driftEngine : Int
+    , driftEngineRating : Int
     , expansionBays : List (Togglable ExpansionBay)
     , sensors : Sensor
     , arcWeapons : Arc (List (Togglable Weapon))
@@ -709,7 +709,7 @@ getStarshipBuildPoints ship =
             + getArmorBuildPoints ship
             + getComputerBuildPoints computer
             + getDefensiveCountermeasuresBuildPoints defensiveCountermeasures
-            + getDriftEngineBuildPoints ship
+            + getDriftEngineRatingBuildPoints ship
             + List.sum (List.map ((\(Togglable _ x) -> x) >> getExpansionBayBuildPoints) ship.expansionBays)
             + getSensorBuildPoints ship.sensors
             + getWeaponsBuildPoints ship
@@ -776,4 +776,188 @@ getTierFromBuildPoints bp =
 -- Validate ExpansionBay Count
 -- Validate PCU Total against max per size + expansions
 -- Validate total power draw
--- Validate Drift Engines (against miminum PCU)
+-- Validate Drift Engine Rating (against miminum PCU)
+
+
+getMountPointLimit : Size -> Int
+getMountPointLimit size =
+    case size of
+        Tiny ->
+            2
+
+        Small ->
+            2
+
+        Medium ->
+            3
+
+        Large ->
+            3
+
+        _ ->
+            4
+
+
+getAllowedClasses : Size -> List WeaponClass
+getAllowedClasses size =
+    case size of
+        Tiny ->
+            [ Light ]
+
+        Small ->
+            [ Light ]
+
+        Medium ->
+            [ Light, Heavy ]
+
+        Large ->
+            [ Light, Heavy ]
+
+        _ ->
+            [ Light, Heavy, Capital ]
+
+
+getMaxPowerCoreCount : Size -> Int
+getMaxPowerCoreCount size =
+    case size of
+        Colossal ->
+            4
+
+        Gargantuan ->
+            3
+
+        Medium ->
+            2
+
+        Large ->
+            2
+
+        _ ->
+            1
+
+
+getMaxPcuPerPowerCore : Size -> Int
+getMaxPcuPerPowerCore size =
+    case size of
+        Tiny ->
+            200
+
+        Small ->
+            300
+
+        Medium ->
+            300
+
+        Large ->
+            400
+
+        _ ->
+            500
+
+
+minimumPowerCoreUnitsForDriftEngineRating : Int -> Int
+minimumPowerCoreUnitsForDriftEngineRating engineRating =
+    case engineRating of
+        1 ->
+            75
+
+        2 ->
+            100
+
+        x ->
+            x * 25 + 75
+
+
+maxiumumSizeForDriftEngineRating : Int -> Size
+maxiumumSizeForDriftEngineRating engineRating =
+    case engineRating of
+        1 ->
+            Colossal
+
+        2 ->
+            Huge
+
+        3 ->
+            Large
+
+        4 ->
+            Large
+
+        _ ->
+            Medium
+
+
+areArcMountPointsValid : Starship -> Bool
+areArcMountPointsValid { arcWeapons, frame } =
+    case List.maximum (appendArcs (mapArc (\x -> [ List.length x ]) arcWeapons)) of
+        Just max ->
+            max <= getMountPointLimit frame.size
+
+        Nothing ->
+            Debug.crash "Arcs list cannot be empty!"
+
+
+areTurretMountPointsValid : Starship -> Bool
+areTurretMountPointsValid { turretWeapons, frame } =
+    List.length turretWeapons <= getMountPointLimit frame.size
+
+
+areWeaponClassesValidForFrame : Starship -> Bool
+areWeaponClassesValidForFrame { arcWeapons, turretWeapons, frame } =
+    List.all
+        (\(Togglable _ { weaponClass }) ->
+            List.member weaponClass (getAllowedClasses frame.size)
+        )
+        (appendArcs arcWeapons ++ turretWeapons)
+
+
+areTurretWeaponClassesValid : Starship -> Bool
+areTurretWeaponClassesValid { turretWeapons, frame } =
+    List.all
+        (\(Togglable _ { weaponClass }) -> weaponClass /= Capital)
+        turretWeapons
+
+
+hasTurretIfHasTurretWeapons : Starship -> Bool
+hasTurretIfHasTurretWeapons { turretWeapons, frame } =
+    List.length turretWeapons == 0 || List.length frame.turretMounts > 0
+
+
+getPowerCoreCount : Starship -> Int
+getPowerCoreCount { expansionBays } =
+    let
+        isPowerCoreHousing =
+            (\(Togglable _ bay) -> bay == PowerCoreHousing)
+    in
+        List.length (List.filter isPowerCoreHousing expansionBays) + 1
+
+
+hasEnoughPowerCoresForPcu : Starship -> Bool
+hasEnoughPowerCoresForPcu ship =
+    getPowerCoreCount ship * getMaxPcuPerPowerCore ship.frame.size < ship.powerCoreUnits
+
+
+hasValidPowerCoreCount : Starship -> Bool
+hasValidPowerCoreCount ship =
+    getPowerCoreCount ship <= getMaxPowerCoreCount ship.frame.size
+
+
+hasValidExpansionBayCount : Starship -> Bool
+hasValidExpansionBayCount { expansionBays, frame } =
+    List.length expansionBays < frame.expansionBays
+
+
+hasSufficientPowerCoreUnits : Starship -> Bool
+hasSufficientPowerCoreUnits ship =
+    ship.powerCoreUnits >= getStarshipPowerDraw ship
+
+
+hasSufficientPowerCoreUnitsForDriftEngineRating : Starship -> Bool
+hasSufficientPowerCoreUnitsForDriftEngineRating ship =
+    minimumPowerCoreUnitsForDriftEngineRating ship.driftEngineRating <= ship.powerCoreUnits
+
+
+isSufficientSizeForDriftEngineRating : Starship -> Bool
+isSufficientSizeForDriftEngineRating { driftEngineRating, frame } =
+    getSizeCategory frame.size
+        <= getSizeCategory (maxiumumSizeForDriftEngineRating driftEngineRating)
