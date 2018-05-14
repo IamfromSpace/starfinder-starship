@@ -2,6 +2,7 @@ module Starship exposing (..)
 
 import Arc exposing (Arc)
 import Weapon exposing (Weapon)
+import Computer exposing (Computer)
 
 
 type Size
@@ -227,22 +228,6 @@ getArmorTargetLockBonus armorBonus =
 
         _ ->
             0
-
-
-getComputerPowerDraw : Computer -> Int
-getComputerPowerDraw { bonus } =
-    bonus * 5 + 5
-
-
-getComputerBuildPoints : Computer -> Int
-getComputerBuildPoints { bonus, nodes } =
-    bonus * bonus * nodes
-
-
-type alias Computer =
-    { bonus : Int
-    , nodes : Int
-    }
 
 
 type CrewQuarters
@@ -556,7 +541,7 @@ getTogglablePowerDraw powerDrawFn (Togglable isOn a) =
 getStarshipPowerDraw : Starship -> Int
 getStarshipPowerDraw ship =
     getThrusterPowerDraw ship
-        + getTogglablePowerDraw getComputerPowerDraw ship.computer
+        + getTogglablePowerDraw Computer.getPowerDraw ship.computer
         + getTogglablePowerDraw getDefensiveCountermeasuresPowerDraw ship.defensiveCountermeasures
         + List.sum (List.map (getTogglablePowerDraw getExpansionBayPowerDraw) ship.expansionBays)
         + getWeaponsPowerDraw ship
@@ -579,7 +564,7 @@ getStarshipBuildPoints ship =
             + getPowerCoreUnitsBuildPoints ship.powerCoreUnits
             + getThrusterBuildPoints ship
             + getArmorBuildPoints ship
-            + getComputerBuildPoints computer
+            + Computer.getBuildPoints computer
             + getDefensiveCountermeasuresBuildPoints defensiveCountermeasures
             + getDriftEngineRatingBuildPoints ship
             + List.sum (List.map ((\(Togglable _ x) -> x) >> getExpansionBayBuildPoints) ship.expansionBays)
