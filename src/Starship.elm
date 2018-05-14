@@ -1,6 +1,7 @@
 module Starship exposing (..)
 
 import Arc exposing (Arc)
+import Weapon exposing (Weapon)
 
 
 type Size
@@ -28,8 +29,8 @@ type alias Frame =
     , hitPointsIncrement : Int
     , damageThreshold : Int
     , criticalThreshold : Int
-    , arcMounts : Arc (List WeaponClass)
-    , turretMounts : List WeaponClass
+    , arcMounts : Arc (List Weapon.Class)
+    , turretMounts : List Weapon.Class
     , expansionBays : Int
     , minimumCrew : Int
     , maximumCrew : Int
@@ -41,10 +42,10 @@ getFrameBuildPoints : Frame -> Int
 getFrameBuildPoints { listedBuildPoints, arcMounts, turretMounts } =
     let
         arcCosts =
-            List.map getArcMountPointBuiltPoints (Arc.concat arcMounts)
+            List.map Weapon.getArcMountPointBuiltPoints (Arc.concat arcMounts)
 
         turretCosts =
-            List.map getTurretMountPointBuiltPoints turretMounts
+            List.map Weapon.getTurretMountPointBuiltPoints turretMounts
     in
         listedBuildPoints - List.sum (arcCosts ++ turretCosts)
 
@@ -438,14 +439,8 @@ getExpansionBayBuildPoints =
     getExpansionBayCost >> Tuple.second
 
 
-type Range
-    = Short
-    | MediumRange
-    | Long
-
-
 type alias Sensor =
-    { range : Range
+    { range : Weapon.Range
     , bonus : Int
     }
 
@@ -453,87 +448,14 @@ type alias Sensor =
 getSensorBuildPoints : Sensor -> Int
 getSensorBuildPoints { range, bonus } =
     case range of
-        Short ->
+        Weapon.Short ->
             bonus // 2 + 2
 
-        MediumRange ->
+        Weapon.Medium ->
             bonus + 3
 
-        Long ->
+        Weapon.Long ->
             bonus * 2 + 6
-
-
-type WeaponClass
-    = Light
-    | Heavy
-    | Capital
-
-
-type
-    WeaponType
-    -- Direct Fire weapon can be linked, for double the effects
-    -- costing 2 mounts and 2.5x the build points
-    = DirectFire Bool
-      -- Tracking weapons have a speed of the tracking projectile
-    | Tracking Int
-
-
-type Irradiation
-    = High
-    | MediumIrradiation
-    | Low
-
-
-type WeaponProperty
-    = Array
-    | BroadArc
-    | Emp
-    | Irradiate Irradiation
-    | LimitedFire Int
-    | Line
-    | Point Int
-    | Quantum
-    | Ripper
-    | TractorBeam
-    | Vortex
-
-
-type alias Weapon =
-    { name : String
-    , range : Range
-    , weaponClass : WeaponClass
-    , weaponType : WeaponType
-    , damage : Maybe ( Int, Int )
-    , powerDraw : Int
-    , buildPoints : Int
-    , specialProperties : List WeaponProperty
-    }
-
-
-getWeaponPowerDraw : Weapon -> Int
-getWeaponPowerDraw weapon =
-    (*) weapon.powerDraw <|
-        case weapon.weaponType of
-            DirectFire True ->
-                2
-
-            _ ->
-                1
-
-
-getWeaponBuildPoints : Weapon -> Int
-getWeaponBuildPoints weapon =
-    weapon.buildPoints
-        |> toFloat
-        |> (*)
-            (case weapon.weaponType of
-                DirectFire True ->
-                    2.5
-
-                _ ->
-                    1
-            )
-        |> round
 
 
 getAllWeapons : Starship -> List (Togglable Weapon)
@@ -555,39 +477,12 @@ getAllOnlineWeapons =
 
 getWeaponsPowerDraw : Starship -> Int
 getWeaponsPowerDraw =
-    getAllOnlineWeapons >> List.map getWeaponPowerDraw >> List.sum
+    getAllOnlineWeapons >> List.map Weapon.getPowerDraw >> List.sum
 
 
 getWeaponsBuildPoints : Starship -> Int
 getWeaponsBuildPoints =
-    getAllWeapons >> List.map ((\(Togglable _ x) -> x) >> getWeaponBuildPoints) >> List.sum
-
-
-getArcMountPointBuiltPoints : WeaponClass -> Int
-getArcMountPointBuiltPoints weaponClass =
-    case weaponClass of
-        Light ->
-            3
-
-        Heavy ->
-            7
-
-        Capital ->
-            12
-
-
-getTurretMountPointBuiltPoints : WeaponClass -> Int
-getTurretMountPointBuiltPoints weaponClass =
-    case weaponClass of
-        Light ->
-            5
-
-        Heavy ->
-            11
-
-        Capital ->
-            -- TODO: These scenarios should probably be Maybes
-            100000
+    getAllWeapons >> List.map ((\(Togglable _ x) -> x) >> Weapon.getBuildPoints) >> List.sum
 
 
 getMountPointsBuiltPoints : Starship -> Int
@@ -598,12 +493,12 @@ getMountPointsBuiltPoints ship =
 
         arcCost =
             List.map
-                (getClass >> getArcMountPointBuiltPoints)
+                (getClass >> Weapon.getArcMountPointBuiltPoints)
                 (Arc.concat ship.arcWeapons)
 
         turretCost =
             List.map
-                (getClass >> getTurretMountPointBuiltPoints)
+                (getClass >> Weapon.getTurretMountPointBuiltPoints)
                 ship.turretWeapons
     in
         List.sum (arcCost ++ turretCost)
@@ -784,23 +679,23 @@ getMountPointLimit size =
             4
 
 
-getAllowedClasses : Size -> List WeaponClass
+getAllowedClasses : Size -> List Weapon.Class
 getAllowedClasses size =
     case size of
         Tiny ->
-            [ Light ]
+            [ Weapon.Light ]
 
         Small ->
-            [ Light ]
+            [ Weapon.Light ]
 
         Medium ->
-            [ Light, Heavy ]
+            [ Weapon.Light, Weapon.Heavy ]
 
         Large ->
-            [ Light, Heavy ]
+            [ Weapon.Light, Weapon.Heavy ]
 
         _ ->
-            [ Light, Heavy, Capital ]
+            [ Weapon.Light, Weapon.Heavy, Weapon.Capital ]
 
 
 getMaxPowerCoreCount : Size -> Int
@@ -900,7 +795,7 @@ areWeaponClassesValidForFrame { arcWeapons, turretWeapons, frame } =
 areTurretWeaponClassesValid : Starship -> Bool
 areTurretWeaponClassesValid { turretWeapons, frame } =
     List.all
-        (\(Togglable _ { weaponClass }) -> weaponClass /= Capital)
+        (\(Togglable _ { weaponClass }) -> weaponClass /= Weapon.Capital)
         turretWeapons
 
 

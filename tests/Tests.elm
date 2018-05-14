@@ -3,6 +3,7 @@ module Tests exposing (..)
 import Test exposing (..)
 import Expect
 import Starship exposing (..)
+import Weapon exposing (..)
 
 
 -- TODO: These things should probably live in an assets directory that
@@ -13,7 +14,7 @@ import Starship exposing (..)
 mediumTransport : Frame
 mediumTransport =
     { name = "Medium Transport"
-    , size = Medium
+    , size = Starship.Medium
     , maneuverability = Average
     , baseHitPoints = 70
     , hitPointsIncrement = 15
@@ -79,7 +80,7 @@ lightPlasmaCannon =
 heavyEmpCannon : Weapon
 heavyEmpCannon =
     { name = "Heavy EMP Cannon"
-    , range = MediumRange
+    , range = Weapon.Medium
     , weaponClass = Heavy
     , weaponType = DirectFire False
     , damage = Nothing
