@@ -1,5 +1,7 @@
 module Starship exposing (..)
 
+import Arc exposing (Arc)
+
 
 type Size
     = Tiny
@@ -16,31 +18,6 @@ type Maneuverability
     | Average
     | Good
     | Perfect
-
-
-type alias Arc a =
-    { forward : a
-    , aft : a
-    , portSide : a
-    , starboard : a
-    }
-
-
-mapArc : (a -> b) -> Arc a -> Arc b
-mapArc fn arcs =
-    { forward = fn arcs.forward
-    , aft = fn arcs.aft
-    , portSide = fn arcs.portSide
-    , starboard = fn arcs.starboard
-    }
-
-
-appendArcs : Arc appendable -> appendable
-appendArcs arcs =
-    arcs.forward
-        ++ arcs.aft
-        ++ arcs.portSide
-        ++ arcs.starboard
 
 
 type alias Frame =
@@ -64,7 +41,7 @@ getFrameBuildPoints : Frame -> Int
 getFrameBuildPoints { listedBuildPoints, arcMounts, turretMounts } =
     let
         arcCosts =
-            List.map getArcMountPointBuiltPoints (appendArcs arcMounts)
+            List.map getArcMountPointBuiltPoints (Arc.concat arcMounts)
 
         turretCosts =
             List.map getTurretMountPointBuiltPoints turretMounts
@@ -561,7 +538,7 @@ getWeaponBuildPoints weapon =
 
 getAllWeapons : Starship -> List (Togglable Weapon)
 getAllWeapons { arcWeapons, turretWeapons } =
-    appendArcs arcWeapons ++ turretWeapons
+    Arc.concat arcWeapons ++ turretWeapons
 
 
 getAllOnlineWeapons : Starship -> List Weapon
@@ -622,7 +599,7 @@ getMountPointsBuiltPoints ship =
         arcCost =
             List.map
                 (getClass >> getArcMountPointBuiltPoints)
-                (appendArcs ship.arcWeapons)
+                (Arc.concat ship.arcWeapons)
 
         turretCost =
             List.map
@@ -898,7 +875,7 @@ maxiumumSizeForDriftEngineRating engineRating =
 
 areArcMountPointsValid : Starship -> Bool
 areArcMountPointsValid { arcWeapons, frame } =
-    case List.maximum (appendArcs (mapArc (\x -> [ List.length x ]) arcWeapons)) of
+    case List.maximum (Arc.concat (Arc.map (\x -> [ List.length x ]) arcWeapons)) of
         Just max ->
             max <= getMountPointLimit frame.size
 
@@ -917,7 +894,7 @@ areWeaponClassesValidForFrame { arcWeapons, turretWeapons, frame } =
         (\(Togglable _ { weaponClass }) ->
             List.member weaponClass (getAllowedClasses frame.size)
         )
-        (appendArcs arcWeapons ++ turretWeapons)
+        (Arc.concat arcWeapons ++ turretWeapons)
 
 
 areTurretWeaponClassesValid : Starship -> Bool

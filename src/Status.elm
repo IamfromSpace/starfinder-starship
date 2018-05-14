@@ -1,6 +1,6 @@
 module Status exposing (..)
 
-import Starship exposing (..)
+import Arc exposing (Arc)
 
 
 type Severity
