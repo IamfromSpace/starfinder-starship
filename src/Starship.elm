@@ -3,6 +3,7 @@ module Starship exposing (..)
 import Arc exposing (Arc)
 import Weapon exposing (Weapon)
 import Computer exposing (Computer)
+import ExpansionBay exposing (ExpansionBay)
 
 
 type Size
@@ -335,95 +336,6 @@ getDriftEngineRatingBuildPoints { frame, driftEngineRating } =
                 100000
 
 
-type ExpansionBay
-    = ArcaneLaboratory
-    | CargoHold
-    | EscapePods
-    | GuestQuarters
-    | HangarBay
-    | LifeBoats
-    | MedicalBay
-    | PassengerSeating
-    | PowerCoreHousing
-    | RecreationSuiteGym
-    | RecreationSuiteTrivedDen
-    | RecreationSuiteHac
-    | ScienceLab
-    | SealedEnvironmentChamber
-    | ShuttleBay
-    | SmugglerCompartment
-    | SynthesisBay
-    | TechWorkshop
-
-
-getExpansionBayCost : ExpansionBay -> ( Int, Int )
-getExpansionBayCost expansionBay =
-    case expansionBay of
-        ArcaneLaboratory ->
-            ( 1, 1 )
-
-        CargoHold ->
-            ( 0, 0 )
-
-        EscapePods ->
-            ( 2, 1 )
-
-        GuestQuarters ->
-            ( 1, 1 )
-
-        HangarBay ->
-            ( 30, 10 )
-
-        LifeBoats ->
-            ( 5, 3 )
-
-        MedicalBay ->
-            ( 4, 8 )
-
-        PassengerSeating ->
-            ( 0, 0 )
-
-        PowerCoreHousing ->
-            ( 0, 10 )
-
-        RecreationSuiteGym ->
-            ( 0, 1 )
-
-        RecreationSuiteTrivedDen ->
-            ( 1, 1 )
-
-        RecreationSuiteHac ->
-            ( 3, 1 )
-
-        ScienceLab ->
-            ( 2, 1 )
-
-        SealedEnvironmentChamber ->
-            ( 2, 1 )
-
-        ShuttleBay ->
-            ( 10, 4 )
-
-        SmugglerCompartment ->
-            ( 4, 2 )
-
-        SynthesisBay ->
-            ( 2, 1 )
-
-        TechWorkshop ->
-            ( 3, 1 )
-
-
-getExpansionBayPowerDraw : ExpansionBay -> Int
-getExpansionBayPowerDraw =
-    getExpansionBayCost >> Tuple.first
-
-
-getExpansionBayBuildPoints : ExpansionBay -> Int
-getExpansionBayBuildPoints =
-    getExpansionBayCost >> Tuple.second
-
-
 type alias Sensor =
     { range : Weapon.Range
     , bonus : Int
@@ -543,7 +455,7 @@ getStarshipPowerDraw ship =
     getThrusterPowerDraw ship
         + getTogglablePowerDraw Computer.getPowerDraw ship.computer
         + getTogglablePowerDraw getDefensiveCountermeasuresPowerDraw ship.defensiveCountermeasures
-        + List.sum (List.map (getTogglablePowerDraw getExpansionBayPowerDraw) ship.expansionBays)
+        + List.sum (List.map (getTogglablePowerDraw ExpansionBay.getPowerDraw) ship.expansionBays)
         + getWeaponsPowerDraw ship
         + getTogglablePowerDraw .powerDraw ship.shields
 
@@ -567,7 +479,7 @@ getStarshipBuildPoints ship =
             + Computer.getBuildPoints computer
             + getDefensiveCountermeasuresBuildPoints defensiveCountermeasures
             + getDriftEngineRatingBuildPoints ship
-            + List.sum (List.map ((\(Togglable _ x) -> x) >> getExpansionBayBuildPoints) ship.expansionBays)
+            + List.sum (List.map ((\(Togglable _ x) -> x) >> ExpansionBay.getBuildPoints) ship.expansionBays)
             + getSensorBuildPoints ship.sensors
             + getWeaponsBuildPoints ship
             + getMountPointsBuiltPoints ship
@@ -793,7 +705,7 @@ getPowerCoreCount : Starship -> Int
 getPowerCoreCount { expansionBays } =
     let
         isPowerCoreHousing =
-            (\(Togglable _ bay) -> bay == PowerCoreHousing)
+            (\(Togglable _ bay) -> bay == ExpansionBay.PowerCoreHousing)
     in
         List.length (List.filter isPowerCoreHousing expansionBays) + 1
 

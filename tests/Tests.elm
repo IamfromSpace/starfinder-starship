@@ -4,6 +4,7 @@ import Test exposing (..)
 import Expect
 import Starship exposing (..)
 import Weapon exposing (..)
+import ExpansionBay exposing (..)
 
 
 -- TODO: These things should probably live in an assets directory that
