@@ -47,7 +47,7 @@ type alias Frame =
     { name : String
     , size : Size
     , maneuverability : Maneuverability
-    , maxHitPoints : Int
+    , baseHitPoints : Int
     , hitPointsIncrement : Int
     , damageThreshold : Int
     , criticalThreshold : Int
@@ -765,6 +765,15 @@ getTierFromBuildPoints bp =
         19
     else
         20
+
+
+getMaxHitPoints : Starship -> Int
+getMaxHitPoints ship =
+    let
+        increases =
+            (ship |> getStarshipBuildPoints |> getTierFromBuildPoints |> round) // 4
+    in
+        ship.frame.baseHitPoints + ship.frame.hitPointsIncrement * increases
 
 
 

@@ -15,7 +15,7 @@ mediumTransport =
     { name = "Medium Transport"
     , size = Medium
     , maneuverability = Average
-    , maxHitPoints = 70
+    , baseHitPoints = 70
     , hitPointsIncrement = 15
     , damageThreshold = 0
     , criticalThreshold = 14
@@ -218,5 +218,13 @@ all =
             , test "Blackwind Sepulcher" <|
                 \() ->
                     Expect.equal [] (validateStarship blackwindSepulcher)
+            ]
+        , describe "Max Hit Points"
+            [ test "Norikama Dropship" <|
+                \() ->
+                    Expect.equal 100 (getMaxHitPoints norikamaDropship)
+            , test "Blackwind Sepulcher" <|
+                \() ->
+                    Expect.equal 85 (getMaxHitPoints blackwindSepulcher)
             ]
         ]
