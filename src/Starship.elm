@@ -780,6 +780,10 @@ isSmallEnoughForDriftEngine { driftEngine, frame } =
         <= getSizeCategory (maxiumumSizeForDriftEngine driftEngine)
 
 
+
+-- TODO: SpeedTooFastForSizeOrLessThan1
+
+
 type BuildError
     = TooManyWeaponMountsOnArc
     | TooManyWeaponMountsOnTurret
