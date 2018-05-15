@@ -140,10 +140,10 @@ norikamaDropship =
     , frame = mediumTransport
     , powerCoreUnits = 250
     , thrusters = Togglable True 12
-    , armorBonus = 6
+    , armor = Just Mk6
     , computer = Togglable True { bonus = 3, nodes = 2 }
     , crewQuarters = Common
-    , defensiveCountermeasures = Togglable True 6
+    , defensiveCountermeasures = Just (Togglable True Mk6)
     , driftEngineRating = 2
     , expansionBays = [ Togglable True GuestQuarters ]
     , sensors = { range = Long, bonus = 2 }
@@ -171,10 +171,10 @@ blackwindSepulcher =
     , frame = mediumTransport
     , powerCoreUnits = 140
     , thrusters = Togglable True 8
-    , armorBonus = 5
+    , armor = Just Mk5
     , computer = Togglable True { bonus = 0, nodes = 0 }
     , crewQuarters = Common
-    , defensiveCountermeasures = Togglable True 6
+    , defensiveCountermeasures = Just (Togglable True Mk6)
     , driftEngineRating = 2
     , expansionBays =
         [ Togglable True CargoHold

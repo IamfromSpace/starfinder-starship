@@ -135,100 +135,124 @@ getSizeCategory size =
             7
 
 
-getArmorBuildPoints : Starship -> Int
-getArmorBuildPoints { frame, armorBonus } =
+type DefenseLevel
+    = Mk1
+    | Mk2
+    | Mk3
+    | Mk4
+    | Mk5
+    | Mk6
+    | Mk7
+    | Mk8
+    | Mk9
+    | Mk10
+    | Mk11
+    | Mk12
+    | Mk13
+    | Mk14
+    | Mk15
+
+
+getArmorBuildPoints : Size -> DefenseLevel -> Int
+getArmorBuildPoints size defenseLevel =
     let
         costMultiplier =
-            case armorBonus of
-                1 ->
+            case defenseLevel of
+                Mk1 ->
                     1
 
-                2 ->
+                Mk2 ->
                     2
 
-                3 ->
+                Mk3 ->
                     3
 
-                4 ->
+                Mk4 ->
                     5
 
-                5 ->
+                Mk5 ->
                     7
 
-                6 ->
+                Mk6 ->
                     9
 
-                7 ->
+                Mk7 ->
                     12
 
-                8 ->
+                Mk8 ->
                     15
 
-                9 ->
+                Mk9 ->
                     18
 
-                10 ->
+                Mk10 ->
                     21
 
-                11 ->
+                Mk11 ->
                     25
 
-                12 ->
+                Mk12 ->
                     30
 
-                13 ->
+                Mk13 ->
                     35
 
-                14 ->
+                Mk14 ->
                     40
 
-                15 ->
+                Mk15 ->
                     45
-
-                _ ->
-                    100000
     in
-        getSizeCategory frame.size * costMultiplier
+        getSizeCategory size * costMultiplier
 
 
-getArmorTargetLockBonus : Int -> Int
-getArmorTargetLockBonus armorBonus =
-    case armorBonus of
-        5 ->
-            -1
-
-        6 ->
-            -1
-
-        7 ->
-            -1
-
-        8 ->
-            -1
-
-        9 ->
-            -2
-
-        10 ->
-            -2
-
-        11 ->
-            -2
-
-        12 ->
-            -3
-
-        13 ->
-            -3
-
-        14 ->
-            -3
-
-        15 ->
-            -4
-
-        _ ->
+getArmorTargetLockBonus : DefenseLevel -> Int
+getArmorTargetLockBonus armor =
+    case armor of
+        Mk1 ->
             0
+
+        Mk2 ->
+            0
+
+        Mk3 ->
+            0
+
+        Mk4 ->
+            0
+
+        Mk5 ->
+            -1
+
+        Mk6 ->
+            -1
+
+        Mk7 ->
+            -1
+
+        Mk8 ->
+            -1
+
+        Mk9 ->
+            -2
+
+        Mk10 ->
+            -2
+
+        Mk11 ->
+            -2
+
+        Mk12 ->
+            -3
+
+        Mk13 ->
+            -3
+
+        Mk14 ->
+            -3
+
+        Mk15 ->
+            -4
 
 
 type CrewQuarters
@@ -250,61 +274,58 @@ getCrewQuartersBuildPoints crewQuarters =
             5
 
 
-getDefensiveCountermeasuresPowerDraw : Int -> Int
+getDefensiveCountermeasuresPowerDraw : DefenseLevel -> Int
 getDefensiveCountermeasuresPowerDraw =
     getDefensiveCountermeasuresBuildPoints >> (\x -> x // 2)
 
 
-getDefensiveCountermeasuresBuildPoints : Int -> Int
+getDefensiveCountermeasuresBuildPoints : DefenseLevel -> Int
 getDefensiveCountermeasuresBuildPoints defensiveCountermeasures =
     case defensiveCountermeasures of
-        0 ->
-            0
-
-        1 ->
+        Mk1 ->
             2
 
-        3 ->
+        Mk2 ->
+            3
+
+        Mk3 ->
             4
 
-        4 ->
+        Mk4 ->
             6
 
-        5 ->
+        Mk5 ->
             8
 
-        6 ->
+        Mk6 ->
             11
 
-        7 ->
+        Mk7 ->
             14
 
-        8 ->
+        Mk8 ->
             18
 
-        9 ->
+        Mk9 ->
             22
 
-        10 ->
+        Mk10 ->
             27
 
-        11 ->
+        Mk11 ->
             33
 
-        12 ->
+        Mk12 ->
             40
 
-        13 ->
+        Mk13 ->
             50
 
-        14 ->
+        Mk14 ->
             65
 
-        15 ->
+        Mk15 ->
             90
-
-        _ ->
-            1000000
 
 
 getPowerCoreUnitsBuildPoints : Int -> Int
@@ -429,10 +450,10 @@ type alias Starship =
         -- Tiny = 200, Small = 300, Medium = 300/600 depending on expansions, etc
         Int
     , thrusters : Togglable Int
-    , armorBonus : Int
+    , armor : Maybe DefenseLevel
     , computer : Togglable Computer
     , crewQuarters : CrewQuarters
-    , defensiveCountermeasures : Togglable Int
+    , defensiveCountermeasures : Maybe (Togglable DefenseLevel)
     , driftEngineRating : Int
     , expansionBays : List (Togglable ExpansionBay)
     , sensors : Sensor
@@ -454,7 +475,10 @@ getStarshipPowerDraw : Starship -> Int
 getStarshipPowerDraw ship =
     getThrusterPowerDraw ship
         + getTogglablePowerDraw Computer.getPowerDraw ship.computer
-        + getTogglablePowerDraw getDefensiveCountermeasuresPowerDraw ship.defensiveCountermeasures
+        + (ship.defensiveCountermeasures
+            |> Maybe.map (getTogglablePowerDraw getDefensiveCountermeasuresPowerDraw)
+            |> Maybe.withDefault 0
+          )
         + List.sum (List.map (getTogglablePowerDraw ExpansionBay.getPowerDraw) ship.expansionBays)
         + getWeaponsPowerDraw ship
         + getTogglablePowerDraw .powerDraw ship.shields
@@ -466,18 +490,22 @@ getStarshipBuildPoints ship =
         (Togglable _ computer) =
             ship.computer
 
-        (Togglable _ defensiveCountermeasures) =
-            ship.defensiveCountermeasures
-
         (Togglable _ shields) =
             ship.shields
     in
         getFrameBuildPoints ship.frame
             + getPowerCoreUnitsBuildPoints ship.powerCoreUnits
             + getThrusterBuildPoints ship
-            + getArmorBuildPoints ship
+            + (ship.armor
+                |> Maybe.map (getArmorBuildPoints ship.frame.size)
+                |> Maybe.withDefault 0
+              )
             + Computer.getBuildPoints computer
-            + getDefensiveCountermeasuresBuildPoints defensiveCountermeasures
+            + (ship.defensiveCountermeasures
+                |> Maybe.map
+                    ((\(Togglable _ dC) -> dC) >> getDefensiveCountermeasuresBuildPoints)
+                |> Maybe.withDefault 0
+              )
             + getDriftEngineRatingBuildPoints ship
             + List.sum (List.map ((\(Togglable _ x) -> x) >> ExpansionBay.getBuildPoints) ship.expansionBays)
             + getSensorBuildPoints ship.sensors
