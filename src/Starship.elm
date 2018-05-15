@@ -334,27 +334,32 @@ getPowerCoreUnitsBuildPoints pcu =
     ((pcu - 1) // 10) + 1
 
 
-getDriftEngineRatingBuildPoints : Starship -> Int
-getDriftEngineRatingBuildPoints { frame, driftEngineRating } =
+type DriftEngine
+    = Basic
+    | Booster
+    | Major
+    | Superior
+    | Ultra
+
+
+getDriftEngineBuildPoints : Starship -> Int
+getDriftEngineBuildPoints { frame, driftEngine } =
     getSizeCategory frame.size
-        * case driftEngineRating of
-            1 ->
+        * case driftEngine of
+            Basic ->
                 2
 
-            2 ->
+            Booster ->
                 5
 
-            3 ->
+            Major ->
                 10
 
-            4 ->
+            Superior ->
                 15
 
-            5 ->
+            Ultra ->
                 20
-
-            _ ->
-                100000
 
 
 type alias Sensor =
@@ -454,7 +459,7 @@ type alias Starship =
     , computer : Togglable Computer
     , crewQuarters : CrewQuarters
     , defensiveCountermeasures : Maybe (Togglable DefenseLevel)
-    , driftEngineRating : Int
+    , driftEngine : DriftEngine
     , expansionBays : List (Togglable ExpansionBay)
     , sensors : Sensor
     , arcWeapons : Arc (List (Togglable Weapon))
@@ -506,7 +511,7 @@ getStarshipBuildPoints ship =
                     ((\(Togglable _ dC) -> dC) >> getDefensiveCountermeasuresBuildPoints)
                 |> Maybe.withDefault 0
               )
-            + getDriftEngineRatingBuildPoints ship
+            + getDriftEngineBuildPoints ship
             + List.sum (List.map ((\(Togglable _ x) -> x) >> ExpansionBay.getBuildPoints) ship.expansionBays)
             + getSensorBuildPoints ship.sensors
             + getWeaponsBuildPoints ship
@@ -661,35 +666,41 @@ getMaxPcuPerPowerCore size =
             500
 
 
-minimumPowerCoreUnitsForDriftEngineRating : Int -> Int
-minimumPowerCoreUnitsForDriftEngineRating engineRating =
-    case engineRating of
-        1 ->
+minimumPowerCoreUnitsForDriftEngine : DriftEngine -> Int
+minimumPowerCoreUnitsForDriftEngine driftEngine =
+    case driftEngine of
+        Basic ->
             75
 
-        2 ->
+        Booster ->
             100
 
-        x ->
-            x * 25 + 75
+        Major ->
+            150
+
+        Superior ->
+            175
+
+        Ultra ->
+            200
 
 
-maxiumumSizeForDriftEngineRating : Int -> Size
-maxiumumSizeForDriftEngineRating engineRating =
-    case engineRating of
-        1 ->
+maxiumumSizeForDriftEngine : DriftEngine -> Size
+maxiumumSizeForDriftEngine driftEngine =
+    case driftEngine of
+        Basic ->
             Colossal
 
-        2 ->
+        Booster ->
             Huge
 
-        3 ->
+        Major ->
             Large
 
-        4 ->
+        Superior ->
             Large
 
-        _ ->
+        Ultra ->
             Medium
 
 
@@ -758,15 +769,15 @@ hasSufficientPowerCoreUnits ship =
     ship.powerCoreUnits >= getStarshipPowerDraw ship
 
 
-hasSufficientPowerCoreUnitsForDriftEngineRating : Starship -> Bool
-hasSufficientPowerCoreUnitsForDriftEngineRating ship =
-    minimumPowerCoreUnitsForDriftEngineRating ship.driftEngineRating <= ship.powerCoreUnits
+hasSufficientPowerCoreUnitsForDriftEngine : Starship -> Bool
+hasSufficientPowerCoreUnitsForDriftEngine ship =
+    minimumPowerCoreUnitsForDriftEngine ship.driftEngine <= ship.powerCoreUnits
 
 
-isSmallEnoughForDriftEngineRating : Starship -> Bool
-isSmallEnoughForDriftEngineRating { driftEngineRating, frame } =
+isSmallEnoughForDriftEngine : Starship -> Bool
+isSmallEnoughForDriftEngine { driftEngine, frame } =
     getSizeCategory frame.size
-        <= getSizeCategory (maxiumumSizeForDriftEngineRating driftEngineRating)
+        <= getSizeCategory (maxiumumSizeForDriftEngine driftEngine)
 
 
 type BuildError
@@ -780,7 +791,7 @@ type BuildError
     | TooManyExpansionBays
     | NotEnoughPowerForActiveSystems
     | PowerCoreTooSmallForDriftEngines
-    | ShipToLargeForDriftEngineRating
+    | ShipToLargeForDriftEngine
 
 
 isTrue : (a -> Bool) -> b -> ( List b, a ) -> ( List b, a )
@@ -803,6 +814,6 @@ validateStarship =
         >> isTrue hasValidPowerCoreCount TooManyPowerCores
         >> isTrue hasValidExpansionBayCount TooManyExpansionBays
         >> isTrue hasSufficientPowerCoreUnits NotEnoughPowerForActiveSystems
-        >> isTrue hasSufficientPowerCoreUnitsForDriftEngineRating PowerCoreTooSmallForDriftEngines
-        >> isTrue isSmallEnoughForDriftEngineRating ShipToLargeForDriftEngineRating
+        >> isTrue hasSufficientPowerCoreUnitsForDriftEngine PowerCoreTooSmallForDriftEngines
+        >> isTrue isSmallEnoughForDriftEngine ShipToLargeForDriftEngine
         >> Tuple.first
