@@ -8,10 +8,6 @@ type ExpansionBay
     | CargoHold
     | EscapePods
     | GuestQuarters
-      -- TODO: A HangarBay has
-      --  1) Size requirement
-      --  2) Consumes _multiple_ expansion bay slots
-      -- Neither of these things are currently modeled.
     | HangarBay
     | LifeBoats
     | MedicalBay
