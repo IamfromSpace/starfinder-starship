@@ -5,6 +5,7 @@ import Expect
 import Starship exposing (..)
 import Weapon exposing (..)
 import ExpansionBay exposing (..)
+import Size exposing (Size)
 
 
 -- TODO: These things should probably live in an assets directory that
@@ -15,7 +16,7 @@ import ExpansionBay exposing (..)
 mediumTransport : Frame
 mediumTransport =
     { name = "Medium Transport"
-    , size = Starship.Medium
+    , size = Size.Medium
     , maneuverability = Average
     , baseHitPoints = 70
     , hitPointsIncrement = 15

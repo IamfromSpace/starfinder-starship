@@ -4,16 +4,7 @@ import Arc exposing (Arc)
 import Weapon exposing (Weapon)
 import Computer exposing (Computer)
 import ExpansionBay exposing (ExpansionBay)
-
-
-type Size
-    = Tiny
-    | Small
-    | Medium
-    | Large
-    | Huge
-    | Gargantuan
-    | Colossal
+import Size exposing (..)
 
 
 type Maneuverability
@@ -761,7 +752,18 @@ hasValidPowerCoreCount ship =
 
 hasValidExpansionBayCount : Starship -> Bool
 hasValidExpansionBayCount { expansionBays, frame } =
-    List.length expansionBays <= frame.expansionBays
+    let
+        baysUsed =
+            expansionBays
+                |> List.map ((\(Togglable _ x) -> x) >> ExpansionBay.getExpansionBaysUsed)
+                |> List.sum
+    in
+        baysUsed <= frame.expansionBays
+
+
+isValidSizeForExpansionBays : Starship -> Bool
+isValidSizeForExpansionBays { frame, expansionBays } =
+    List.all ((\(Togglable _ x) -> x) >> ExpansionBay.isValidSize frame.size) expansionBays
 
 
 hasSufficientPowerCoreUnits : Starship -> Bool
@@ -793,6 +795,7 @@ type BuildError
     | PcuRequiresRequiresAdditionalPowerCore
     | TooManyPowerCores
     | TooManyExpansionBays
+    | InvalidExpansionBayOnFrame
     | NotEnoughPowerForActiveSystems
     | PowerCoreTooSmallForDriftEngines
     | ShipToLargeForDriftEngine
@@ -817,6 +820,7 @@ validateStarship =
         >> isTrue hasEnoughPowerCoresForPcu PcuRequiresRequiresAdditionalPowerCore
         >> isTrue hasValidPowerCoreCount TooManyPowerCores
         >> isTrue hasValidExpansionBayCount TooManyExpansionBays
+        >> isTrue isValidSizeForExpansionBays InvalidExpansionBayOnFrame
         >> isTrue hasSufficientPowerCoreUnits NotEnoughPowerForActiveSystems
         >> isTrue hasSufficientPowerCoreUnitsForDriftEngine PowerCoreTooSmallForDriftEngines
         >> isTrue isSmallEnoughForDriftEngine ShipToLargeForDriftEngine
