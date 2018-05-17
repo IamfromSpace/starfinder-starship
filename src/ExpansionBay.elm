@@ -7,6 +7,10 @@ type ExpansionBay
     = ArcaneLaboratory
     | CargoHold
     | EscapePods
+      -- TODO: Guest quarters have the same possible designations
+      -- as crew quarters: Common/Good/Luxurious
+      -- This is useful if we want to determine the maximum number
+      -- of guests that can be transported.
     | GuestQuarters
     | HangarBay
     | LifeBoats
