@@ -3,6 +3,7 @@ module StarshipEditor exposing (..)
 import Starship exposing (..)
 import Weapon exposing (..)
 import Size exposing (..)
+import DefenseLevel exposing (..)
 import Html exposing (..)
 import Html.Events exposing (onInput, onClick)
 import Html.Attributes exposing (value, disabled)
@@ -17,6 +18,7 @@ type Msg
     | SetPcu Int
     | ToggleThrusters
     | SetSpeed Int
+    | SetArmor (Maybe DefenseLevel)
 
 
 mediumTransport : Frame
@@ -196,6 +198,9 @@ update action model =
             in
                 { model | thrusters = Togglable switch speed }
 
+        SetArmor armor ->
+            { model | armor = armor }
+
 
 view : Model -> Html Msg
 view model =
@@ -227,6 +232,22 @@ view model =
                     ]
                     [ text "Decrease" ]
                 ]
+        , div [] <|
+            case model.armor of
+                Just dL ->
+                    [ div [] [ text <| "Armor: " ++ toString dL ]
+                    , button
+                        [ disabled (incDefenseLevel dL == Nothing)
+                        , onClick (SetArmor (incDefenseLevel dL))
+                        ]
+                        [ text "Increase" ]
+                    , button [ onClick (SetArmor (decDefenseLevel dL)) ] [ text "Decrease" ]
+                    ]
+
+                Nothing ->
+                    [ div [] [ text <| "Armor: None" ]
+                    , button [ onClick (SetArmor (Just Mk1)) ] [ text "Add Armor" ]
+                    ]
         , div [] [ text <| "Total Power Draw: " ++ toString (getStarshipPowerDraw model) ++ " PCU" ]
         , div [] [ text <| "Total Build Points: " ++ toString (getStarshipBuildPoints model) ]
         , div []

@@ -6,6 +6,7 @@ import Starship exposing (..)
 import Weapon exposing (..)
 import ExpansionBay exposing (..)
 import Size exposing (Size)
+import DefenseLevel exposing (..)
 
 
 -- TODO: These things should probably live in an assets directory that

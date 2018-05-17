@@ -5,6 +5,7 @@ import Weapon exposing (Weapon)
 import Computer exposing (Computer)
 import ExpansionBay exposing (ExpansionBay)
 import Size exposing (..)
+import DefenseLevel exposing (..)
 
 
 type Maneuverability
@@ -123,24 +124,6 @@ getSizeCategory size =
 
         Colossal ->
             7
-
-
-type DefenseLevel
-    = Mk1
-    | Mk2
-    | Mk3
-    | Mk4
-    | Mk5
-    | Mk6
-    | Mk7
-    | Mk8
-    | Mk9
-    | Mk10
-    | Mk11
-    | Mk12
-    | Mk13
-    | Mk14
-    | Mk15
 
 
 getArmorBuildPoints : Size -> DefenseLevel -> Int
