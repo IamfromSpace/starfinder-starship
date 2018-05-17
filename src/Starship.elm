@@ -435,13 +435,7 @@ type Togglable a
 type alias Starship =
     { name : String
     , frame : Frame
-    , powerCoreUnits :
-        -- Currently ignoring that a ship can have multiple power cores
-        -- (It doesn't actually make a big difference in BP)
-        -- Probably better represented with a validity check for max power
-        -- a craft can generate by size
-        -- Tiny = 200, Small = 300, Medium = 300/600 depending on expansions, etc
-        Int
+    , powerCoreUnits : Int
     , thrusters : Togglable Int
     , armor : Maybe DefenseLevel
     , computer : Togglable Computer
