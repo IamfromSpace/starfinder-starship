@@ -782,8 +782,11 @@ isSmallEnoughForDriftEngine { driftEngine, frame } =
         <= getSizeCategory (maxiumumSizeForDriftEngine driftEngine)
 
 
-
--- TODO: SpeedTooFastForSizeOrLessThan1
+isValidSpeed : Starship -> Bool
+isValidSpeed { frame, thrusters } =
+    case thrusters of
+        Togglable _ speed ->
+            speed <= Size.topSpeed frame.size && speed > 0
 
 
 type BuildError
@@ -799,6 +802,7 @@ type BuildError
     | NotEnoughPowerForActiveSystems
     | PowerCoreTooSmallForDriftEngines
     | ShipToLargeForDriftEngine
+    | SpeedTooFastForSizeOrLessThan1
 
 
 isTrue : (a -> Bool) -> b -> ( List b, a ) -> ( List b, a )
@@ -824,4 +828,5 @@ validateStarship =
         >> isTrue hasSufficientPowerCoreUnits NotEnoughPowerForActiveSystems
         >> isTrue hasSufficientPowerCoreUnitsForDriftEngine PowerCoreTooSmallForDriftEngines
         >> isTrue isSmallEnoughForDriftEngine ShipToLargeForDriftEngine
+        >> isTrue isValidSpeed SpeedTooFastForSizeOrLessThan1
         >> Tuple.first
