@@ -46,33 +46,35 @@ getFrameBuildPoints { listedBuildPoints, arcMounts, turretMounts } =
 getThrusterPowerDraw : Starship -> Int
 getThrusterPowerDraw { frame, thrusters } =
     let
-        (Togglable isOn speed) =
+        (Togglable switch speed) =
             thrusters
     in
-        if not isOn then
-            0
-        else
-            case frame.size of
-                Tiny ->
-                    round ((toFloat speed) * 2.5 + 5)
+        case switch of
+            Off ->
+                0
 
-                Small ->
-                    speed * 5
+            On ->
+                case frame.size of
+                    Tiny ->
+                        round ((toFloat speed) * 2.5 + 5)
 
-                Medium ->
-                    speed * 5 + 20
+                    Small ->
+                        speed * 5
 
-                Large ->
-                    speed * 10 + 20
+                    Medium ->
+                        speed * 5 + 20
 
-                Huge ->
-                    speed * 20
+                    Large ->
+                        speed * 10 + 20
 
-                Gargantuan ->
-                    speed * 30
+                    Huge ->
+                        speed * 20
 
-                Colossal ->
-                    speed * 50
+                    Gargantuan ->
+                        speed * 30
+
+                    Colossal ->
+                        speed * 50
 
 
 getThrusterBuildPoints : Starship -> Int
@@ -378,11 +380,13 @@ getAllOnlineWeapons : Starship -> List Weapon
 getAllOnlineWeapons =
     getAllWeapons
         >> List.filterMap
-            (\(Togglable isOn weapon) ->
-                if isOn then
-                    Just weapon
-                else
-                    Nothing
+            (\(Togglable switch weapon) ->
+                case switch of
+                    On ->
+                        Just weapon
+
+                    Off ->
+                        Nothing
             )
 
 
@@ -424,8 +428,13 @@ type alias Shields =
     }
 
 
+type Switch
+    = On
+    | Off
+
+
 type Togglable a
-    = Togglable Bool a
+    = Togglable Switch a
 
 
 
@@ -451,11 +460,13 @@ type alias Starship =
 
 
 getTogglablePowerDraw : (a -> Int) -> Togglable a -> Int
-getTogglablePowerDraw powerDrawFn (Togglable isOn a) =
-    if isOn then
-        powerDrawFn a
-    else
-        0
+getTogglablePowerDraw powerDrawFn (Togglable switch a) =
+    case switch of
+        On ->
+            powerDrawFn a
+
+        Off ->
+            0
 
 
 getStarshipPowerDraw : Starship -> Int

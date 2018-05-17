@@ -140,23 +140,23 @@ norikamaDropship =
     { name = "Norkama Dropship"
     , frame = mediumTransport
     , powerCoreUnits = 250
-    , thrusters = Togglable True 12
+    , thrusters = Togglable On 12
     , armor = Just Mk6
-    , computer = Togglable True { bonus = 3, nodes = 2 }
+    , computer = Togglable On { bonus = 3, nodes = 2 }
     , crewQuarters = Common
-    , defensiveCountermeasures = Just (Togglable True Mk6)
+    , defensiveCountermeasures = Just (Togglable On Mk6)
     , driftEngine = Booster
-    , expansionBays = [ Togglable True GuestQuarters ]
+    , expansionBays = [ Togglable On GuestQuarters ]
     , sensors = { range = Long, bonus = 2 }
     , arcWeapons =
-        { forward = [ Togglable True coilgun, Togglable True persistentParticleBeam ]
-        , aft = [ Togglable True coilgun ]
+        { forward = [ Togglable On coilgun, Togglable On persistentParticleBeam ]
+        , aft = [ Togglable On coilgun ]
         , portSide = []
         , starboard = []
         }
-    , turretWeapons = [ Togglable True lightPlasmaCannon, Togglable True lightPlasmaCannon ]
+    , turretWeapons = [ Togglable On lightPlasmaCannon, Togglable On lightPlasmaCannon ]
     , shields =
-        Togglable True
+        Togglable On
             { name = "Light Shields 80"
             , shieldPoints = 80
             , regenPerMinute = 2
@@ -171,29 +171,29 @@ blackwindSepulcher =
     { name = "Blackwind Sepulcher"
     , frame = mediumTransport
     , powerCoreUnits = 140
-    , thrusters = Togglable True 8
+    , thrusters = Togglable On 8
     , armor = Just Mk5
-    , computer = Togglable True { bonus = 0, nodes = 0 }
+    , computer = Togglable On { bonus = 0, nodes = 0 }
     , crewQuarters = Common
-    , defensiveCountermeasures = Just (Togglable True Mk6)
+    , defensiveCountermeasures = Just (Togglable On Mk6)
     , driftEngine = Booster
     , expansionBays =
-        [ Togglable True CargoHold
-        , Togglable True CargoHold
-        , Togglable True CargoHold
-        , Togglable True CargoHold
-        , Togglable True CargoHold
+        [ Togglable On CargoHold
+        , Togglable On CargoHold
+        , Togglable On CargoHold
+        , Togglable On CargoHold
+        , Togglable On CargoHold
         ]
     , sensors = { range = Long, bonus = 2 }
     , arcWeapons =
-        { forward = [ Togglable True heavyEmpCannon, Togglable True lightLaserCannon ]
-        , aft = [ Togglable True gyrolaser ]
+        { forward = [ Togglable On heavyEmpCannon, Togglable On lightLaserCannon ]
+        , aft = [ Togglable On gyrolaser ]
         , portSide = []
         , starboard = []
         }
-    , turretWeapons = [ Togglable True lightTorpedoLauncher, Togglable True lightTorpedoLauncher ]
+    , turretWeapons = [ Togglable On lightTorpedoLauncher, Togglable On lightTorpedoLauncher ]
     , shields =
-        Togglable True
+        Togglable On
             { name = "Light Shields 60"
             , shieldPoints = 60
             , regenPerMinute = 2
