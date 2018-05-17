@@ -78,27 +78,24 @@ getThrusterPowerDraw { frame, thrusters } =
 getThrusterBuildPoints : Starship -> Int
 getThrusterBuildPoints { frame, thrusters } =
     let
-        (Togglable isOn speed) =
+        (Togglable _ speed) =
             thrusters
     in
-        if not isOn then
-            0
-        else
-            case frame.size of
-                Large ->
-                    speed
+        case frame.size of
+            Large ->
+                speed
 
-                Huge ->
-                    speed
+            Huge ->
+                speed
 
-                Gargantuan ->
-                    speed * 2
+            Gargantuan ->
+                speed * 2
 
-                Colossal ->
-                    speed * 2
+            Colossal ->
+                speed * 2
 
-                _ ->
-                    round ((toFloat speed) * 0.5)
+            _ ->
+                round ((toFloat speed) * 0.5)
 
 
 getSizeCategory : Size -> Int
