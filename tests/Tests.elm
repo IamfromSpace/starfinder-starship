@@ -145,7 +145,7 @@ norikamaDropship =
     , computer = Togglable On { bonus = 3, nodes = 2 }
     , crewQuarters = Common
     , defensiveCountermeasures = Just (Togglable On Mk6)
-    , driftEngine = Booster
+    , driftEngine = Just Booster
     , expansionBays = [ Togglable On GuestQuarters ]
     , sensors = { range = Long, bonus = 2 }
     , arcWeapons =
@@ -176,7 +176,7 @@ blackwindSepulcher =
     , computer = Togglable On { bonus = 0, nodes = 0 }
     , crewQuarters = Common
     , defensiveCountermeasures = Just (Togglable On Mk6)
-    , driftEngine = Booster
+    , driftEngine = Just Booster
     , expansionBays =
         [ Togglable On CargoHold
         , Togglable On CargoHold

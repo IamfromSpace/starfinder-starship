@@ -332,9 +332,9 @@ type DriftEngine
     | Ultra
 
 
-getDriftEngineBuildPoints : Starship -> Int
-getDriftEngineBuildPoints { frame, driftEngine } =
-    getSizeCategory frame.size
+getDriftEngineBuildPoints : Size -> DriftEngine -> Int
+getDriftEngineBuildPoints size driftEngine =
+    getSizeCategory size
         * case driftEngine of
             Basic ->
                 2
@@ -450,7 +450,7 @@ type alias Starship =
     , computer : Togglable Computer
     , crewQuarters : CrewQuarters
     , defensiveCountermeasures : Maybe (Togglable DefenseLevel)
-    , driftEngine : DriftEngine
+    , driftEngine : Maybe DriftEngine
     , expansionBays : List (Togglable ExpansionBay)
     , sensors : Sensor
     , arcWeapons : Arc (List (Togglable Weapon))
@@ -504,7 +504,10 @@ getStarshipBuildPoints ship =
                     ((\(Togglable _ dC) -> dC) >> getDefensiveCountermeasuresBuildPoints)
                 |> Maybe.withDefault 0
               )
-            + getDriftEngineBuildPoints ship
+            + (ship.driftEngine
+                |> Maybe.map (getDriftEngineBuildPoints ship.frame.size)
+                |> Maybe.withDefault 0
+              )
             + List.sum (List.map ((\(Togglable _ x) -> x) >> ExpansionBay.getBuildPoints) ship.expansionBays)
             + getSensorBuildPoints ship.sensors
             + getWeaponsBuildPoints ship
@@ -775,13 +778,23 @@ hasSufficientPowerCoreUnits ship =
 
 hasSufficientPowerCoreUnitsForDriftEngine : Starship -> Bool
 hasSufficientPowerCoreUnitsForDriftEngine ship =
-    minimumPowerCoreUnitsForDriftEngine ship.driftEngine <= ship.powerCoreUnits
+    case ship.driftEngine of
+        Just driftEngine ->
+            minimumPowerCoreUnitsForDriftEngine driftEngine <= ship.powerCoreUnits
+
+        Nothing ->
+            True
 
 
 isSmallEnoughForDriftEngine : Starship -> Bool
 isSmallEnoughForDriftEngine { driftEngine, frame } =
-    getSizeCategory frame.size
-        <= getSizeCategory (maxiumumSizeForDriftEngine driftEngine)
+    case driftEngine of
+        Just dE ->
+            getSizeCategory frame.size
+                <= getSizeCategory (maxiumumSizeForDriftEngine dE)
+
+        Nothing ->
+            True
 
 
 isValidSpeed : Starship -> Bool
