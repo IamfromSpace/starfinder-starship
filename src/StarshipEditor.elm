@@ -25,6 +25,7 @@ type Msg
     | SetCrewQuarters CrewQuarters
     | ToggleDefensiveCountermeasures
     | SetDefensiveCountermeasures (Maybe DefenseLevel)
+    | SetDriftEngine (Maybe DriftEngine)
 
 
 mediumTransport : Frame
@@ -245,6 +246,9 @@ update action model =
                         defLevel
             }
 
+        SetDriftEngine driftEngine ->
+            { model | driftEngine = driftEngine }
+
 
 view : Model -> Html Msg
 view model =
@@ -369,6 +373,53 @@ view model =
                 Nothing ->
                     [ div [] [ text <| "Defensive Countermeasures: None" ]
                     , button [ onClick (SetDefensiveCountermeasures (Just Mk1)) ] [ text "Add Defensive Countermeasures" ]
+                    ]
+        , case model.driftEngine of
+            Just driftEngine ->
+                let
+                    mkOption x =
+                        option [ value (toString x), (selected (driftEngine == x)) ]
+                            [ text (toString x) ]
+
+                    inputCallback str =
+                        SetDriftEngine <|
+                            Just <|
+                                case str of
+                                    "Booster" ->
+                                        Booster
+
+                                    "Major" ->
+                                        Major
+
+                                    "Superior" ->
+                                        Superior
+
+                                    "Ultra" ->
+                                        Ultra
+
+                                    _ ->
+                                        Basic
+                in
+                    div []
+                        [ div [] [ text <| "Drift Engine: " ++ toString driftEngine ]
+                        , select [ onInput inputCallback ]
+                            [ mkOption Basic
+                            , mkOption Booster
+                            , mkOption Major
+                            , mkOption Superior
+                            , mkOption Ultra
+                            ]
+                        , button
+                            [ onClick (SetDriftEngine Nothing) ]
+                            [ text "Remove Drift Engine" ]
+                        ]
+
+            Nothing ->
+                div []
+                    [ div [] [ text "Drift Engine: None" ]
+                    , button
+                        [ onClick (SetDriftEngine (Just Booster)) ]
+                        [ text "Add Drift Engine" ]
                     ]
         , div [] [ text <| "Total Power Draw: " ++ toString (getStarshipPowerDraw model) ++ " PCU" ]
         , div [] [ text <| "Total Build Points: " ++ toString (getStarshipBuildPoints model) ]
