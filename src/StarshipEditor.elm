@@ -23,6 +23,8 @@ type Msg
     | ToggleComputer
     | SetComputer Computer
     | SetCrewQuarters CrewQuarters
+    | ToggleDefensiveCountermeasures
+    | SetDefensiveCountermeasures (Maybe DefenseLevel)
 
 
 mediumTransport : Frame
@@ -188,6 +190,11 @@ toggle togglable =
                 Togglable On a
 
 
+setToggled : a -> Togglable a -> Togglable a
+setToggled a (Togglable switch _) =
+    Togglable switch a
+
+
 update : Msg -> Model -> Model
 update action model =
     case action of
@@ -222,6 +229,21 @@ update action model =
 
         SetCrewQuarters quarters ->
             { model | crewQuarters = quarters }
+
+        ToggleDefensiveCountermeasures ->
+            { model | defensiveCountermeasures = Maybe.map toggle model.defensiveCountermeasures }
+
+        SetDefensiveCountermeasures defLevel ->
+            { model
+                | defensiveCountermeasures =
+                    Maybe.map
+                        (\dL ->
+                            model.defensiveCountermeasures
+                                |> Maybe.map (setToggled dL)
+                                |> Maybe.withDefault (Togglable On dL)
+                        )
+                        defLevel
+            }
 
 
 view : Model -> Html Msg
@@ -331,6 +353,23 @@ view model =
                     , mkOption Luxurious
                     ]
                 ]
+        , div [] <|
+            case model.defensiveCountermeasures of
+                Just (Togglable switch dL) ->
+                    [ div [] [ text <| "Defensive Countermeasures (" ++ toString switch ++ "): " ++ toString dL ]
+                    , button [ onClick (ToggleDefensiveCountermeasures) ] [ text "Toggle Status" ]
+                    , button
+                        [ disabled (incDefenseLevel dL == Nothing)
+                        , onClick (SetDefensiveCountermeasures (incDefenseLevel dL))
+                        ]
+                        [ text "Increase" ]
+                    , button [ onClick (SetDefensiveCountermeasures (decDefenseLevel dL)) ] [ text "Decrease" ]
+                    ]
+
+                Nothing ->
+                    [ div [] [ text <| "Defensive Countermeasures: None" ]
+                    , button [ onClick (SetDefensiveCountermeasures (Just Mk1)) ] [ text "Add Defensive Countermeasures" ]
+                    ]
         , div [] [ text <| "Total Power Draw: " ++ toString (getStarshipPowerDraw model) ++ " PCU" ]
         , div [] [ text <| "Total Build Points: " ++ toString (getStarshipBuildPoints model) ]
         , div [] [ text <| "Tier: " ++ toString (getTierFromBuildPoints (getStarshipBuildPoints model)) ]
