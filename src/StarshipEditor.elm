@@ -4,6 +4,7 @@ import Starship exposing (..)
 import Weapon exposing (..)
 import Size exposing (..)
 import DefenseLevel exposing (..)
+import Computer exposing (..)
 import Html exposing (..)
 import Html.Events exposing (onInput, onClick)
 import Html.Attributes exposing (value, disabled)
@@ -19,6 +20,8 @@ type Msg
     | ToggleThrusters
     | SetSpeed Int
     | SetArmor (Maybe DefenseLevel)
+    | ToggleComputer
+    | SetComputer Computer
 
 
 mediumTransport : Frame
@@ -170,6 +173,20 @@ init =
     }
 
 
+toggle : Togglable a -> Togglable a
+toggle togglable =
+    let
+        (Togglable switch a) =
+            togglable
+    in
+        case switch of
+            On ->
+                Togglable Off a
+
+            Off ->
+                Togglable On a
+
+
 update : Msg -> Model -> Model
 update action model =
     case action of
@@ -180,16 +197,7 @@ update action model =
             { model | powerCoreUnits = pcu }
 
         ToggleThrusters ->
-            let
-                (Togglable switch speed) =
-                    model.thrusters
-            in
-                case switch of
-                    On ->
-                        { model | thrusters = Togglable Off speed }
-
-                    Off ->
-                        { model | thrusters = Togglable On speed }
+            { model | thrusters = toggle model.thrusters }
 
         SetSpeed speed ->
             let
@@ -200,6 +208,16 @@ update action model =
 
         SetArmor armor ->
             { model | armor = armor }
+
+        ToggleComputer ->
+            { model | computer = toggle model.computer }
+
+        SetComputer computer ->
+            let
+                (Togglable switch _) =
+                    model.computer
+            in
+                { model | computer = Togglable switch computer }
 
 
 view : Model -> Html Msg
@@ -248,6 +266,43 @@ view model =
                     [ div [] [ text <| "Armor: None" ]
                     , button [ onClick (SetArmor (Just Mk1)) ] [ text "Add Armor" ]
                     ]
+        , let
+            (Togglable switch computer) =
+                model.computer
+
+            nodeText =
+                computer.bonus
+                    |> List.repeat computer.nodes
+                    |> List.map (toString >> (++) "+")
+                    |> String.join "/"
+          in
+            div []
+                (if computer.nodes > 0 && computer.bonus > 0 then
+                    [ div []
+                        [ text <| "Computer (" ++ toString switch ++ "): " ++ nodeText ]
+                    , button [ onClick (ToggleComputer) ] [ text "Toggle Status" ]
+                    , button
+                        [ onClick (SetComputer { computer | nodes = computer.nodes - 1 })
+                        ]
+                        [ text "Remove Node" ]
+                    , button
+                        [ onClick (SetComputer { computer | nodes = computer.nodes + 1 }) ]
+                        [ text "Add Node" ]
+                    , button
+                        [ onClick (SetComputer { computer | bonus = computer.bonus - 1 })
+                        ]
+                        [ text "Decrease Bonus" ]
+                    , button
+                        [ onClick (SetComputer { computer | bonus = computer.bonus + 1 }) ]
+                        [ text "Increase Bonus" ]
+                    ]
+                 else
+                    [ div [] [ text "Computer: None" ]
+                    , button
+                        [ onClick (SetComputer { nodes = 1, bonus = 1 }) ]
+                        [ text "Add Computer" ]
+                    ]
+                )
         , div [] [ text <| "Total Power Draw: " ++ toString (getStarshipPowerDraw model) ++ " PCU" ]
         , div [] [ text <| "Total Build Points: " ++ toString (getStarshipBuildPoints model) ]
         , div []
