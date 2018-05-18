@@ -7,7 +7,7 @@ import DefenseLevel exposing (..)
 import Computer exposing (..)
 import Html exposing (..)
 import Html.Events exposing (onInput, onClick)
-import Html.Attributes exposing (value, disabled)
+import Html.Attributes exposing (value, disabled, selected)
 
 
 type alias Model =
@@ -22,6 +22,7 @@ type Msg
     | SetArmor (Maybe DefenseLevel)
     | ToggleComputer
     | SetComputer Computer
+    | SetCrewQuarters CrewQuarters
 
 
 mediumTransport : Frame
@@ -219,6 +220,9 @@ update action model =
             in
                 { model | computer = Togglable switch computer }
 
+        SetCrewQuarters quarters ->
+            { model | crewQuarters = quarters }
+
 
 view : Model -> Html Msg
 view model =
@@ -303,6 +307,30 @@ view model =
                         [ text "Add Computer" ]
                     ]
                 )
+        , let
+            mkOption x =
+                option [ value (toString x), (selected (model.crewQuarters == x)) ]
+                    [ text (toString x) ]
+
+            inputCallback str =
+                SetCrewQuarters <|
+                    case str of
+                        "GoodQuarters" ->
+                            GoodQuarters
+
+                        "Luxurious" ->
+                            Luxurious
+
+                        _ ->
+                            Common
+          in
+            div []
+                [ select [ onInput inputCallback ]
+                    [ mkOption Common
+                    , mkOption GoodQuarters
+                    , mkOption Luxurious
+                    ]
+                ]
         , div [] [ text <| "Total Power Draw: " ++ toString (getStarshipPowerDraw model) ++ " PCU" ]
         , div [] [ text <| "Total Build Points: " ++ toString (getStarshipBuildPoints model) ]
         , div [] [ text <| "Tier: " ++ toString (getTierFromBuildPoints (getStarshipBuildPoints model)) ]
