@@ -482,6 +482,7 @@ getStarshipBuildPoints ship =
                 |> Maybe.withDefault 0
               )
             + Computer.getBuildPoints computer
+            + getCrewQuartersBuildPoints ship.crewQuarters
             + (ship.defensiveCountermeasures
                 |> Maybe.map
                     ((\(Togglable _ dC) -> dC) >> getDefensiveCountermeasuresBuildPoints)
