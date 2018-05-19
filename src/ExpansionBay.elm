@@ -45,7 +45,7 @@ getExpansionBayCost expansionBay =
             ( 1, 1, 1, Nothing )
 
         HangarBay ->
-            ( 30, 10, 4, Nothing )
+            ( 30, 10, 4, Just [ Gargantuan, Colossal ] )
 
         LifeBoats ->
             ( 5, 3, 1, Nothing )
