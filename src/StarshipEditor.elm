@@ -4,6 +4,7 @@ import Starship exposing (..)
 import Weapon exposing (..)
 import Size exposing (..)
 import DefenseLevel exposing (..)
+import ExpansionBay exposing (..)
 import Computer exposing (..)
 import Html exposing (..)
 import Html.Events exposing (onInput, onClick)
@@ -26,6 +27,9 @@ type Msg
     | ToggleDefensiveCountermeasures
     | SetDefensiveCountermeasures (Maybe DefenseLevel)
     | SetDriftEngine (Maybe DriftEngine)
+    | ToggleExpansionBay Int
+    | SetExpansionBay Int (Maybe ExpansionBay)
+    | AddExpansionBay ExpansionBay
 
 
 mediumTransport : Frame
@@ -249,6 +253,43 @@ update action model =
         SetDriftEngine driftEngine ->
             { model | driftEngine = driftEngine }
 
+        ToggleExpansionBay index ->
+            { model
+                | expansionBays =
+                    List.indexedMap
+                        (\i bay ->
+                            if i == index then
+                                toggle bay
+                            else
+                                bay
+                        )
+                        model.expansionBays
+            }
+
+        SetExpansionBay index mExpansionBay ->
+            { model
+                | expansionBays =
+                    case mExpansionBay of
+                        -- If we're given an expansion bay, this is an update
+                        Just expansionBay ->
+                            List.indexedMap
+                                (\i togglableBay ->
+                                    if i == index then
+                                        setToggled expansionBay togglableBay
+                                    else
+                                        togglableBay
+                                )
+                                model.expansionBays
+
+                        -- Otherwise, it's a delete
+                        Nothing ->
+                            List.take index model.expansionBays
+                                ++ List.drop (index + 1) model.expansionBays
+            }
+
+        AddExpansionBay expansionBay ->
+            { model | expansionBays = Togglable On expansionBay :: model.expansionBays }
+
 
 view : Model -> Html Msg
 view model =
@@ -421,6 +462,134 @@ view model =
                         [ onClick (SetDriftEngine (Just Booster)) ]
                         [ text "Add Drift Engine" ]
                     ]
+        , let
+            mkOption x =
+                let
+                    baysUsedSoFar =
+                        model.expansionBays
+                            |> List.map
+                                ((\(Togglable _ x) -> x) >> ExpansionBay.getExpansionBaysUsed)
+                            |> List.sum
+
+                    notEnoughSlots =
+                        getExpansionBaysUsed x + baysUsedSoFar > model.frame.expansionBays
+
+                    fitsOnFrame =
+                        isValidSize model.frame.size x
+                in
+                    option
+                        [ value (toString x)
+                        , disabled (notEnoughSlots || not fitsOnFrame)
+                        ]
+                        [ text (toString x) ]
+
+            inputCallback str =
+                AddExpansionBay <|
+                    case str of
+                        "CargoHold" ->
+                            CargoHold
+
+                        "EscapePods" ->
+                            EscapePods
+
+                        "GuestQuarters" ->
+                            GuestQuarters
+
+                        "HangarBay" ->
+                            HangarBay
+
+                        "LifeBoats" ->
+                            LifeBoats
+
+                        "MedicalBay" ->
+                            MedicalBay
+
+                        "PassengerSeating" ->
+                            PassengerSeating
+
+                        "PowerCoreHousing" ->
+                            PowerCoreHousing
+
+                        "RecreationSuiteGym" ->
+                            RecreationSuiteGym
+
+                        "RecreationSuiteTrivedDen" ->
+                            RecreationSuiteTrivedDen
+
+                        "RecreationSuiteHac" ->
+                            RecreationSuiteHac
+
+                        "ScienceLab" ->
+                            ScienceLab
+
+                        "SealedEnvironmentChamber" ->
+                            SealedEnvironmentChamber
+
+                        "ShuttleBay" ->
+                            ShuttleBay
+
+                        "SmugglerCompartment 20" ->
+                            SmugglerCompartment 20
+
+                        "SynthesisBay" ->
+                            SynthesisBay
+
+                        "TechWorkshop" ->
+                            TechWorkshop
+
+                        _ ->
+                            ArcaneLaboratory
+          in
+            div []
+                [ div [] [ text "ExpansionBays:" ]
+                , div []
+                    (List.indexedMap
+                        (\index (Togglable switch bay) ->
+                            case bay of
+                                SmugglerCompartment dc ->
+                                    div []
+                                        [ div [] [ text <| "SmugglerCompartment (" ++ toString switch ++ "): " ++ toString dc ]
+                                          -- TODO: Currently there are no validations on min/max DC (20-50)
+                                        , button [ onClick <| SetExpansionBay index <| Just <| SmugglerCompartment <| dc + 5 ] [ text "Increase" ]
+                                        , button [ onClick <| SetExpansionBay index <| Just <| SmugglerCompartment <| dc - 5 ] [ text "Decrease" ]
+                                        , button [ onClick <| ToggleExpansionBay index ] [ text "Toggle" ]
+                                        , button [ onClick <| SetExpansionBay index Nothing ] [ text "Remove" ]
+                                        ]
+
+                                b ->
+                                    div []
+                                        [ div [] [ text <| toString b ++ " (" ++ toString switch ++ ")" ]
+                                        , button [ onClick <| ToggleExpansionBay index ] [ text "Toggle" ]
+                                        , button [ onClick <| SetExpansionBay index Nothing ] [ text "Remove" ]
+                                        ]
+                        )
+                        model.expansionBays
+                    )
+                , label [] [ text "Add expansion bay:" ]
+                , select [ onInput inputCallback, value "" ]
+                    [ option
+                        [ selected True, disabled True ]
+                        [ text "-- select an expansion bay to add --" ]
+                    , mkOption ArcaneLaboratory
+                    , mkOption CargoHold
+                    , mkOption EscapePods
+                    , mkOption GuestQuarters
+                    , mkOption HangarBay
+                    , mkOption LifeBoats
+                    , mkOption MedicalBay
+                    , mkOption PassengerSeating
+                    , mkOption PowerCoreHousing
+                    , mkOption RecreationSuiteGym
+                    , mkOption RecreationSuiteTrivedDen
+                    , mkOption RecreationSuiteHac
+                    , mkOption ScienceLab
+                    , mkOption SealedEnvironmentChamber
+                    , mkOption ShuttleBay
+                    , mkOption (SmugglerCompartment 20)
+                    , mkOption SynthesisBay
+                    , mkOption TechWorkshop
+                    ]
+                ]
         , div [] [ text <| "Total Power Draw: " ++ toString (getStarshipPowerDraw model) ++ " PCU" ]
         , div [] [ text <| "Total Build Points: " ++ toString (getStarshipBuildPoints model) ]
         , div [] [ text <| "Tier: " ++ toString (getTierFromBuildPoints (getStarshipBuildPoints model)) ]
