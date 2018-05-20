@@ -30,6 +30,7 @@ type Msg
     | ToggleExpansionBay Int
     | SetExpansionBay Int (Maybe ExpansionBay)
     | AddExpansionBay ExpansionBay
+    | SetSensors Sensor
 
 
 mediumTransport : Frame
@@ -289,6 +290,9 @@ update action model =
 
         AddExpansionBay expansionBay ->
             { model | expansionBays = Togglable On expansionBay :: model.expansionBays }
+
+        SetSensors sensors ->
+            { model | sensors = sensors }
 
 
 view : Model -> Html Msg
@@ -589,6 +593,53 @@ view model =
                     , mkOption SynthesisBay
                     , mkOption TechWorkshop
                     ]
+                ]
+        , let
+            sensors =
+                model.sensors
+
+            mkOption x =
+                option [ value (toString x), (selected (sensors.range == x)) ]
+                    [ text (toString x) ]
+
+            -- TODO: This is really a general util function
+            formatBonus x =
+                (if x < 0 then
+                    ""
+                 else
+                    "+"
+                )
+                    ++ toString x
+
+            inputCallback str =
+                SetSensors <|
+                    { sensors
+                        | range =
+                            case str of
+                                "Long" ->
+                                    Long
+
+                                "Medium" ->
+                                    Weapon.Medium
+
+                                _ ->
+                                    Short
+                    }
+          in
+            div []
+                [ div []
+                    [ text <| "Sensors (" ++ formatBonus sensors.bonus ++ "):" ]
+                , select [ onInput inputCallback ]
+                    [ mkOption Short
+                    , mkOption Weapon.Medium
+                    , mkOption Long
+                    ]
+                , button
+                    [ onClick (SetSensors { sensors | bonus = sensors.bonus + 1 }) ]
+                    [ text "Increase Bonus" ]
+                , button
+                    [ onClick (SetSensors { sensors | bonus = sensors.bonus - 1 }) ]
+                    [ text "Decrease Bonus" ]
                 ]
         , div [] [ text <| "Total Power Draw: " ++ toString (getStarshipPowerDraw model) ++ " PCU" ]
         , div [] [ text <| "Total Build Points: " ++ toString (getStarshipBuildPoints model) ]
