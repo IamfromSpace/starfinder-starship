@@ -18,18 +18,14 @@ type alias Model =
 type Msg
     = SetName String
     | SetPcu Int
-    | ToggleThrusters
-    | SetSpeed Int
+    | SetThrusters (ToggleMsg Int)
     | SetArmor (Maybe DefenseLevel)
-    | ToggleComputer
-    | SetComputer Computer
+    | SetComputer (ToggleMsg Computer)
     | SetCrewQuarters CrewQuarters
     | ToggleDefensiveCountermeasures
     | SetDefensiveCountermeasures (Maybe DefenseLevel)
     | SetDriftEngine (Maybe DriftEngine)
-    | ToggleExpansionBay Int
-    | SetExpansionBay Int (Maybe ExpansionBay)
-    | AddExpansionBay ExpansionBay
+    | SetExpansionBay (ListMsg (ToggleMsg ExpansionBay) (Togglable ExpansionBay))
     | SetSensors Sensor
 
 
@@ -201,6 +197,51 @@ setToggled a (Togglable switch _) =
     Togglable switch a
 
 
+type ToggleMsg a
+    = Toggle
+    | UpdateToggled a
+
+
+toggleUpdate : (a -> b -> b) -> ToggleMsg a -> Togglable b -> Togglable b
+toggleUpdate innerUpdate toggleMsg togglable =
+    case toggleMsg of
+        Toggle ->
+            toggle togglable
+
+        UpdateToggled innerMsg ->
+            let
+                (Togglable switch innerModel) =
+                    togglable
+            in
+                Togglable switch (innerUpdate innerMsg innerModel)
+
+
+type ListMsg a b
+    = Cons b
+    | UpdateList Int a
+    | Delete Int
+
+
+listUpdate : (a -> b -> b) -> ListMsg a b -> List b -> List b
+listUpdate innerUpdate listMsg list =
+    case listMsg of
+        Cons new ->
+            new :: list
+
+        UpdateList index innerMsg ->
+            List.indexedMap
+                (\i x ->
+                    if i == index then
+                        innerUpdate innerMsg x
+                    else
+                        x
+                )
+                list
+
+        Delete i ->
+            List.take i list ++ List.drop (i + 1) list
+
+
 update : Msg -> Model -> Model
 update action model =
     case action of
@@ -210,28 +251,16 @@ update action model =
         SetPcu pcu ->
             { model | powerCoreUnits = pcu }
 
-        ToggleThrusters ->
-            { model | thrusters = toggle model.thrusters }
-
-        SetSpeed speed ->
-            let
-                (Togglable switch _) =
-                    model.thrusters
-            in
-                { model | thrusters = Togglable switch speed }
+        SetThrusters toggleMsg ->
+            -- We use always here because we don't actually have any messages to send in,
+            -- we just want to set the model to the message, and always will do that.
+            { model | thrusters = toggleUpdate always toggleMsg model.thrusters }
 
         SetArmor armor ->
             { model | armor = armor }
 
-        ToggleComputer ->
-            { model | computer = toggle model.computer }
-
-        SetComputer computer ->
-            let
-                (Togglable switch _) =
-                    model.computer
-            in
-                { model | computer = Togglable switch computer }
+        SetComputer toggleMsg ->
+            { model | computer = toggleUpdate always toggleMsg model.computer }
 
         SetCrewQuarters quarters ->
             { model | crewQuarters = quarters }
@@ -254,42 +283,11 @@ update action model =
         SetDriftEngine driftEngine ->
             { model | driftEngine = driftEngine }
 
-        ToggleExpansionBay index ->
+        SetExpansionBay listMsg ->
             { model
                 | expansionBays =
-                    List.indexedMap
-                        (\i bay ->
-                            if i == index then
-                                toggle bay
-                            else
-                                bay
-                        )
-                        model.expansionBays
+                    listUpdate (toggleUpdate always) listMsg model.expansionBays
             }
-
-        SetExpansionBay index mExpansionBay ->
-            { model
-                | expansionBays =
-                    case mExpansionBay of
-                        -- If we're given an expansion bay, this is an update
-                        Just expansionBay ->
-                            List.indexedMap
-                                (\i togglableBay ->
-                                    if i == index then
-                                        setToggled expansionBay togglableBay
-                                    else
-                                        togglableBay
-                                )
-                                model.expansionBays
-
-                        -- Otherwise, it's a delete
-                        Nothing ->
-                            List.take index model.expansionBays
-                                ++ List.drop (index + 1) model.expansionBays
-            }
-
-        AddExpansionBay expansionBay ->
-            { model | expansionBays = Togglable On expansionBay :: model.expansionBays }
 
         SetSensors sensors ->
             { model | sensors = sensors }
@@ -311,20 +309,21 @@ view model =
             (Togglable switch speed) =
                 model.thrusters
           in
-            div []
-                [ div [] [ text <| "Thrusters (" ++ toString switch ++ "): " ++ toString speed ]
-                , button [ onClick (ToggleThrusters) ] [ text "Toggle Status" ]
-                , button
-                    [ disabled (topSpeed model.frame.size < speed + 1)
-                    , onClick (SetSpeed (speed + 1))
+            Html.map SetThrusters <|
+                div []
+                    [ div [] [ text <| "Thrusters (" ++ toString switch ++ "): " ++ toString speed ]
+                    , button [ onClick Toggle ] [ text "Toggle Status" ]
+                    , button
+                        [ disabled (topSpeed model.frame.size < speed + 1)
+                        , onClick (UpdateToggled (speed + 1))
+                        ]
+                        [ text "Increase" ]
+                    , button
+                        [ disabled (speed <= 1)
+                        , onClick (UpdateToggled (speed - 1))
+                        ]
+                        [ text "Decrease" ]
                     ]
-                    [ text "Increase" ]
-                , button
-                    [ disabled (speed <= 1)
-                    , onClick (SetSpeed (speed - 1))
-                    ]
-                    [ text "Decrease" ]
-                ]
         , div [] <|
             case model.armor of
                 Just dL ->
@@ -351,33 +350,34 @@ view model =
                     |> List.map (toString >> (++) "+")
                     |> String.join "/"
           in
-            div []
-                (if computer.nodes > 0 && computer.bonus > 0 then
-                    [ div []
-                        [ text <| "Computer (" ++ toString switch ++ "): " ++ nodeText ]
-                    , button [ onClick (ToggleComputer) ] [ text "Toggle Status" ]
-                    , button
-                        [ onClick (SetComputer { computer | nodes = computer.nodes - 1 })
+            Html.map SetComputer <|
+                div []
+                    (if computer.nodes > 0 && computer.bonus > 0 then
+                        [ div []
+                            [ text <| "Computer (" ++ toString switch ++ "): " ++ nodeText ]
+                        , button [ onClick Toggle ] [ text "Toggle Status" ]
+                        , button
+                            [ onClick (UpdateToggled { computer | nodes = computer.nodes - 1 })
+                            ]
+                            [ text "Remove Node" ]
+                        , button
+                            [ onClick (UpdateToggled { computer | nodes = computer.nodes + 1 }) ]
+                            [ text "Add Node" ]
+                        , button
+                            [ onClick (UpdateToggled { computer | bonus = computer.bonus - 1 })
+                            ]
+                            [ text "Decrease Bonus" ]
+                        , button
+                            [ onClick (UpdateToggled { computer | bonus = computer.bonus + 1 }) ]
+                            [ text "Increase Bonus" ]
                         ]
-                        [ text "Remove Node" ]
-                    , button
-                        [ onClick (SetComputer { computer | nodes = computer.nodes + 1 }) ]
-                        [ text "Add Node" ]
-                    , button
-                        [ onClick (SetComputer { computer | bonus = computer.bonus - 1 })
+                     else
+                        [ div [] [ text "Computer: None" ]
+                        , button
+                            [ onClick (UpdateToggled { nodes = 1, bonus = 1 }) ]
+                            [ text "Add Computer" ]
                         ]
-                        [ text "Decrease Bonus" ]
-                    , button
-                        [ onClick (SetComputer { computer | bonus = computer.bonus + 1 }) ]
-                        [ text "Increase Bonus" ]
-                    ]
-                 else
-                    [ div [] [ text "Computer: None" ]
-                    , button
-                        [ onClick (SetComputer { nodes = 1, bonus = 1 }) ]
-                        [ text "Add Computer" ]
-                    ]
-                )
+                    )
         , let
             mkOption x =
                 option [ value (toString x), (selected (model.crewQuarters == x)) ]
@@ -488,112 +488,117 @@ view model =
                         [ text (toString x) ]
 
             inputCallback str =
-                AddExpansionBay <|
-                    case str of
-                        "CargoHold" ->
-                            CargoHold
+                Cons <|
+                    Togglable On <|
+                        case str of
+                            "CargoHold" ->
+                                CargoHold
 
-                        "EscapePods" ->
-                            EscapePods
+                            "EscapePods" ->
+                                EscapePods
 
-                        "GuestQuarters" ->
-                            GuestQuarters
+                            "GuestQuarters" ->
+                                GuestQuarters
 
-                        "HangarBay" ->
-                            HangarBay
+                            "HangarBay" ->
+                                HangarBay
 
-                        "LifeBoats" ->
-                            LifeBoats
+                            "LifeBoats" ->
+                                LifeBoats
 
-                        "MedicalBay" ->
-                            MedicalBay
+                            "MedicalBay" ->
+                                MedicalBay
 
-                        "PassengerSeating" ->
-                            PassengerSeating
+                            "PassengerSeating" ->
+                                PassengerSeating
 
-                        "PowerCoreHousing" ->
-                            PowerCoreHousing
+                            "PowerCoreHousing" ->
+                                PowerCoreHousing
 
-                        "RecreationSuiteGym" ->
-                            RecreationSuiteGym
+                            "RecreationSuiteGym" ->
+                                RecreationSuiteGym
 
-                        "RecreationSuiteTrivedDen" ->
-                            RecreationSuiteTrivedDen
+                            "RecreationSuiteTrivedDen" ->
+                                RecreationSuiteTrivedDen
 
-                        "RecreationSuiteHac" ->
-                            RecreationSuiteHac
+                            "RecreationSuiteHac" ->
+                                RecreationSuiteHac
 
-                        "ScienceLab" ->
-                            ScienceLab
+                            "ScienceLab" ->
+                                ScienceLab
 
-                        "SealedEnvironmentChamber" ->
-                            SealedEnvironmentChamber
+                            "SealedEnvironmentChamber" ->
+                                SealedEnvironmentChamber
 
-                        "ShuttleBay" ->
-                            ShuttleBay
+                            "ShuttleBay" ->
+                                ShuttleBay
 
-                        "SmugglerCompartment 20" ->
-                            SmugglerCompartment 20
+                            "SmugglerCompartment 20" ->
+                                SmugglerCompartment 20
 
-                        "SynthesisBay" ->
-                            SynthesisBay
+                            "SynthesisBay" ->
+                                SynthesisBay
 
-                        "TechWorkshop" ->
-                            TechWorkshop
+                            "TechWorkshop" ->
+                                TechWorkshop
 
-                        _ ->
-                            ArcaneLaboratory
+                            _ ->
+                                ArcaneLaboratory
+
+            expansionBayView switch bay =
+                div [] <|
+                    case bay of
+                        SmugglerCompartment dc ->
+                            [ div [] [ text <| "SmugglerCompartment (" ++ toString switch ++ "): " ++ toString dc ]
+                              -- TODO: Currently there are no validations on min/max DC (20-50)
+                            , button [ onClick <| UpdateToggled <| SmugglerCompartment <| dc + 5 ] [ text "Increase" ]
+                            , button [ onClick <| UpdateToggled <| SmugglerCompartment <| dc - 5 ] [ text "Decrease" ]
+                            , button [ onClick Toggle ] [ text "Toggle" ]
+                            ]
+
+                        b ->
+                            [ div [] [ text <| toString b ++ " (" ++ toString switch ++ ")" ]
+                            , button [ onClick Toggle ] [ text "Toggle" ]
+                            ]
           in
-            div []
-                [ div [] [ text "ExpansionBays:" ]
-                , div []
-                    (List.indexedMap
-                        (\index (Togglable switch bay) ->
-                            case bay of
-                                SmugglerCompartment dc ->
-                                    div []
-                                        [ div [] [ text <| "SmugglerCompartment (" ++ toString switch ++ "): " ++ toString dc ]
-                                          -- TODO: Currently there are no validations on min/max DC (20-50)
-                                        , button [ onClick <| SetExpansionBay index <| Just <| SmugglerCompartment <| dc + 5 ] [ text "Increase" ]
-                                        , button [ onClick <| SetExpansionBay index <| Just <| SmugglerCompartment <| dc - 5 ] [ text "Decrease" ]
-                                        , button [ onClick <| ToggleExpansionBay index ] [ text "Toggle" ]
-                                        , button [ onClick <| SetExpansionBay index Nothing ] [ text "Remove" ]
-                                        ]
-
-                                b ->
-                                    div []
-                                        [ div [] [ text <| toString b ++ " (" ++ toString switch ++ ")" ]
-                                        , button [ onClick <| ToggleExpansionBay index ] [ text "Toggle" ]
-                                        , button [ onClick <| SetExpansionBay index Nothing ] [ text "Remove" ]
-                                        ]
+            Html.map SetExpansionBay <|
+                div []
+                    [ div [] [ text "ExpansionBays:" ]
+                    , div []
+                        (List.indexedMap
+                            (\index (Togglable switch bay) ->
+                                div []
+                                    [ Html.map (UpdateList index) <| expansionBayView switch bay
+                                    , button [ onClick <| Delete index ] [ text "Remove" ]
+                                    ]
+                            )
+                            model.expansionBays
                         )
-                        model.expansionBays
-                    )
-                , label [] [ text "Add expansion bay:" ]
-                , select [ onInput inputCallback, value "" ]
-                    [ option
-                        [ selected True, disabled True ]
-                        [ text "-- select an expansion bay to add --" ]
-                    , mkOption ArcaneLaboratory
-                    , mkOption CargoHold
-                    , mkOption EscapePods
-                    , mkOption GuestQuarters
-                    , mkOption HangarBay
-                    , mkOption LifeBoats
-                    , mkOption MedicalBay
-                    , mkOption PassengerSeating
-                    , mkOption PowerCoreHousing
-                    , mkOption RecreationSuiteGym
-                    , mkOption RecreationSuiteTrivedDen
-                    , mkOption RecreationSuiteHac
-                    , mkOption ScienceLab
-                    , mkOption SealedEnvironmentChamber
-                    , mkOption ShuttleBay
-                    , mkOption (SmugglerCompartment 20)
-                    , mkOption SynthesisBay
-                    , mkOption TechWorkshop
+                    , label [] [ text "Add expansion bay:" ]
+                    , select [ onInput inputCallback, value "" ]
+                        [ option
+                            [ selected True, disabled True ]
+                            [ text "-- select an expansion bay to add --" ]
+                        , mkOption ArcaneLaboratory
+                        , mkOption CargoHold
+                        , mkOption EscapePods
+                        , mkOption GuestQuarters
+                        , mkOption HangarBay
+                        , mkOption LifeBoats
+                        , mkOption MedicalBay
+                        , mkOption PassengerSeating
+                        , mkOption PowerCoreHousing
+                        , mkOption RecreationSuiteGym
+                        , mkOption RecreationSuiteTrivedDen
+                        , mkOption RecreationSuiteHac
+                        , mkOption ScienceLab
+                        , mkOption SealedEnvironmentChamber
+                        , mkOption ShuttleBay
+                        , mkOption (SmugglerCompartment 20)
+                        , mkOption SynthesisBay
+                        , mkOption TechWorkshop
+                        ]
                     ]
-                ]
         , let
             sensors =
                 model.sensors
