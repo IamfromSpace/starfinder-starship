@@ -605,7 +605,7 @@ view model =
                         [ text "Add Drift Engine" ]
                     ]
         , let
-            mkOption x =
+            canAdd x =
                 let
                     baysUsedSoFar =
                         model.expansionBays
@@ -619,123 +619,50 @@ view model =
                     fitsOnFrame =
                         isValidSize model.frame.size x
                 in
-                    option
-                        [ value (toString x)
-                        , disabled (notEnoughSlots || not fitsOnFrame)
-                        ]
-                        [ text (toString x) ]
+                    notEnoughSlots || not fitsOnFrame
 
-            inputCallback str =
-                Cons <|
-                    Togglable On <|
-                        case str of
-                            "CargoHold" ->
-                                CargoHold
+            bays =
+                [ ArcaneLaboratory
+                , CargoHold
+                , EscapePods
+                , GuestQuarters
+                , HangarBay
+                , LifeBoats
+                , MedicalBay
+                , PassengerSeating
+                , PowerCoreHousing
+                , RecreationSuiteGym
+                , RecreationSuiteTrivedDen
+                , RecreationSuiteHac
+                , ScienceLab
+                , SealedEnvironmentChamber
+                , ShuttleBay
+                , SmugglerCompartment 20
+                , SynthesisBay
+                , TechWorkshop
+                ]
 
-                            "EscapePods" ->
-                                EscapePods
-
-                            "GuestQuarters" ->
-                                GuestQuarters
-
-                            "HangarBay" ->
-                                HangarBay
-
-                            "LifeBoats" ->
-                                LifeBoats
-
-                            "MedicalBay" ->
-                                MedicalBay
-
-                            "PassengerSeating" ->
-                                PassengerSeating
-
-                            "PowerCoreHousing" ->
-                                PowerCoreHousing
-
-                            "RecreationSuiteGym" ->
-                                RecreationSuiteGym
-
-                            "RecreationSuiteTrivedDen" ->
-                                RecreationSuiteTrivedDen
-
-                            "RecreationSuiteHac" ->
-                                RecreationSuiteHac
-
-                            "ScienceLab" ->
-                                ScienceLab
-
-                            "SealedEnvironmentChamber" ->
-                                SealedEnvironmentChamber
-
-                            "ShuttleBay" ->
-                                ShuttleBay
-
-                            "SmugglerCompartment 20" ->
-                                SmugglerCompartment 20
-
-                            "SynthesisBay" ->
-                                SynthesisBay
-
-                            "TechWorkshop" ->
-                                TechWorkshop
-
-                            _ ->
-                                ArcaneLaboratory
-
-            expansionBayView switch bay =
+            expansionBayView bay =
                 div [] <|
                     case bay of
                         SmugglerCompartment dc ->
-                            [ div [] [ text <| "SmugglerCompartment (" ++ toString switch ++ "): " ++ toString dc ]
+                            [ div [] [ text <| "SmugglerCompartment: " ++ toString dc ]
                               -- TODO: Currently there are no validations on min/max DC (20-50)
-                            , button [ onClick <| UpdateToggled <| SmugglerCompartment <| dc + 5 ] [ text "Increase" ]
-                            , button [ onClick <| UpdateToggled <| SmugglerCompartment <| dc - 5 ] [ text "Decrease" ]
-                            , button [ onClick Toggle ] [ text "Toggle" ]
+                            , button [ onClick <| SmugglerCompartment <| dc + 5 ] [ text "Increase" ]
+                            , button [ onClick <| SmugglerCompartment <| dc - 5 ] [ text "Decrease" ]
                             ]
 
                         b ->
-                            [ div [] [ text <| toString b ++ " (" ++ toString switch ++ ")" ]
-                            , button [ onClick Toggle ] [ text "Toggle" ]
-                            ]
+                            [ div [] [ text <| toString b ] ]
           in
             Html.map SetExpansionBay <|
                 div []
                     [ div [] [ text "ExpansionBays:" ]
-                    , div []
-                        (List.indexedMap
-                            (\index (Togglable switch bay) ->
-                                div []
-                                    [ Html.map (UpdateList index) <| expansionBayView switch bay
-                                    , button [ onClick <| Delete index ] [ text "Remove" ]
-                                    ]
-                            )
-                            model.expansionBays
-                        )
-                    , label [] [ text "Add expansion bay:" ]
-                    , select [ onInput inputCallback, value "" ]
-                        [ option
-                            [ selected True, disabled True ]
-                            [ text "-- select an expansion bay to add --" ]
-                        , mkOption ArcaneLaboratory
-                        , mkOption CargoHold
-                        , mkOption EscapePods
-                        , mkOption GuestQuarters
-                        , mkOption HangarBay
-                        , mkOption LifeBoats
-                        , mkOption MedicalBay
-                        , mkOption PassengerSeating
-                        , mkOption PowerCoreHousing
-                        , mkOption RecreationSuiteGym
-                        , mkOption RecreationSuiteTrivedDen
-                        , mkOption RecreationSuiteHac
-                        , mkOption ScienceLab
-                        , mkOption SealedEnvironmentChamber
-                        , mkOption ShuttleBay
-                        , mkOption (SmugglerCompartment 20)
-                        , mkOption SynthesisBay
-                        , mkOption TechWorkshop
-                        ]
+                    , listView
+                        ((\(Togglable _ x) -> x) >> canAdd)
+                        (List.foldr (\b -> Dict.insert (toString b) (Togglable On b)) Dict.empty bays)
+                        (togglableView expansionBayView)
+                        model.expansionBays
                     ]
         , let
             sensors =
