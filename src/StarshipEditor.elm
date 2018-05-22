@@ -1,6 +1,7 @@
 module StarshipEditor exposing (..)
 
 import Dict
+import Arc exposing (Arc)
 import Starship exposing (..)
 import Weapon exposing (..)
 import Size exposing (..)
@@ -28,6 +29,7 @@ type Msg
     | SetDriftEngine (Maybe DriftEngine)
     | SetExpansionBay (ListMsg (ToggleMsg ExpansionBay) (Togglable ExpansionBay))
     | SetTurretWeapon (ListMsg (ToggleMsg Weapon) (Togglable Weapon))
+    | SetArcWeapon (ArcMsg (ListMsg (ToggleMsg Weapon) (Togglable Weapon)))
     | SetSensors Sensor
 
 
@@ -244,6 +246,29 @@ listUpdate innerUpdate listMsg list =
             List.take i list ++ List.drop (i + 1) list
 
 
+type ArcMsg a
+    = UpdateForward a
+    | UpdateAft a
+    | UpdatePort a
+    | UpdateStarboard a
+
+
+arcUpdate : (a -> b -> b) -> ArcMsg a -> Arc b -> Arc b
+arcUpdate innerUpdate arcMsg arc =
+    case arcMsg of
+        UpdateForward innerMsg ->
+            { arc | forward = innerUpdate innerMsg arc.forward }
+
+        UpdateAft innerMsg ->
+            { arc | aft = innerUpdate innerMsg arc.aft }
+
+        UpdatePort innerMsg ->
+            { arc | portSide = innerUpdate innerMsg arc.portSide }
+
+        UpdateStarboard innerMsg ->
+            { arc | starboard = innerUpdate innerMsg arc.starboard }
+
+
 update : Msg -> Model -> Model
 update action model =
     case action of
@@ -297,8 +322,113 @@ update action model =
                     listUpdate (toggleUpdate always) listMsg model.turretWeapons
             }
 
+        SetArcWeapon arcMsg ->
+            { model
+                | arcWeapons =
+                    arcUpdate (listUpdate (toggleUpdate always)) arcMsg model.arcWeapons
+            }
+
         SetSensors sensors ->
             { model | sensors = sensors }
+
+
+weaponView : Weapon -> Html a
+weaponView =
+    --TODO: Linking
+    .name >> text
+
+
+togglableView : (a -> Html b) -> Togglable a -> Html (ToggleMsg b)
+togglableView innerView (Togglable switch inner) =
+    div []
+        [ Html.map UpdateToggled <| innerView inner
+        , text <| " (" ++ toString switch ++ ") "
+        , button [ onClick Toggle ] [ text "Toggle" ]
+        ]
+
+
+listView : (a -> Bool) -> Dict.Dict String a -> (a -> Html b) -> List a -> Html (ListMsg b a)
+listView canAdd optionMap innerView list =
+    let
+        items =
+            List.indexedMap
+                (\i x ->
+                    div []
+                        [ Html.map (UpdateList i) (innerView x)
+                        , button [ onClick (Delete i) ] [ text "Remove" ]
+                        ]
+                )
+                list
+
+        inputCallback str =
+            case Dict.get str optionMap of
+                Just value ->
+                    Cons value
+
+                Nothing ->
+                    Debug.crash "Unselectable option was selected!"
+
+        helperOption =
+            option
+                [ selected True, disabled True ]
+                [ text "-- select to add --" ]
+
+        options =
+            List.map
+                (\( str, x ) ->
+                    option [ value str, selected False, disabled (canAdd x) ] [ text str ]
+                )
+                (Dict.toList optionMap)
+
+        addItem =
+            select
+                [ onInput inputCallback ]
+                (helperOption :: options)
+    in
+        div [] (addItem :: items)
+
+
+arcView : (a -> Html b) -> Arc a -> Html (ArcMsg b)
+arcView innerView arc =
+    div []
+        [ div []
+            [ text "Forward:"
+            , Html.map UpdateForward <| innerView arc.forward
+            ]
+        , div []
+            [ text "Aft:"
+            , Html.map UpdateAft <| innerView arc.aft
+            ]
+        , div []
+            [ text "Port:"
+            , Html.map UpdatePort <| innerView arc.portSide
+            ]
+        , div []
+            [ text "Starboard:"
+            , Html.map UpdateStarboard <| innerView arc.starboard
+            ]
+        ]
+
+
+namedToDict : List { a | name : String } -> Dict.Dict String { a | name : String }
+namedToDict =
+    List.foldr (\x -> Dict.insert x.name x) Dict.empty
+
+
+weaponDict : Dict.Dict String (Togglable Weapon)
+weaponDict =
+    (Dict.map (always (Togglable On))
+        (namedToDict
+            [ coilgun
+            , persistentParticleBeam
+            , lightPlasmaCannon
+            , heavyEmpCannon
+            , lightLaserCannon
+            , gyrolaser
+            , lightTorpedoLauncher
+            ]
+        )
+    )
 
 
 view : Model -> Html Msg
@@ -654,84 +784,31 @@ view model =
                     [ onClick (SetSensors { sensors | bonus = sensors.bonus - 1 }) ]
                     [ text "Decrease Bonus" ]
                 ]
-        , let
-            namedToDict : List { a | name : String } -> Dict.Dict String { a | name : String }
-            namedToDict =
-                List.foldr (\x -> Dict.insert x.name x) Dict.empty
-
-            --TODO: Linking
-            weaponView =
-                .name >> text
-
-            togglableView innerView (Togglable switch inner) =
-                div []
-                    [ Html.map UpdateToggled <| innerView inner
-                    , text <| " (" ++ toString switch ++ ") "
-                    , button [ onClick Toggle ] [ text "Toggle" ]
-                    ]
-
-            listView canAdd optionMap innerView list =
-                let
-                    items =
-                        List.indexedMap
-                            (\i x ->
-                                div []
-                                    [ Html.map (UpdateList i) (innerView x)
-                                    , button [ onClick (Delete i) ] [ text "Remove" ]
-                                    ]
-                            )
-                            list
-
-                    inputCallback str =
-                        case Dict.get str optionMap of
-                            Just value ->
-                                Cons value
-
-                            Nothing ->
-                                Debug.crash "Unselectable option was selected!"
-
-                    helperOption =
-                        option
-                            [ selected True, disabled True ]
-                            [ text "-- select to add --" ]
-
-                    options =
-                        List.map
-                            (\( str, x ) ->
-                                option [ value str, selected False, disabled (canAdd x) ] [ text str ]
-                            )
-                            (Dict.toList optionMap)
-
-                    addItem =
-                        select
-                            [ onInput inputCallback ]
-                            (helperOption :: options)
-                in
-                    div [] (addItem :: items)
-          in
-            Html.map SetTurretWeapon <|
-                div []
-                    [ div [] [ text "Turret Weapons:" ]
-                    , listView
+        , Html.map SetTurretWeapon <|
+            div []
+                [ div [] [ text "Turret Weapons:" ]
+                , listView
+                    (\(Togglable _ weapon) ->
+                        not (List.member weapon.weaponClass (getAllowedClasses model.frame.size))
+                            || (weapon.weaponClass == Capital)
+                    )
+                    weaponDict
+                    (togglableView weaponView)
+                    model.turretWeapons
+                ]
+        , Html.map SetArcWeapon <|
+            div []
+                [ div [] [ text "Arc Weapons:" ]
+                , arcView
+                    (listView
                         (\(Togglable _ weapon) ->
                             not (List.member weapon.weaponClass (getAllowedClasses model.frame.size))
-                                || (weapon.weaponClass == Capital)
                         )
-                        (Dict.map (always (Togglable On))
-                            (namedToDict
-                                [ coilgun
-                                , persistentParticleBeam
-                                , lightPlasmaCannon
-                                , heavyEmpCannon
-                                , lightLaserCannon
-                                , gyrolaser
-                                , lightTorpedoLauncher
-                                ]
-                            )
-                        )
+                        weaponDict
                         (togglableView weaponView)
-                        model.turretWeapons
-                    ]
+                    )
+                    model.arcWeapons
+                ]
         , div [] [ text <| "Total Power Draw: " ++ toString (getStarshipPowerDraw model) ++ " PCU" ]
         , div [] [ text <| "Total Build Points: " ++ toString (getStarshipBuildPoints model) ]
         , div [] [ text <| "Tier: " ++ toString (getTierFromBuildPoints (getStarshipBuildPoints model)) ]
