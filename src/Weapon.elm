@@ -15,6 +15,11 @@ type Class
 
 type
     Type
+    -- TODO: While it's admirable to do this in types,
+    -- it's really in the wrong spot, because weapons should not
+    -- be updated by the user, but just selected.
+    -- and linking is a user alteration.
+    -- this needs to be moved out and then validated.
     -- Direct Fire weapon can be linked, for double the effects
     -- costing 2 mounts and 2.5x the build points
     = DirectFire Bool

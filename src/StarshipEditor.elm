@@ -1,5 +1,6 @@
 module StarshipEditor exposing (..)
 
+import Dict
 import Starship exposing (..)
 import Weapon exposing (..)
 import Size exposing (..)
@@ -26,6 +27,7 @@ type Msg
     | SetDefensiveCountermeasures (Maybe DefenseLevel)
     | SetDriftEngine (Maybe DriftEngine)
     | SetExpansionBay (ListMsg (ToggleMsg ExpansionBay) (Togglable ExpansionBay))
+    | SetTurretWeapon (ListMsg (ToggleMsg Weapon) (Togglable Weapon))
     | SetSensors Sensor
 
 
@@ -287,6 +289,12 @@ update action model =
             { model
                 | expansionBays =
                     listUpdate (toggleUpdate always) listMsg model.expansionBays
+            }
+
+        SetTurretWeapon listMsg ->
+            { model
+                | turretWeapons =
+                    listUpdate (toggleUpdate always) listMsg model.turretWeapons
             }
 
         SetSensors sensors ->
@@ -646,6 +654,84 @@ view model =
                     [ onClick (SetSensors { sensors | bonus = sensors.bonus - 1 }) ]
                     [ text "Decrease Bonus" ]
                 ]
+        , let
+            namedToDict : List { a | name : String } -> Dict.Dict String { a | name : String }
+            namedToDict =
+                List.foldr (\x -> Dict.insert x.name x) Dict.empty
+
+            --TODO: Linking
+            weaponView =
+                .name >> text
+
+            togglableView innerView (Togglable switch inner) =
+                div []
+                    [ Html.map UpdateToggled <| innerView inner
+                    , text <| " (" ++ toString switch ++ ") "
+                    , button [ onClick Toggle ] [ text "Toggle" ]
+                    ]
+
+            listView canAdd optionMap innerView list =
+                let
+                    items =
+                        List.indexedMap
+                            (\i x ->
+                                div []
+                                    [ Html.map (UpdateList i) (innerView x)
+                                    , button [ onClick (Delete i) ] [ text "Remove" ]
+                                    ]
+                            )
+                            list
+
+                    inputCallback str =
+                        case Dict.get str optionMap of
+                            Just value ->
+                                Cons value
+
+                            Nothing ->
+                                Debug.crash "Unselectable option was selected!"
+
+                    helperOption =
+                        option
+                            [ selected True, disabled True ]
+                            [ text "-- select to add --" ]
+
+                    options =
+                        List.map
+                            (\( str, x ) ->
+                                option [ value str, selected False, disabled (canAdd x) ] [ text str ]
+                            )
+                            (Dict.toList optionMap)
+
+                    addItem =
+                        select
+                            [ onInput inputCallback ]
+                            (helperOption :: options)
+                in
+                    div [] (addItem :: items)
+          in
+            Html.map SetTurretWeapon <|
+                div []
+                    [ div [] [ text "Turret Weapons:" ]
+                    , listView
+                        (\(Togglable _ weapon) ->
+                            not (List.member weapon.weaponClass (getAllowedClasses model.frame.size))
+                                || (weapon.weaponClass == Capital)
+                        )
+                        (Dict.map (always (Togglable On))
+                            (namedToDict
+                                [ coilgun
+                                , persistentParticleBeam
+                                , lightPlasmaCannon
+                                , heavyEmpCannon
+                                , lightLaserCannon
+                                , gyrolaser
+                                , lightTorpedoLauncher
+                                ]
+                            )
+                        )
+                        (togglableView weaponView)
+                        model.turretWeapons
+                    ]
         , div [] [ text <| "Total Power Draw: " ++ toString (getStarshipPowerDraw model) ++ " PCU" ]
         , div [] [ text <| "Total Build Points: " ++ toString (getStarshipBuildPoints model) ]
         , div [] [ text <| "Tier: " ++ toString (getTierFromBuildPoints (getStarshipBuildPoints model)) ]
