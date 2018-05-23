@@ -8,8 +8,11 @@ type alias Computer =
 
 
 getPowerDraw : Computer -> Int
-getPowerDraw { bonus } =
-    bonus * 5 + 5
+getPowerDraw { bonus, nodes } =
+    if bonus > 0 && nodes > 0 then
+        bonus * 5 + 5
+    else
+        0
 
 
 getBuildPoints : Computer -> Int
