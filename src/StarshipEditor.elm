@@ -30,6 +30,7 @@ type Msg
     | SetExpansionBay (ListMsg (ToggleMsg ExpansionBay) (Togglable ExpansionBay))
     | SetTurretWeapon (ListMsg (ToggleMsg Weapon) (Togglable Weapon))
     | SetArcWeapon (ArcMsg (ListMsg (ToggleMsg Weapon) (Togglable Weapon)))
+    | SetShields (ToggleMsg Shields)
     | SetSensors Sensor
 
 
@@ -151,6 +152,40 @@ lightTorpedoLauncher =
     }
 
 
+
+--shields
+
+
+lightShields60 : Shields
+lightShields60 =
+    { name = "Light Shields 60"
+    , shieldPoints = 60
+    , regenPerMinute = 2
+    , powerDraw = 20
+    , buildPoints = 10
+    }
+
+
+lightShields80 : Shields
+lightShields80 =
+    { name = "Light Shields 80"
+    , shieldPoints = 80
+    , regenPerMinute = 2
+    , powerDraw = 30
+    , buildPoints = 12
+    }
+
+
+lightShields10 : Shields
+lightShields10 =
+    { name = "Light Shields 10"
+    , shieldPoints = 10
+    , regenPerMinute = 1
+    , powerDraw = 5
+    , buildPoints = 2
+    }
+
+
 init : Model
 init =
     { name = "Unnamed"
@@ -171,14 +206,7 @@ init =
         , starboard = []
         }
     , turretWeapons = []
-    , shields =
-        Togglable On
-            { name = "Light Shields 10"
-            , shieldPoints = 10
-            , regenPerMinute = 1
-            , powerDraw = 5
-            , buildPoints = 2
-            }
+    , shields = Togglable On lightShields10
     }
 
 
@@ -327,6 +355,9 @@ update action model =
                 | arcWeapons =
                     arcUpdate (listUpdate (toggleUpdate always)) arcMsg model.arcWeapons
             }
+
+        SetShields toggleMsg ->
+            { model | shields = toggleUpdate always toggleMsg model.shields }
 
         SetSensors sensors ->
             { model | sensors = sensors }
@@ -736,6 +767,34 @@ view model =
                     )
                     model.arcWeapons
                 ]
+        , let
+            -- TODO: This is usable in other areas
+            selectionView canAdd optionMap x =
+                select
+                    [ onInput
+                        (flip Dict.get optionMap
+                            >> Maybe.withDefault
+                                (Debug.crash "Unselectable option was selected!")
+                        )
+                    ]
+                    (Dict.values <|
+                        Dict.map
+                            (\str y ->
+                                option [ value str, selected (y == x), disabled (not (canAdd x)) ] [ text str ]
+                            )
+                            optionMap
+                    )
+          in
+            Html.map SetShields <|
+                div []
+                    [ div [] [ text "Shields:" ]
+                    , togglableView
+                        (selectionView
+                            (always True)
+                            (namedToDict [ lightShields60, lightShields10, lightShields80 ])
+                        )
+                        model.shields
+                    ]
         , div [] [ text <| "Total Power Draw: " ++ toString (getStarshipPowerDraw model) ++ " PCU" ]
         , div [] [ text <| "Total Build Points: " ++ toString (getStarshipBuildPoints model) ]
         , div [] [ text <| "Tier: " ++ toString (getTierFromBuildPoints (getStarshipBuildPoints model)) ]
