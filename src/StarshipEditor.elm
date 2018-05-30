@@ -19,6 +19,7 @@ type alias Model =
 
 type Msg
     = SetName String
+    | SetFrame Frame
     | SetPcu Int
     | SetThrusters (ToggleMsg Int)
     | SetArmor (Maybe DefenseLevel)
@@ -54,6 +55,29 @@ mediumTransport =
     , minimumCrew = 1
     , maximumCrew = 6
     , listedBuildPoints = 15
+    }
+
+
+fighter : Frame
+fighter =
+    { name = "Fighter"
+    , size = Size.Tiny
+    , maneuverability = Good
+    , baseHitPoints = 35
+    , hitPointsIncrement = 5
+    , damageThreshold = 0
+    , criticalThreshold = 7
+    , arcMounts =
+        { forward = [ Light, Light ]
+        , aft = [ Light ]
+        , portSide = []
+        , starboard = []
+        }
+    , turretMounts = []
+    , expansionBays = 0
+    , minimumCrew = 1
+    , maximumCrew = 2
+    , listedBuildPoints = 8
     }
 
 
@@ -303,6 +327,9 @@ update action model =
         SetName name ->
             { model | name = name }
 
+        SetFrame frame ->
+            { model | frame = frame }
+
         SetPcu pcu ->
             { model | powerCoreUnits = pcu }
 
@@ -446,6 +473,28 @@ namedToDict =
     List.foldr (\x -> Dict.insert x.name x) Dict.empty
 
 
+selectionView : (a -> Bool) -> Dict.Dict String a -> a -> Html a
+selectionView canAdd optionMap x =
+    select
+        [ onInput
+            (\str ->
+                case Dict.get str optionMap of
+                    Just v ->
+                        v
+
+                    Nothing ->
+                        Debug.crash "Unselectable option was selected!"
+            )
+        ]
+        (Dict.values <|
+            Dict.map
+                (\str y ->
+                    option [ value str, selected (y == x), disabled (not (canAdd x)) ] [ text str ]
+                )
+                optionMap
+        )
+
+
 weaponDict : Dict.Dict String (Togglable Weapon)
 weaponDict =
     (Dict.map (always (Togglable On))
@@ -469,6 +518,14 @@ view model =
             [ label [] [ text "name:" ]
             , input [ onInput SetName, value model.name ] []
             ]
+        , Html.map SetFrame <|
+            div []
+                [ div [] [ text "Frame:" ]
+                , selectionView
+                    (always True)
+                    (namedToDict [ mediumTransport, fighter ])
+                    model.frame
+                ]
         , div []
             [ div [] [ text <| "Power Core Units: " ++ toString model.powerCoreUnits ]
             , button [ onClick (SetPcu (model.powerCoreUnits + 10)) ] [ text "Increase" ]
@@ -767,34 +824,16 @@ view model =
                     )
                     model.arcWeapons
                 ]
-        , let
-            -- TODO: This is usable in other areas
-            selectionView canAdd optionMap x =
-                select
-                    [ onInput
-                        (flip Dict.get optionMap
-                            >> Maybe.withDefault
-                                (Debug.crash "Unselectable option was selected!")
-                        )
-                    ]
-                    (Dict.values <|
-                        Dict.map
-                            (\str y ->
-                                option [ value str, selected (y == x), disabled (not (canAdd x)) ] [ text str ]
-                            )
-                            optionMap
+        , Html.map SetShields <|
+            div []
+                [ div [] [ text "Shields:" ]
+                , togglableView
+                    (selectionView
+                        (always True)
+                        (namedToDict [ lightShields60, lightShields10, lightShields80 ])
                     )
-          in
-            Html.map SetShields <|
-                div []
-                    [ div [] [ text "Shields:" ]
-                    , togglableView
-                        (selectionView
-                            (always True)
-                            (namedToDict [ lightShields60, lightShields10, lightShields80 ])
-                        )
-                        model.shields
-                    ]
+                    model.shields
+                ]
         , div [] [ text <| "Total Power Draw: " ++ toString (getStarshipPowerDraw model) ++ " PCU" ]
         , div [] [ text <| "Total Build Points: " ++ toString (getStarshipBuildPoints model) ]
         , div [] [ text <| "Tier: " ++ toString (getTierFromBuildPoints (getStarshipBuildPoints model)) ]
