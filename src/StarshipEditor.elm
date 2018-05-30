@@ -4,7 +4,6 @@ import Dict
 import Arc exposing (Arc)
 import Starship exposing (..)
 import Togglable exposing (..)
-import Switch exposing (Switch(..))
 import Weapon exposing (..)
 import Size exposing (..)
 import DefenseLevel exposing (..)
@@ -217,9 +216,9 @@ init =
     { name = "Unnamed"
     , frame = mediumTransport
     , powerCoreUnits = 0
-    , thrusters = Togglable On 8
+    , thrusters = pure 8
     , armor = Nothing
-    , computer = Togglable On { bonus = 0, nodes = 0 }
+    , computer = pure { bonus = 0, nodes = 0 }
     , crewQuarters = Common
     , defensiveCountermeasures = Nothing
     , driftEngine = Nothing
@@ -232,7 +231,7 @@ init =
         , starboard = []
         }
     , turretWeapons = []
-    , shields = Togglable On lightShields10
+    , shields = pure lightShields10
     }
 
 
@@ -248,11 +247,7 @@ toggleUpdate innerUpdate toggleMsg togglable =
             toggle togglable
 
         UpdateToggled innerMsg ->
-            let
-                (Togglable switch innerModel) =
-                    togglable
-            in
-                Togglable switch (innerUpdate innerMsg innerModel)
+            Togglable.map (innerUpdate innerMsg) togglable
 
 
 type ListMsg a b
@@ -340,7 +335,7 @@ update action model =
                         (\dL ->
                             model.defensiveCountermeasures
                                 |> Maybe.map (Togglable.map (always dL))
-                                |> Maybe.withDefault (Togglable On dL)
+                                |> Maybe.withDefault (pure dL)
                         )
                         defLevel
             }
@@ -380,10 +375,10 @@ weaponView =
 
 
 togglableView : (a -> Html b) -> Togglable a -> Html (ToggleMsg b)
-togglableView innerView (Togglable switch inner) =
+togglableView innerView togglable =
     div []
-        [ Html.map UpdateToggled <| innerView inner
-        , text <| " (" ++ toString switch ++ ") "
+        [ Html.map UpdateToggled <| innerView (extract togglable)
+        , text <| " (" ++ toString (meta togglable) ++ ") "
         , button [ onClick Toggle ] [ text "Toggle" ]
         ]
 
@@ -480,7 +475,7 @@ selectionView canAdd optionMap x =
 
 weaponDict : Dict.Dict String (Togglable Weapon)
 weaponDict =
-    (Dict.map (always (Togglable On))
+    (Dict.map (always pure)
         (namedToDict
             [ coilgun
             , persistentParticleBeam
@@ -515,12 +510,12 @@ view model =
             , button [ onClick (SetPcu (model.powerCoreUnits - 10)) ] [ text "Decrease" ]
             ]
         , let
-            (Togglable switch speed) =
-                model.thrusters
+            speed =
+                extract model.thrusters
           in
             Html.map SetThrusters <|
                 div []
-                    [ div [] [ text <| "Thrusters (" ++ toString switch ++ "): " ++ toString speed ]
+                    [ div [] [ text <| "Thrusters (" ++ toString (meta model.thrusters) ++ "): " ++ toString speed ]
                     , button [ onClick Toggle ] [ text "Toggle Status" ]
                     , button
                         [ disabled (topSpeed model.frame.size < speed + 1)
@@ -550,8 +545,8 @@ view model =
                     , button [ onClick (SetArmor (Just Mk1)) ] [ text "Add Armor" ]
                     ]
         , let
-            (Togglable switch computer) =
-                model.computer
+            computer =
+                extract model.computer
 
             nodeText =
                 computer.bonus
@@ -563,7 +558,7 @@ view model =
                 div []
                     (if computer.nodes > 0 && computer.bonus > 0 then
                         [ div []
-                            [ text <| "Computer (" ++ toString switch ++ "): " ++ nodeText ]
+                            [ text <| "Computer (" ++ toString (meta model.computer) ++ "): " ++ nodeText ]
                         , button [ onClick Toggle ] [ text "Toggle Status" ]
                         , button
                             [ onClick (UpdateToggled { computer | nodes = computer.nodes - 1 })
@@ -613,16 +608,20 @@ view model =
                 ]
         , div [] <|
             case model.defensiveCountermeasures of
-                Just (Togglable switch dL) ->
-                    [ div [] [ text <| "Defensive Countermeasures (" ++ toString switch ++ "): " ++ toString dL ]
-                    , button [ onClick (ToggleDefensiveCountermeasures) ] [ text "Toggle Status" ]
-                    , button
-                        [ disabled (incDefenseLevel dL == Nothing)
-                        , onClick (SetDefensiveCountermeasures (incDefenseLevel dL))
+                Just togglable ->
+                    let
+                        dL =
+                            extract togglable
+                    in
+                        [ div [] [ text <| "Defensive Countermeasures (" ++ toString (meta togglable) ++ "): " ++ toString dL ]
+                        , button [ onClick (ToggleDefensiveCountermeasures) ] [ text "Toggle Status" ]
+                        , button
+                            [ disabled (incDefenseLevel dL == Nothing)
+                            , onClick (SetDefensiveCountermeasures (incDefenseLevel dL))
+                            ]
+                            [ text "Increase" ]
+                        , button [ onClick (SetDefensiveCountermeasures (decDefenseLevel dL)) ] [ text "Decrease" ]
                         ]
-                        [ text "Increase" ]
-                    , button [ onClick (SetDefensiveCountermeasures (decDefenseLevel dL)) ] [ text "Decrease" ]
-                    ]
 
                 Nothing ->
                     [ div [] [ text <| "Defensive Countermeasures: None" ]
@@ -681,7 +680,7 @@ view model =
                     baysUsedSoFar =
                         model.expansionBays
                             |> List.map
-                                ((\(Togglable _ x) -> x) >> ExpansionBay.getExpansionBaysUsed)
+                                (extract >> ExpansionBay.getExpansionBaysUsed)
                             |> List.sum
 
                     notEnoughSlots =
@@ -730,8 +729,8 @@ view model =
                 div []
                     [ div [] [ text "ExpansionBays:" ]
                     , listView
-                        ((\(Togglable _ x) -> x) >> canAdd)
-                        (List.foldr (\b -> Dict.insert (toString b) (Togglable On b)) Dict.empty bays)
+                        (extract >> canAdd)
+                        (List.foldr (\b -> Dict.insert (toString b) (pure b)) Dict.empty bays)
                         (togglableView expansionBayView)
                         model.expansionBays
                     ]
@@ -786,9 +785,11 @@ view model =
             div []
                 [ div [] [ text "Turret Weapons:" ]
                 , listView
-                    (\(Togglable _ weapon) ->
-                        not (List.member weapon.weaponClass (getAllowedClasses model.frame.size))
-                            || (weapon.weaponClass == Capital)
+                    (extract
+                        >> (\weapon ->
+                                not (List.member weapon.weaponClass (getAllowedClasses model.frame.size))
+                                    || (weapon.weaponClass == Capital)
+                           )
                     )
                     weaponDict
                     (togglableView weaponView)
@@ -799,8 +800,10 @@ view model =
                 [ div [] [ text "Arc Weapons:" ]
                 , arcView
                     (listView
-                        (\(Togglable _ weapon) ->
-                            not (List.member weapon.weaponClass (getAllowedClasses model.frame.size))
+                        (extract
+                            >> (\weapon ->
+                                    not (List.member weapon.weaponClass (getAllowedClasses model.frame.size))
+                               )
                         )
                         weaponDict
                         (togglableView weaponView)

@@ -49,10 +49,10 @@ getFrameBuildPoints { listedBuildPoints, arcMounts, turretMounts } =
 getThrusterPowerDraw : Starship -> Int
 getThrusterPowerDraw { frame, thrusters } =
     let
-        (Togglable switch speed) =
-            thrusters
+        speed =
+            extract thrusters
     in
-        case switch of
+        case meta thrusters of
             Off ->
                 0
 
@@ -83,8 +83,8 @@ getThrusterPowerDraw { frame, thrusters } =
 getThrusterBuildPoints : Starship -> Int
 getThrusterBuildPoints { frame, thrusters } =
     let
-        (Togglable _ speed) =
-            thrusters
+        speed =
+            extract thrusters
     in
         case frame.size of
             Large ->
@@ -365,10 +365,10 @@ getAllOnlineWeapons : Starship -> List Weapon
 getAllOnlineWeapons =
     getAllWeapons
         >> List.filterMap
-            (\(Togglable switch weapon) ->
-                case switch of
+            (\togglable ->
+                case meta togglable of
                     On ->
-                        Just weapon
+                        Just (extract togglable)
 
                     Off ->
                         Nothing
@@ -382,14 +382,14 @@ getWeaponsPowerDraw =
 
 getWeaponsBuildPoints : Starship -> Int
 getWeaponsBuildPoints =
-    getAllWeapons >> List.map ((\(Togglable _ x) -> x) >> Weapon.getBuildPoints) >> List.sum
+    getAllWeapons >> List.map (extract >> Weapon.getBuildPoints) >> List.sum
 
 
 getMountPointsBuiltPoints : Starship -> Int
 getMountPointsBuiltPoints ship =
     let
         getClass =
-            (\(Togglable _ x) -> x) >> .weaponClass
+            extract >> .weaponClass
 
         arcCost =
             List.map
@@ -436,10 +436,10 @@ type alias Starship =
 
 
 getTogglablePowerDraw : (a -> Int) -> Togglable a -> Int
-getTogglablePowerDraw powerDrawFn (Togglable switch a) =
-    case switch of
+getTogglablePowerDraw powerDrawFn togglable =
+    case meta togglable of
         On ->
-            powerDrawFn a
+            powerDrawFn (extract togglable)
 
         Off ->
             0
@@ -461,11 +461,11 @@ getStarshipPowerDraw ship =
 getStarshipBuildPoints : Starship -> Int
 getStarshipBuildPoints ship =
     let
-        (Togglable _ computer) =
-            ship.computer
+        computer =
+            extract ship.computer
 
-        (Togglable _ shields) =
-            ship.shields
+        shields =
+            extract ship.shields
     in
         getFrameBuildPoints ship.frame
             + getPowerCoreUnitsBuildPoints ship.powerCoreUnits
@@ -478,14 +478,14 @@ getStarshipBuildPoints ship =
             + getCrewQuartersBuildPoints ship.crewQuarters
             + (ship.defensiveCountermeasures
                 |> Maybe.map
-                    ((\(Togglable _ dC) -> dC) >> getDefensiveCountermeasuresBuildPoints)
+                    (extract >> getDefensiveCountermeasuresBuildPoints)
                 |> Maybe.withDefault 0
               )
             + (ship.driftEngine
                 |> Maybe.map (getDriftEngineBuildPoints ship.frame.size)
                 |> Maybe.withDefault 0
               )
-            + List.sum (List.map ((\(Togglable _ x) -> x) >> ExpansionBay.getBuildPoints) ship.expansionBays)
+            + List.sum (List.map (extract >> ExpansionBay.getBuildPoints) ship.expansionBays)
             + getSensorBuildPoints ship.sensors
             + getWeaponsBuildPoints ship
             + getMountPointsBuiltPoints ship
@@ -695,8 +695,9 @@ areTurretMountPointsValid { turretWeapons, frame } =
 areWeaponClassesValidForFrame : Starship -> Bool
 areWeaponClassesValidForFrame { arcWeapons, turretWeapons, frame } =
     List.all
-        (\(Togglable _ { weaponClass }) ->
-            List.member weaponClass (getAllowedClasses frame.size)
+        (extract
+            >> .weaponClass
+            >> flip List.member (getAllowedClasses frame.size)
         )
         (Arc.concat arcWeapons ++ turretWeapons)
 
@@ -704,7 +705,7 @@ areWeaponClassesValidForFrame { arcWeapons, turretWeapons, frame } =
 areTurretWeaponClassesValid : Starship -> Bool
 areTurretWeaponClassesValid { turretWeapons, frame } =
     List.all
-        (\(Togglable _ { weaponClass }) -> weaponClass /= Weapon.Capital)
+        (extract >> .weaponClass >> (/=) Weapon.Capital)
         turretWeapons
 
 
@@ -717,7 +718,7 @@ getPowerCoreCount : Starship -> Int
 getPowerCoreCount { expansionBays } =
     let
         isPowerCoreHousing =
-            (\(Togglable _ bay) -> bay == ExpansionBay.PowerCoreHousing)
+            (extract >> (==) ExpansionBay.PowerCoreHousing)
     in
         List.length (List.filter isPowerCoreHousing expansionBays) + 1
 
@@ -737,7 +738,7 @@ hasValidExpansionBayCount { expansionBays, frame } =
     let
         baysUsed =
             expansionBays
-                |> List.map ((\(Togglable _ x) -> x) >> ExpansionBay.getExpansionBaysUsed)
+                |> List.map (extract >> ExpansionBay.getExpansionBaysUsed)
                 |> List.sum
     in
         baysUsed <= frame.expansionBays
@@ -745,7 +746,7 @@ hasValidExpansionBayCount { expansionBays, frame } =
 
 isValidSizeForExpansionBays : Starship -> Bool
 isValidSizeForExpansionBays { frame, expansionBays } =
-    List.all ((\(Togglable _ x) -> x) >> ExpansionBay.isValidSize frame.size) expansionBays
+    List.all (extract >> ExpansionBay.isValidSize frame.size) expansionBays
 
 
 hasSufficientPowerCoreUnits : Starship -> Bool
@@ -776,9 +777,11 @@ isSmallEnoughForDriftEngine { driftEngine, frame } =
 
 isValidSpeed : Starship -> Bool
 isValidSpeed { frame, thrusters } =
-    case thrusters of
-        Togglable _ speed ->
-            speed <= Size.topSpeed frame.size && speed > 0
+    let
+        speed =
+            extract thrusters
+    in
+        speed <= Size.topSpeed frame.size && speed > 0
 
 
 type BuildError
