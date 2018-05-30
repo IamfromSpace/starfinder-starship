@@ -6,6 +6,8 @@ import Computer exposing (Computer)
 import ExpansionBay exposing (ExpansionBay)
 import Size exposing (..)
 import DefenseLevel exposing (..)
+import Switch exposing (..)
+import Togglable exposing (..)
 
 
 type Maneuverability
@@ -409,15 +411,6 @@ type alias Shields =
     , powerDraw : Int
     , buildPoints : Int
     }
-
-
-type Switch
-    = On
-    | Off
-
-
-type Togglable a
-    = Togglable Switch a
 
 
 

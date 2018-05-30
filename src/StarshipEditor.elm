@@ -3,6 +3,8 @@ module StarshipEditor exposing (..)
 import Dict
 import Arc exposing (Arc)
 import Starship exposing (..)
+import Togglable exposing (..)
+import Switch exposing (Switch(..))
 import Weapon exposing (..)
 import Size exposing (..)
 import DefenseLevel exposing (..)
@@ -234,25 +236,6 @@ init =
     }
 
 
-toggle : Togglable a -> Togglable a
-toggle togglable =
-    let
-        (Togglable switch a) =
-            togglable
-    in
-        case switch of
-            On ->
-                Togglable Off a
-
-            Off ->
-                Togglable On a
-
-
-setToggled : a -> Togglable a -> Togglable a
-setToggled a (Togglable switch _) =
-    Togglable switch a
-
-
 type ToggleMsg a
     = Toggle
     | UpdateToggled a
@@ -356,7 +339,7 @@ update action model =
                     Maybe.map
                         (\dL ->
                             model.defensiveCountermeasures
-                                |> Maybe.map (setToggled dL)
+                                |> Maybe.map (Togglable.map (always dL))
                                 |> Maybe.withDefault (Togglable On dL)
                         )
                         defLevel

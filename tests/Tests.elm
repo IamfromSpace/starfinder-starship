@@ -7,6 +7,8 @@ import Weapon exposing (..)
 import ExpansionBay exposing (..)
 import Size exposing (Size)
 import DefenseLevel exposing (..)
+import Switch exposing (Switch(..))
+import Togglable exposing (..)
 
 
 -- TODO: These things should probably live in an assets directory that
