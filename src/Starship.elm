@@ -7,7 +7,9 @@ import ExpansionBay exposing (ExpansionBay)
 import Size exposing (..)
 import DefenseLevel exposing (..)
 import Switch exposing (..)
+import Link exposing (..)
 import Togglable exposing (..)
+import LinkAndTogglable as LT exposing (LinkAndTogglable)
 
 
 type Maneuverability
@@ -356,40 +358,49 @@ getSensorBuildPoints { range, bonus } =
             bonus * 2 + 6
 
 
-getAllWeapons : Starship -> List (Togglable Weapon)
+getAllWeapons : Starship -> List (LinkAndTogglable Weapon)
 getAllWeapons { arcWeapons, turretWeapons } =
     Arc.concat arcWeapons ++ turretWeapons
 
 
-getAllOnlineWeapons : Starship -> List Weapon
+getAllOnlineWeapons : Starship -> List (LinkAndTogglable Weapon)
 getAllOnlineWeapons =
     getAllWeapons
-        >> List.filterMap
-            (\togglable ->
-                case meta togglable of
-                    On ->
-                        Just (extract togglable)
-
-                    Off ->
-                        Nothing
-            )
+        >> List.filter (LT.meta >> .switch >> (==) On)
 
 
 getWeaponsPowerDraw : Starship -> Int
 getWeaponsPowerDraw =
-    getAllOnlineWeapons >> List.map Weapon.getPowerDraw >> List.sum
+    let
+        getDraw lt =
+            .powerDraw (LT.extract lt)
+                * if .link (LT.meta lt) == Linked then
+                    2
+                  else
+                    1
+    in
+        getAllOnlineWeapons >> List.map getDraw >> List.sum
 
 
 getWeaponsBuildPoints : Starship -> Int
 getWeaponsBuildPoints =
-    getAllWeapons >> List.map (extract >> Weapon.getBuildPoints) >> List.sum
+    let
+        getPoints lt =
+            round <|
+                toFloat (.buildPoints (LT.extract lt))
+                    * if .link (LT.meta lt) == Linked then
+                        2.5
+                      else
+                        1
+    in
+        getAllWeapons >> List.map getPoints >> List.sum
 
 
 getMountPointsBuiltPoints : Starship -> Int
 getMountPointsBuiltPoints ship =
     let
         getClass =
-            extract >> .weaponClass
+            LT.extract >> .weaponClass
 
         arcCost =
             List.map
@@ -429,8 +440,8 @@ type alias Starship =
     , driftEngine : Maybe DriftEngine
     , expansionBays : List (Togglable ExpansionBay)
     , sensors : Sensor
-    , arcWeapons : Arc (List (Togglable Weapon))
-    , turretWeapons : List (Togglable Weapon)
+    , arcWeapons : Arc (List (LinkAndTogglable Weapon))
+    , turretWeapons : List (LinkAndTogglable Weapon)
     , shields : Togglable Shields
     }
 
@@ -695,7 +706,7 @@ areTurretMountPointsValid { turretWeapons, frame } =
 areWeaponClassesValidForFrame : Starship -> Bool
 areWeaponClassesValidForFrame { arcWeapons, turretWeapons, frame } =
     List.all
-        (extract
+        (LT.extract
             >> .weaponClass
             >> flip List.member (getAllowedClasses frame.size)
         )
@@ -705,7 +716,7 @@ areWeaponClassesValidForFrame { arcWeapons, turretWeapons, frame } =
 areTurretWeaponClassesValid : Starship -> Bool
 areTurretWeaponClassesValid { turretWeapons, frame } =
     List.all
-        (extract >> .weaponClass >> (/=) Weapon.Capital)
+        (LT.extract >> .weaponClass >> (/=) Weapon.Capital)
         turretWeapons
 
 
@@ -782,6 +793,10 @@ isValidSpeed { frame, thrusters } =
             extract thrusters
     in
         speed <= Size.topSpeed frame.size && speed > 0
+
+
+
+--TODO: Only DirectFire weapons can be linked
 
 
 type BuildError

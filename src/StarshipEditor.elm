@@ -4,6 +4,8 @@ import Dict
 import Arc exposing (Arc)
 import Starship exposing (..)
 import Togglable exposing (..)
+import Link exposing (..)
+import LinkAndTogglable as LT exposing (LinkAndTogglable)
 import Weapon exposing (..)
 import Size exposing (..)
 import DefenseLevel exposing (..)
@@ -30,8 +32,8 @@ type Msg
     | SetDefensiveCountermeasures (Maybe DefenseLevel)
     | SetDriftEngine (Maybe DriftEngine)
     | SetExpansionBay (ListMsg (ToggleMsg ExpansionBay) (Togglable ExpansionBay))
-    | SetTurretWeapon (ListMsg (ToggleMsg Weapon) (Togglable Weapon))
-    | SetArcWeapon (ArcMsg (ListMsg (ToggleMsg Weapon) (Togglable Weapon)))
+    | SetTurretWeapon (ListMsg (LinkAndToggleMsg Weapon) (LinkAndTogglable Weapon))
+    | SetArcWeapon (ArcMsg (ListMsg (LinkAndToggleMsg Weapon) (LinkAndTogglable Weapon)))
     | SetShields (ToggleMsg Shields)
     | SetSensors Sensor
 
@@ -91,7 +93,7 @@ coilgun =
     { name = "Coilgun"
     , range = Long
     , weaponClass = Light
-    , weaponType = DirectFire False
+    , weaponType = DirectFire
     , damage = Just ( 4, 4 )
     , powerDraw = 10
     , buildPoints = 6
@@ -104,7 +106,7 @@ persistentParticleBeam =
     { name = "Persistent Particle Beam"
     , range = Long
     , weaponClass = Heavy
-    , weaponType = DirectFire False
+    , weaponType = DirectFire
     , damage = Just ( 10, 6 )
     , powerDraw = 40
     , buildPoints = 25
@@ -117,7 +119,7 @@ lightPlasmaCannon =
     { name = "Light Plasma Cannon"
     , range = Short
     , weaponClass = Light
-    , weaponType = DirectFire False
+    , weaponType = DirectFire
     , damage = Just ( 2, 12 )
     , powerDraw = 10
     , buildPoints = 12
@@ -130,7 +132,7 @@ heavyEmpCannon =
     { name = "Heavy EMP Cannon"
     , range = Weapon.Medium
     , weaponClass = Heavy
-    , weaponType = DirectFire False
+    , weaponType = DirectFire
     , damage = Nothing
     , powerDraw = 10
     , buildPoints = 24
@@ -143,7 +145,7 @@ lightLaserCannon =
     { name = "Light Laser Cannon"
     , range = Short
     , weaponClass = Light
-    , weaponType = DirectFire False
+    , weaponType = DirectFire
     , damage = Just ( 2, 4 )
     , powerDraw = 5
     , buildPoints = 2
@@ -156,7 +158,7 @@ gyrolaser =
     { name = "Gyrolaser"
     , range = Short
     , weaponClass = Light
-    , weaponType = DirectFire False
+    , weaponType = DirectFire
     , damage = Just ( 1, 8 )
     , powerDraw = 10
     , buildPoints = 3
@@ -248,6 +250,33 @@ toggleUpdate innerUpdate toggleMsg togglable =
 
         UpdateToggled innerMsg ->
             Togglable.map (innerUpdate innerMsg) togglable
+
+
+type LinkAndToggleMsg a
+    = LTToggle
+    | Link
+    | Unlink
+    | UpdateInner a
+
+
+linkAndToggleUpdate :
+    (a -> b -> b)
+    -> LinkAndToggleMsg a
+    -> LinkAndTogglable b
+    -> LinkAndTogglable b
+linkAndToggleUpdate innerUpdate toggleMsg togglable =
+    case toggleMsg of
+        LTToggle ->
+            LT.toggle togglable
+
+        Link ->
+            LT.link togglable
+
+        Unlink ->
+            LT.unlink togglable
+
+        UpdateInner innerMsg ->
+            LT.map (innerUpdate innerMsg) togglable
 
 
 type ListMsg a b
@@ -352,13 +381,13 @@ update action model =
         SetTurretWeapon listMsg ->
             { model
                 | turretWeapons =
-                    listUpdate (toggleUpdate always) listMsg model.turretWeapons
+                    listUpdate (linkAndToggleUpdate always) listMsg model.turretWeapons
             }
 
         SetArcWeapon arcMsg ->
             { model
                 | arcWeapons =
-                    arcUpdate (listUpdate (toggleUpdate always)) arcMsg model.arcWeapons
+                    arcUpdate (listUpdate (linkAndToggleUpdate always)) arcMsg model.arcWeapons
             }
 
         SetShields toggleMsg ->
@@ -381,6 +410,25 @@ togglableView innerView togglable =
         , text <| " (" ++ toString (meta togglable) ++ ") "
         , button [ onClick Toggle ] [ text "Toggle" ]
         ]
+
+
+linkAndTogglableView : (a -> Html b) -> LinkAndTogglable a -> Html (LinkAndToggleMsg b)
+linkAndTogglableView innerView togglable =
+    let
+        m =
+            LT.meta togglable
+    in
+        div []
+            [ Html.map UpdateInner <| innerView (LT.extract togglable)
+            , text <| " (" ++ toString (.switch m) ++ ", " ++ toString (.link m) ++ ") "
+            , button [ onClick LTToggle ] [ text "Toggle" ]
+            , case .link (LT.meta togglable) of
+                Linked ->
+                    button [ onClick Unlink ] [ text "Unlink" ]
+
+                Unlinked ->
+                    button [ onClick Link ] [ text "Link" ]
+            ]
 
 
 listView : (a -> Bool) -> Dict.Dict String a -> (a -> Html b) -> List a -> Html (ListMsg b a)
@@ -473,9 +521,9 @@ selectionView canAdd optionMap x =
         )
 
 
-weaponDict : Dict.Dict String (Togglable Weapon)
+weaponDict : Dict.Dict String (LinkAndTogglable Weapon)
 weaponDict =
-    (Dict.map (always pure)
+    (Dict.map (always LT.pure)
         (namedToDict
             [ coilgun
             , persistentParticleBeam
@@ -785,14 +833,14 @@ view model =
             div []
                 [ div [] [ text "Turret Weapons:" ]
                 , listView
-                    (extract
+                    (LT.extract
                         >> (\weapon ->
                                 not (List.member weapon.weaponClass (getAllowedClasses model.frame.size))
                                     || (weapon.weaponClass == Capital)
                            )
                     )
                     weaponDict
-                    (togglableView weaponView)
+                    (linkAndTogglableView weaponView)
                     model.turretWeapons
                 ]
         , Html.map SetArcWeapon <|
@@ -800,13 +848,13 @@ view model =
                 [ div [] [ text "Arc Weapons:" ]
                 , arcView
                     (listView
-                        (extract
+                        (LT.extract
                             >> (\weapon ->
                                     not (List.member weapon.weaponClass (getAllowedClasses model.frame.size))
                                )
                         )
                         weaponDict
-                        (togglableView weaponView)
+                        (linkAndTogglableView weaponView)
                     )
                     model.arcWeapons
                 ]

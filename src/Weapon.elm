@@ -13,16 +13,8 @@ type Class
     | Capital
 
 
-type
-    Type
-    -- TODO: While it's admirable to do this in types,
-    -- it's really in the wrong spot, because weapons should not
-    -- be updated by the user, but just selected.
-    -- and linking is a user alteration.
-    -- this needs to be moved out and then validated.
-    -- Direct Fire weapon can be linked, for double the effects
-    -- costing 2 mounts and 2.5x the build points
-    = DirectFire Bool
+type Type
+    = DirectFire
       -- Tracking weapons have a speed of the tracking projectile
     | Tracking Int
 
@@ -57,32 +49,6 @@ type alias Weapon =
     , buildPoints : Int
     , specialProperties : List WeaponProperty
     }
-
-
-getPowerDraw : Weapon -> Int
-getPowerDraw weapon =
-    (*) weapon.powerDraw <|
-        case weapon.weaponType of
-            DirectFire True ->
-                2
-
-            _ ->
-                1
-
-
-getBuildPoints : Weapon -> Int
-getBuildPoints weapon =
-    weapon.buildPoints
-        |> toFloat
-        |> (*)
-            (case weapon.weaponType of
-                DirectFire True ->
-                    2.5
-
-                _ ->
-                    1
-            )
-        |> round
 
 
 getArcMountPointBuiltPoints : Class -> Int

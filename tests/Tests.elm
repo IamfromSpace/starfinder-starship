@@ -8,6 +8,7 @@ import ExpansionBay exposing (..)
 import Size exposing (Size)
 import DefenseLevel exposing (..)
 import Togglable exposing (..)
+import LinkAndTogglable as LT exposing (LinkAndTogglable)
 
 
 -- TODO: These things should probably live in an assets directory that
@@ -47,7 +48,7 @@ coilgun =
     { name = "Coilgun"
     , range = Long
     , weaponClass = Light
-    , weaponType = DirectFire False
+    , weaponType = DirectFire
     , damage = Just ( 4, 4 )
     , powerDraw = 10
     , buildPoints = 6
@@ -60,7 +61,7 @@ persistentParticleBeam =
     { name = "Persistent Particle Beam"
     , range = Long
     , weaponClass = Heavy
-    , weaponType = DirectFire False
+    , weaponType = DirectFire
     , damage = Just ( 10, 6 )
     , powerDraw = 40
     , buildPoints = 25
@@ -73,7 +74,7 @@ lightPlasmaCannon =
     { name = "Light Plasma Cannon"
     , range = Short
     , weaponClass = Light
-    , weaponType = DirectFire False
+    , weaponType = DirectFire
     , damage = Just ( 2, 12 )
     , powerDraw = 10
     , buildPoints = 12
@@ -86,7 +87,7 @@ heavyEmpCannon =
     { name = "Heavy EMP Cannon"
     , range = Weapon.Medium
     , weaponClass = Heavy
-    , weaponType = DirectFire False
+    , weaponType = DirectFire
     , damage = Nothing
     , powerDraw = 10
     , buildPoints = 24
@@ -99,7 +100,7 @@ lightLaserCannon =
     { name = "Light Laser Cannon"
     , range = Short
     , weaponClass = Light
-    , weaponType = DirectFire False
+    , weaponType = DirectFire
     , damage = Just ( 2, 4 )
     , powerDraw = 5
     , buildPoints = 2
@@ -112,7 +113,7 @@ gyrolaser =
     { name = "Gyrolaser"
     , range = Short
     , weaponClass = Light
-    , weaponType = DirectFire False
+    , weaponType = DirectFire
     , damage = Just ( 1, 8 )
     , powerDraw = 10
     , buildPoints = 3
@@ -151,12 +152,12 @@ norikamaDropship =
     , expansionBays = [ pure GuestQuarters ]
     , sensors = { range = Long, bonus = 2 }
     , arcWeapons =
-        { forward = [ pure coilgun, pure persistentParticleBeam ]
-        , aft = [ pure coilgun ]
+        { forward = [ LT.pure coilgun, LT.pure persistentParticleBeam ]
+        , aft = [ LT.pure coilgun ]
         , portSide = []
         , starboard = []
         }
-    , turretWeapons = [ pure lightPlasmaCannon, pure lightPlasmaCannon ]
+    , turretWeapons = [ LT.pure lightPlasmaCannon, LT.pure lightPlasmaCannon ]
     , shields =
         pure
             { name = "Light Shields 80"
@@ -188,12 +189,12 @@ blackwindSepulcher =
         ]
     , sensors = { range = Long, bonus = 2 }
     , arcWeapons =
-        { forward = [ pure heavyEmpCannon, pure lightLaserCannon ]
-        , aft = [ pure gyrolaser ]
+        { forward = [ LT.pure heavyEmpCannon, LT.pure lightLaserCannon ]
+        , aft = [ LT.pure gyrolaser ]
         , portSide = []
         , starboard = []
         }
-    , turretWeapons = [ pure lightTorpedoLauncher, pure lightTorpedoLauncher ]
+    , turretWeapons = [ LT.pure lightTorpedoLauncher, LT.pure lightTorpedoLauncher ]
     , shields =
         pure
             { name = "Light Shields 60"
