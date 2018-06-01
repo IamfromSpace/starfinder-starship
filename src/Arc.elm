@@ -18,6 +18,19 @@ map fn arcs =
     }
 
 
+foldr : (a -> b -> b) -> b -> Arc a -> b
+foldr fn init arc =
+    fn arc.forward init
+        |> fn arc.aft
+        |> fn arc.portSide
+        |> fn arc.starboard
+
+
+all : Arc Bool -> Bool
+all =
+    foldr (&&) True
+
+
 concat : Arc appendable -> appendable
 concat arcs =
     arcs.forward

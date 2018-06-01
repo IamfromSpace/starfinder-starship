@@ -396,21 +396,29 @@ getWeaponsBuildPoints =
         getAllWeapons >> List.map getPoints >> List.sum
 
 
+getMountPointsUsed : LinkAndTogglable Weapon -> Int
+getMountPointsUsed weapon =
+    if .link (LT.meta weapon) == Linked then
+        2
+    else
+        1
+
+
 getMountPointsBuiltPoints : Starship -> Int
 getMountPointsBuiltPoints ship =
     let
-        --TODO: Need to double the mount points used by linked weapons
-        getClass =
-            LT.extract >> .weaponClass
+        getLinkableCost getBuildPoints weapon =
+            (LT.extract >> .weaponClass >> getBuildPoints) weapon
+                * getMountPointsUsed weapon
 
         arcCost =
             List.map
-                (getClass >> Weapon.getArcMountPointBuiltPoints)
+                (getLinkableCost Weapon.getArcMountPointBuiltPoints)
                 (Arc.concat ship.arcWeapons)
 
         turretCost =
             List.map
-                (getClass >> Weapon.getTurretMountPointBuiltPoints)
+                (getLinkableCost Weapon.getTurretMountPointBuiltPoints)
                 ship.turretWeapons
     in
         List.sum (arcCost ++ turretCost)
@@ -689,19 +697,19 @@ maxiumumSizeForDriftEngine driftEngine =
             Medium
 
 
+mountPointCountForGroupIsValid : Size -> List (LinkAndTogglable Weapon) -> Bool
+mountPointCountForGroupIsValid size group =
+    List.sum (List.map getMountPointsUsed group) <= getMountPointLimit size
+
+
 areArcMountPointsValid : Starship -> Bool
 areArcMountPointsValid { arcWeapons, frame } =
-    case List.maximum (Arc.concat (Arc.map (\x -> [ List.length x ]) arcWeapons)) of
-        Just max ->
-            max <= getMountPointLimit frame.size
-
-        Nothing ->
-            Debug.crash "Arcs list cannot be empty!"
+    Arc.all <| Arc.map (mountPointCountForGroupIsValid frame.size) arcWeapons
 
 
 areTurretMountPointsValid : Starship -> Bool
 areTurretMountPointsValid { turretWeapons, frame } =
-    List.length turretWeapons <= getMountPointLimit frame.size
+    mountPointCountForGroupIsValid frame.size turretWeapons
 
 
 areWeaponClassesValidForFrame : Starship -> Bool
