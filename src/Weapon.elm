@@ -76,3 +76,13 @@ getTurretMountPointBuiltPoints weaponClass =
         Capital ->
             -- TODO: These scenarios should probably be Maybes
             100000
+
+
+isTrackingWeapon : Weapon -> Bool
+isTrackingWeapon weapon =
+    case weapon.weaponType of
+        Tracking _ ->
+            True
+
+        _ ->
+            False

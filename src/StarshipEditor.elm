@@ -412,23 +412,41 @@ togglableView innerView togglable =
         ]
 
 
-linkAndTogglableView : (a -> Html b) -> LinkAndTogglable a -> Html (LinkAndToggleMsg b)
-linkAndTogglableView innerView togglable =
+linkAndTogglableView : (a -> Bool) -> (a -> Html b) -> LinkAndTogglable a -> Html (LinkAndToggleMsg b)
+linkAndTogglableView testCanLink innerView togglable =
     let
         m =
             LT.meta togglable
-    in
-        div []
-            [ Html.map UpdateInner <| innerView (LT.extract togglable)
-            , text <| " (" ++ toString (.switch m) ++ ", " ++ toString (.link m) ++ ") "
-            , button [ onClick LTToggle ] [ text "Toggle" ]
-            , case .link (LT.meta togglable) of
+
+        canLink =
+            testCanLink (LT.extract togglable)
+
+        linkText =
+            if canLink then
+                ", " ++ toString (.link m)
+            else
+                ""
+
+        linkButton =
+            case .link (LT.meta togglable) of
                 Linked ->
                     button [ onClick Unlink ] [ text "Unlink" ]
 
                 Unlinked ->
                     button [ onClick Link ] [ text "Link" ]
+
+        base =
+            [ Html.map UpdateInner <| innerView (LT.extract togglable)
+            , text <| " (" ++ toString (.switch m) ++ linkText ++ ") "
+            , button [ onClick LTToggle ] [ text "Toggle" ]
             ]
+    in
+        div []
+            (if canLink then
+                base ++ [ linkButton ]
+             else
+                base
+            )
 
 
 listView : (a -> Bool) -> Dict.Dict String a -> (a -> Html b) -> List a -> Html (ListMsg b a)
@@ -840,7 +858,10 @@ view model =
                            )
                     )
                     weaponDict
-                    (linkAndTogglableView weaponView)
+                    (linkAndTogglableView
+                        (isTrackingWeapon >> not)
+                        weaponView
+                    )
                     model.turretWeapons
                 ]
         , Html.map SetArcWeapon <|
@@ -854,7 +875,10 @@ view model =
                                )
                         )
                         weaponDict
-                        (linkAndTogglableView weaponView)
+                        (linkAndTogglableView
+                            (isTrackingWeapon >> not)
+                            weaponView
+                        )
                     )
                     model.arcWeapons
                 ]

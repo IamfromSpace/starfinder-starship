@@ -399,6 +399,7 @@ getWeaponsBuildPoints =
 getMountPointsBuiltPoints : Starship -> Int
 getMountPointsBuiltPoints ship =
     let
+        --TODO: Need to double the mount points used by linked weapons
         getClass =
             LT.extract >> .weaponClass
 
@@ -725,6 +726,16 @@ hasTurretIfHasTurretWeapons { turretWeapons, frame } =
     List.length turretWeapons == 0 || List.length frame.turretMounts > 0
 
 
+hasNoTrackingWeaponLinks : Starship -> Bool
+hasNoTrackingWeaponLinks { arcWeapons, turretWeapons } =
+    List.all
+        (\ltWeapon ->
+            not (Weapon.isTrackingWeapon (LT.extract ltWeapon))
+                || not (.link (LT.meta ltWeapon) == Linked)
+        )
+        (Arc.concat arcWeapons ++ turretWeapons)
+
+
 getPowerCoreCount : Starship -> Int
 getPowerCoreCount { expansionBays } =
     let
@@ -795,16 +806,13 @@ isValidSpeed { frame, thrusters } =
         speed <= Size.topSpeed frame.size && speed > 0
 
 
-
---TODO: Only DirectFire weapons can be linked
-
-
 type BuildError
     = TooManyWeaponMountsOnArc
     | TooManyWeaponMountsOnTurret
     | InvalidWeaponClassOnFrame
     | IllegalCapitalWeaponOnTurret
     | IllegalTurretMountsOnTurretlessFrame
+    | IllegalLinkedTrackingWeapon
     | PcuRequiresRequiresAdditionalPowerCore
     | TooManyPowerCores
     | TooManyExpansionBays
@@ -831,6 +839,7 @@ validateStarship =
         >> isTrue areWeaponClassesValidForFrame InvalidWeaponClassOnFrame
         >> isTrue areTurretWeaponClassesValid IllegalCapitalWeaponOnTurret
         >> isTrue hasTurretIfHasTurretWeapons IllegalTurretMountsOnTurretlessFrame
+        >> isTrue hasNoTrackingWeaponLinks IllegalLinkedTrackingWeapon
         >> isTrue hasEnoughPowerCoresForPcu PcuRequiresRequiresAdditionalPowerCore
         >> isTrue hasValidPowerCoreCount TooManyPowerCores
         >> isTrue hasValidExpansionBayCount TooManyExpansionBays
