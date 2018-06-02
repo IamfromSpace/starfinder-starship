@@ -121,3 +121,37 @@ patchStatus =
 damageStatus : Maybe Int -> PatchableSystem -> Status -> Status
 damageStatus rounds =
     updateCriticalStatus (damage rounds >> Just)
+
+
+tickCriticalStatus : CriticalStatus -> Maybe CriticalStatus
+tickCriticalStatus cs =
+    let
+        unheld =
+            { cs | heldTogether = False }
+    in
+        case unheld.remainingRounds of
+            Just x ->
+                if x > 1 then
+                    Just { unheld | remainingRounds = Just (x - 1) }
+                else
+                    Nothing
+
+            Nothing ->
+                Just unheld
+
+
+tick : Status -> Status
+tick status =
+    let
+        update =
+            updateCriticalStatus (Maybe.andThen tickCriticalStatus)
+    in
+        status
+            |> update LifeSupport
+            |> update Sensors
+            |> update (WeaponsArray Arc.Forward)
+            |> update (WeaponsArray Arc.Aft)
+            |> update (WeaponsArray Arc.Starboard)
+            |> update (WeaponsArray Arc.Port)
+            |> update Engines
+            |> update PowerCore
