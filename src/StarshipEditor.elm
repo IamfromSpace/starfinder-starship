@@ -399,7 +399,6 @@ update action model =
 
 weaponView : Weapon -> Html a
 weaponView =
-    --TODO: Linking
     .name >> text
 
 
