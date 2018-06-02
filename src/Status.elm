@@ -54,11 +54,51 @@ patchCriticalStatus criticalStatus =
         (patchSeverity criticalStatus.severity)
 
 
+type AnArc
+    = Forward
+    | Aft
+    | Port
+    | Starboard
 
--- TODO: Tediously do the rest (8 total), or find a better way
--- TODO: Is it worth making `type PatchableSystems = Sensors | ForwardArc | ...`?
+
+type PatchableSystem
+    = LifeSupport
+    | Sensors
+    | WeaponsArray AnArc
+    | Engines
+    | PowerCore
 
 
-patchLifeSupport : Status -> Status
-patchLifeSupport status =
-    { status | lifeSupport = Maybe.andThen patchCriticalStatus status.lifeSupport }
+patchWeapon : AnArc -> Arc (Maybe CriticalStatus) -> Arc (Maybe CriticalStatus)
+patchWeapon arc weaponsArray =
+    case arc of
+        Forward ->
+            { weaponsArray | forward = Maybe.andThen patchCriticalStatus weaponsArray.forward }
+
+        Aft ->
+            { weaponsArray | aft = Maybe.andThen patchCriticalStatus weaponsArray.aft }
+
+        Port ->
+            { weaponsArray | portSide = Maybe.andThen patchCriticalStatus weaponsArray.portSide }
+
+        Starboard ->
+            { weaponsArray | starboard = Maybe.andThen patchCriticalStatus weaponsArray.starboard }
+
+
+patchStatus : PatchableSystem -> Status -> Status
+patchStatus system status =
+    case system of
+        LifeSupport ->
+            { status | lifeSupport = Maybe.andThen patchCriticalStatus status.lifeSupport }
+
+        Sensors ->
+            { status | sensors = Maybe.andThen patchCriticalStatus status.sensors }
+
+        WeaponsArray arc ->
+            { status | weaponsArray = patchWeapon arc status.weaponsArray }
+
+        Engines ->
+            { status | engines = Maybe.andThen patchCriticalStatus status.engines }
+
+        PowerCore ->
+            { status | powerCore = Maybe.andThen patchCriticalStatus status.powerCore }
