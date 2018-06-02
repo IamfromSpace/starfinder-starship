@@ -37,3 +37,26 @@ concat arcs =
         ++ arcs.aft
         ++ arcs.portSide
         ++ arcs.starboard
+
+
+type AnArc
+    = Forward
+    | Aft
+    | Port
+    | Starboard
+
+
+updateArc : (a -> a) -> AnArc -> Arc a -> Arc a
+updateArc fn arc arcOf =
+    case arc of
+        Forward ->
+            { arcOf | forward = fn arcOf.forward }
+
+        Aft ->
+            { arcOf | aft = fn arcOf.aft }
+
+        Port ->
+            { arcOf | portSide = fn arcOf.portSide }
+
+        Starboard ->
+            { arcOf | starboard = fn arcOf.starboard }

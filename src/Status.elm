@@ -1,6 +1,6 @@
 module Status exposing (..)
 
-import Arc exposing (Arc)
+import Arc exposing (Arc, AnArc)
 
 
 type Severity
@@ -54,11 +54,36 @@ patchCriticalStatus criticalStatus =
         (patchSeverity criticalStatus.severity)
 
 
-type AnArc
-    = Forward
-    | Aft
-    | Port
-    | Starboard
+damageSeverity : Severity -> Severity
+damageSeverity severity =
+    case severity of
+        Glitching ->
+            Malfunctioning
+
+        Malfunctioning ->
+            Wrecked
+
+        Wrecked ->
+            Wrecked
+
+
+damage : Maybe Int -> Maybe CriticalStatus -> CriticalStatus
+damage rounds mCriticalStatus =
+    case mCriticalStatus of
+        Just criticalStatus ->
+            case rounds of
+                Just _ ->
+                    criticalStatus
+
+                Nothing ->
+                    { criticalStatus | severity = damageSeverity criticalStatus.severity }
+
+        Nothing ->
+            { severity = Glitching
+            , remainingRounds = rounds
+            , heldTogether = False
+            , quickFixed = False
+            }
 
 
 type PatchableSystem
@@ -69,36 +94,30 @@ type PatchableSystem
     | PowerCore
 
 
-patchWeapon : AnArc -> Arc (Maybe CriticalStatus) -> Arc (Maybe CriticalStatus)
-patchWeapon arc weaponsArray =
-    case arc of
-        Forward ->
-            { weaponsArray | forward = Maybe.andThen patchCriticalStatus weaponsArray.forward }
+updateCriticalStatus : (Maybe CriticalStatus -> Maybe CriticalStatus) -> PatchableSystem -> Status -> Status
+updateCriticalStatus fn system status =
+    case system of
+        LifeSupport ->
+            { status | lifeSupport = fn status.lifeSupport }
 
-        Aft ->
-            { weaponsArray | aft = Maybe.andThen patchCriticalStatus weaponsArray.aft }
+        Sensors ->
+            { status | sensors = fn status.sensors }
 
-        Port ->
-            { weaponsArray | portSide = Maybe.andThen patchCriticalStatus weaponsArray.portSide }
+        WeaponsArray arc ->
+            { status | weaponsArray = Arc.updateArc fn arc status.weaponsArray }
 
-        Starboard ->
-            { weaponsArray | starboard = Maybe.andThen patchCriticalStatus weaponsArray.starboard }
+        Engines ->
+            { status | engines = fn status.engines }
+
+        PowerCore ->
+            { status | powerCore = fn status.powerCore }
 
 
 patchStatus : PatchableSystem -> Status -> Status
-patchStatus system status =
-    case system of
-        LifeSupport ->
-            { status | lifeSupport = Maybe.andThen patchCriticalStatus status.lifeSupport }
+patchStatus =
+    updateCriticalStatus (Maybe.andThen patchCriticalStatus)
 
-        Sensors ->
-            { status | sensors = Maybe.andThen patchCriticalStatus status.sensors }
 
-        WeaponsArray arc ->
-            { status | weaponsArray = patchWeapon arc status.weaponsArray }
-
-        Engines ->
-            { status | engines = Maybe.andThen patchCriticalStatus status.engines }
-
-        PowerCore ->
-            { status | powerCore = Maybe.andThen patchCriticalStatus status.powerCore }
+damageStatus : Maybe Int -> PatchableSystem -> Status -> Status
+damageStatus rounds =
+    updateCriticalStatus (damage rounds >> Just)
