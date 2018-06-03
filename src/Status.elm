@@ -155,3 +155,28 @@ tick status =
             |> update (WeaponsArray Arc.Port)
             |> update Engines
             |> update PowerCore
+
+
+damageArc : Int -> PatchableSystem -> AnArc -> Int -> Status -> Status
+damageArc criticalThreshold criticalSystem arc amount status =
+    let
+        shielding =
+            Arc.getArc arc status.shields
+
+        hullDamage =
+            amount - shielding
+    in
+        if hullDamage > 0 then
+            { status | shields = Arc.updateArc (\x -> x - amount) arc status.shields }
+        else
+            let
+                nonCritical =
+                    { status
+                        | shields = Arc.updateArc (\x -> x - amount) arc status.shields
+                        , damage = status.damage - hullDamage
+                    }
+            in
+                if hullDamage >= criticalThreshold then
+                    damageStatus Nothing criticalSystem nonCritical
+                else
+                    nonCritical

@@ -60,3 +60,19 @@ updateArc fn arc arcOf =
 
         Starboard ->
             { arcOf | starboard = fn arcOf.starboard }
+
+
+getArc : AnArc -> Arc a -> a
+getArc arc arcOf =
+    case arc of
+        Forward ->
+            arcOf.forward
+
+        Aft ->
+            arcOf.aft
+
+        Port ->
+            arcOf.portSide
+
+        Starboard ->
+            arcOf.starboard
