@@ -166,14 +166,14 @@ damageArc criticalThreshold criticalSystem arc amount status =
         hullDamage =
             amount - shielding
     in
-        if hullDamage > 0 then
+        if hullDamage <= 0 then
             { status | shields = Arc.updateArc (\x -> x - amount) arc status.shields }
         else
             let
                 nonCritical =
                     { status
-                        | shields = Arc.updateArc (\x -> x - amount) arc status.shields
-                        , damage = status.damage - hullDamage
+                        | shields = Arc.updateArc (always 0) arc status.shields
+                        , damage = status.damage + hullDamage
                     }
             in
                 if hullDamage >= criticalThreshold then
