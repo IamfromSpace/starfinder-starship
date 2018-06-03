@@ -9,6 +9,15 @@ type alias Arc a =
     }
 
 
+pure : a -> Arc a
+pure a =
+    { forward = a
+    , aft = a
+    , portSide = a
+    , starboard = a
+    }
+
+
 map : (a -> b) -> Arc a -> Arc b
 map fn arcs =
     { forward = fn arcs.forward
