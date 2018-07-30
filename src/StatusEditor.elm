@@ -11,6 +11,7 @@ import Color.Manipulate exposing (weightedMix)
 import Color.Convert exposing (colorToCssRgb)
 import Togglable exposing (extract)
 import ShipAssets exposing (..)
+import Fighter
 
 
 type alias Model =
@@ -87,23 +88,14 @@ view model =
             [ div
                 [ A.style
                     [ ( "height", "20px" )
-                    , ( "width", "20px" )
+                    , ( "width", "150px" )
                     , ( "background-color"
                       , colorToCssRgb (colorTransition forwardDamagePercent)
                       )
                     ]
                 ]
                 []
-            , div
-                [ A.style
-                    [ ( "height", "30px" )
-                    , ( "width", "30px" )
-                    , ( "background-color"
-                      , colorToCssRgb (colorTransition damagePercent)
-                      )
-                    ]
-                ]
-                []
+            , Fighter.asHtml { size = 150, color = colorTransition damagePercent }
               -- TODO: Damage needs to be input-able
             , button [ E.onClick (Damage LifeSupport Forward 3) ] [ text "Damage" ]
             ]
