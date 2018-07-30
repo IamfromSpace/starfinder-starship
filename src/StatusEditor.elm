@@ -8,9 +8,9 @@ import Html.Attributes as A
 import Html.Events as E
 import Color exposing (Color, red, green, yellow, grey)
 import Color.Manipulate exposing (weightedMix)
-import Color.Convert exposing (colorToCssRgb)
 import Togglable exposing (extract)
 import ShipAssets exposing (..)
+import ShieldArc
 import Fighter
 
 
@@ -78,24 +78,58 @@ view model =
         damagePercent =
             toFloat (hp - model.status.damage) / toFloat hp
 
-        forwardDamagePercent =
-            toFloat model.status.shields.forward
-                -- TODO:  Need to handle disabled shields
-                /
-                    (toFloat (extract model.starship.shields).shieldPoints / 4)
+        shieldDamagePercent arc =
+            let
+                points =
+                    case arc of
+                        Forward ->
+                            model.status.shields.forward
+
+                        Port ->
+                            model.status.shields.portSide
+
+                        Starboard ->
+                            model.status.shields.starboard
+
+                        Aft ->
+                            model.status.shields.aft
+            in
+                toFloat points
+                    -- TODO:  Need to handle disabled shields
+                    /
+                        (toFloat (extract model.starship.shields).shieldPoints / 4)
+
+        rowStyle =
+            A.style [ ( "display", "flex" ), ( "flex-direction", "row" ) ]
+
+        spacer =
+            div [ A.style [ ( "width", toString (ShieldArc.getHeight 150) ++ "px" ) ] ] []
+
+        -- TODO: See the note in the ShieldArc module, this strategy has led down
+        -- a more complex path than anticipated, and what was originally intended
+        -- as pure SVG is now heavily dependent on div/styles for positioning.
+        -- Things like dependence on ShieldArc.getHeight show abstraction leaks.
+        mkArc arc =
+            ShieldArc.asHtml
+                { arc = arc
+                , size = 150
+                , color = colorTransition (shieldDamagePercent arc)
+                }
     in
         div []
-            [ div
-                [ A.style
-                    [ ( "height", "20px" )
-                    , ( "width", "150px" )
-                    , ( "background-color"
-                      , colorToCssRgb (colorTransition forwardDamagePercent)
-                      )
-                    ]
+            [ div [ rowStyle ]
+                [ spacer
+                , mkArc Forward
                 ]
-                []
-            , Fighter.asHtml { size = 150, color = colorTransition damagePercent }
+            , div [ rowStyle ]
+                [ mkArc Port
+                , Fighter.asHtml { size = 150, color = colorTransition damagePercent }
+                , mkArc Starboard
+                ]
+            , div [ rowStyle ]
+                [ spacer
+                , mkArc Aft
+                ]
               -- TODO: Damage needs to be input-able
             , button [ E.onClick (Damage LifeSupport Forward 3) ] [ text "Damage" ]
             ]
