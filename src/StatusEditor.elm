@@ -6,7 +6,7 @@ import Arc exposing (AnArc(..))
 import Html exposing (Html, div, button, text, beginnerProgram)
 import Html.Attributes as A
 import Html.Events as E
-import Color exposing (Color, red, green, yellow)
+import Color exposing (Color, red, green, yellow, grey)
 import Color.Manipulate exposing (weightedMix)
 import Color.Convert exposing (colorToCssRgb)
 import Togglable exposing (extract)
@@ -62,8 +62,10 @@ colorTransition : Float -> Color
 colorTransition x =
     if x > 0.5 then
         weightedMix green yellow (2 * (x - 0.5))
-    else
+    else if x > 0 then
         weightedMix yellow red (2 * x)
+    else
+        grey
 
 
 view : Model -> Html Msg
