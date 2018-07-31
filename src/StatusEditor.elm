@@ -1,5 +1,6 @@
 module StatusEditor exposing (..)
 
+import Switch exposing (Switch(..))
 import Status exposing (Status, PatchableSystem(..))
 import Starship exposing (Starship)
 import Arc exposing (AnArc(..))
@@ -8,7 +9,7 @@ import Html.Attributes as A
 import Html.Events as E
 import Color exposing (Color, red, green, yellow, grey)
 import Color.Manipulate exposing (weightedMix)
-import Togglable exposing (extract)
+import Togglable exposing (extract, meta)
 import ShipAssets exposing (..)
 import ShieldArc
 import Fighter
@@ -51,8 +52,8 @@ update msg model =
             { model
                 | status =
                     Status.damageArc
-                        model.starship.frame.criticalThreshold
                         criticalSystem
+                        model.starship
                         arc
                         damage
                         model.status
@@ -94,10 +95,11 @@ view model =
                         Aft ->
                             model.status.shields.aft
             in
-                toFloat points
-                    -- TODO:  Need to handle disabled shields
-                    /
-                        (toFloat (extract model.starship.shields).shieldPoints / 4)
+                if damagePercent > 0 && meta model.starship.shields == On then
+                    toFloat points
+                        / (toFloat (extract model.starship.shields).shieldPoints / 4)
+                else
+                    0
 
         rowStyle =
             A.style [ ( "display", "flex" ), ( "flex-direction", "row" ) ]

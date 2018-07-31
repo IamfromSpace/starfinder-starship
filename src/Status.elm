@@ -1,6 +1,9 @@
 module Status exposing (..)
 
 import Arc exposing (Arc, AnArc)
+import Starship exposing (Starship)
+import Switch exposing (Switch(..))
+import Togglable exposing (meta)
 
 
 type Severity
@@ -157,11 +160,20 @@ tick status =
             |> update PowerCore
 
 
-damageArc : Int -> PatchableSystem -> AnArc -> Int -> Status -> Status
-damageArc criticalThreshold criticalSystem arc amount status =
+damageArc : PatchableSystem -> Starship -> AnArc -> Int -> Status -> Status
+damageArc criticalSystem build arc amount status =
     let
+        criticalThreshold =
+            build.frame.criticalThreshold
+
+        shieldsOn =
+            meta build.shields == On
+
         shielding =
-            Arc.getArc arc status.shields
+            if shieldsOn then
+                Arc.getArc arc status.shields
+            else
+                0
 
         hullDamage =
             amount - shielding
