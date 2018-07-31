@@ -1,7 +1,7 @@
 module StatusEditor exposing (..)
 
 import Switch exposing (Switch(..))
-import Status exposing (Status, PatchableSystem(..))
+import Status exposing (Status, PatchableSystem(..), Severity(..), CriticalStatus)
 import Starship exposing (Starship)
 import Arc exposing (AnArc(..))
 import Html exposing (Html, div, button, text, beginnerProgram)
@@ -9,6 +9,7 @@ import Html.Attributes as A
 import Html.Events as E
 import Color exposing (Color, red, green, yellow, grey)
 import Color.Manipulate exposing (weightedMix)
+import Color.Convert exposing (colorToCssRgb)
 import Togglable exposing (extract, meta)
 import ShipAssets exposing (..)
 import ShieldArc
@@ -68,6 +69,31 @@ colorTransition x =
         weightedMix yellow red (2 * x)
     else
         grey
+
+
+maybeSeverityToPercent : Maybe Severity -> Float
+maybeSeverityToPercent mSeverity =
+    case mSeverity of
+        Nothing ->
+            1
+
+        Just severity ->
+            case severity of
+                Glitching ->
+                    0.67
+
+                Malfunctioning ->
+                    0.33
+
+                Wrecked ->
+                    0.001
+
+
+criticalStatusToRgb : Maybe CriticalStatus -> Color
+criticalStatusToRgb =
+    Maybe.andThen Status.getEffectiveCriticalStatus
+        >> maybeSeverityToPercent
+        >> colorTransition
 
 
 view : Model -> Html Msg
@@ -133,7 +159,19 @@ view model =
                 , mkArc Aft
                 ]
               -- TODO: Damage needs to be input-able
-            , button [ E.onClick (Damage LifeSupport Forward 3) ] [ text "Damage" ]
+            , div
+                [ A.style
+                    [ ( "background-color"
+                      , colorToCssRgb <|
+                            if damagePercent > 0 then
+                                criticalStatusToRgb model.status.lifeSupport
+                            else
+                                grey
+                      )
+                    ]
+                ]
+                [ text "Life Support" ]
+            , button [ E.onClick (Damage LifeSupport Forward 14) ] [ text "Damage" ]
             ]
 
 

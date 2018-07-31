@@ -37,6 +37,17 @@ type alias Status =
     }
 
 
+getEffectiveCriticalStatus : CriticalStatus -> Maybe Severity
+getEffectiveCriticalStatus cs =
+    if cs.quickFixed then
+        Nothing
+    else if cs.heldTogether then
+        patchSeverity cs.severity
+            |> Maybe.andThen patchSeverity
+    else
+        Just cs.severity
+
+
 patchSeverity : Severity -> Maybe Severity
 patchSeverity severity =
     case severity of
