@@ -7,13 +7,15 @@ import Color.Convert exposing (colorToCssRgb)
 import Html exposing (Html, button, div, text)
 import Svg exposing (Svg)
 import Svg.Attributes as SA
+import Svg.Events as SE
 import SvgUtils as SU exposing (Segment(..), Strategy(..))
 
 
-type alias SingleModel =
+type alias SingleModel a =
     { radius : Float
     , color : Color
     , rotation : Float
+    , onClick : a
     }
 
 
@@ -27,7 +29,7 @@ radiusToInnerSize radius =
     2 * radius / sqrt 2
 
 
-single : SingleModel -> Svg a
+single : SingleModel a -> Svg a
 single model =
     let
         innerSize =
@@ -46,6 +48,7 @@ single model =
                 ++ ","
                 ++ String.fromFloat model.radius
                 ++ ")"
+        , SE.onClick model.onClick
         , SU.d
             ( True
             , [ ( Absolute, MoveTo ( depth, depth ) )
@@ -57,13 +60,14 @@ single model =
         []
 
 
-type alias Model =
+type alias Model a =
     { radius : Float
     , colors : Arc.Arc Color
+    , onClick : AnArc -> a
     }
 
 
-view : Model -> Svg a
+view : Model a -> Svg a
 view model =
     Svg.g
         []
@@ -73,6 +77,7 @@ view model =
                     { radius = model.radius
                     , rotation = Arc.getDegrees arc
                     , color = color
+                    , onClick = model.onClick arc
                     }
                     :: list
             )
@@ -85,7 +90,7 @@ view model =
 --TODO: Move to examples
 
 
-main : Program () Model a
+main : Program () (Model AnArc) AnArc
 main =
     sandbox
         { init =
@@ -96,8 +101,9 @@ main =
                 , aft = Color.green
                 , starboard = Color.blue
                 }
+            , onClick = identity
             }
-        , update = always identity
+        , update = \msg model -> (\( _, x ) -> x) ( Debug.log "Arc Clicked" msg, model )
         , view =
             \model ->
                 let

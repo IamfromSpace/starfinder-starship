@@ -26,6 +26,7 @@ type alias Model =
     { status : Status
     , starship : Starship
     , locked : Bool
+    , selected : Maybe AnArc
     }
 
 
@@ -47,12 +48,15 @@ init =
     -- TODO: Obviously this should be injectable, not pre-defined
     , starship = norikamaDropship
     , locked = False
+    , selected = Nothing
     }
 
 
 type Msg
     = Damage AnArc Int
     | ApplyDamage Status
+    | SelectSheildArc AnArc
+    | DeselectSheildArc
 
 
 update : Msg -> Model -> ( Model, Cmd Msg )
@@ -82,10 +86,21 @@ update msg model =
 
         ApplyDamage status ->
             if model.locked then
-                ( { model | status = status, locked = False }, Cmd.none )
+                ( { model | status = status, locked = False, selected = Nothing }, Cmd.none )
 
             else
                 ( model, Cmd.none )
+
+        SelectSheildArc arc ->
+            -- Shields are unselectable when the ship is dead
+            if getDamagePercent model.starship model.status > 0 then
+                ( { model | selected = Just arc }, Cmd.none )
+
+            else
+                ( model, Cmd.none )
+
+        DeselectSheildArc ->
+            ( { model | selected = Nothing }, Cmd.none )
 
 
 colorTransition : Float -> Color
@@ -125,6 +140,14 @@ criticalStatusToRgb =
         >> colorTransition
 
 
+getDamagePercent starship status =
+    let
+        hp =
+            Starship.getMaxHitPoints starship
+    in
+    toFloat (hp - status.damage) / toFloat hp
+
+
 view : Model -> Html Msg
 view model =
     let
@@ -134,11 +157,8 @@ view model =
         sizeStr =
             String.fromFloat size
 
-        hp =
-            Starship.getMaxHitPoints model.starship
-
         damagePercent =
-            toFloat (hp - model.status.damage) / toFloat hp
+            getDamagePercent model.starship model.status
 
         shieldDamagePercents =
             Arc.map
@@ -154,7 +174,28 @@ view model =
 
         arcModel =
             { radius = size / 2
-            , colors = Arc.map colorTransition shieldDamagePercents
+            , colors =
+                case model.selected of
+                    Nothing ->
+                        Arc.map colorTransition shieldDamagePercents
+
+                    Just a ->
+                        Arc.mapWithAnArc
+                            (\arc _ ->
+                                if arc == a then
+                                    Color.blue
+
+                                else
+                                    Color.grey
+                            )
+                            (Arc.pure ())
+            , onClick =
+                case model.selected of
+                    Nothing ->
+                        SelectSheildArc
+
+                    _ ->
+                        \_ -> DeselectSheildArc
             }
 
         shipSize =
@@ -199,6 +240,17 @@ view model =
                 ]
             ]
 
+        -- TODO: Damage points should be based on user input
+        , button
+            (case model.selected of
+                Nothing ->
+                    [ A.disabled True ]
+
+                Just arc ->
+                    [ E.onClick (Damage arc 14) ]
+            )
+            [ text "Damage" ]
+
         -- TODO: patch a patchable system
         -- TODO: hold together a patchable system
         -- TODO: quick fix a patchable system
@@ -211,9 +263,6 @@ view model =
         , patchableDisplay "Weapons Array - Starboard" model.status.weaponsArray.starboard
         , patchableDisplay "Engines" model.status.engines
         , patchableDisplay "Power Core" model.status.powerCore
-
-        -- TODO: Arc/points should be based on user input
-        , button [ E.onClick (Damage Forward 14) ] [ text "Damage" ]
         ]
 
 
