@@ -1,6 +1,6 @@
-module Status exposing (..)
+module Status exposing (CriticalStatus, PatchableSystem(..), Severity(..), Status, damage, damageArc, damageSeverity, damageStatus, getEffectiveCriticalStatus, patchCriticalStatus, patchSeverity, patchStatus, tick, tickCriticalStatus, updateCriticalStatus)
 
-import Arc exposing (Arc, AnArc)
+import Arc exposing (AnArc, Arc)
 import Starship exposing (Starship)
 import Switch exposing (Switch(..))
 import Togglable exposing (meta)
@@ -41,9 +41,11 @@ getEffectiveCriticalStatus : CriticalStatus -> Maybe Severity
 getEffectiveCriticalStatus cs =
     if cs.quickFixed then
         Nothing
+
     else if cs.heldTogether then
         patchSeverity cs.severity
             |> Maybe.andThen patchSeverity
+
     else
         Just cs.severity
 
@@ -143,15 +145,16 @@ tickCriticalStatus cs =
         unheld =
             { cs | heldTogether = False }
     in
-        case unheld.remainingRounds of
-            Just x ->
-                if x > 1 then
-                    Just { unheld | remainingRounds = Just (x - 1) }
-                else
-                    Nothing
+    case unheld.remainingRounds of
+        Just x ->
+            if x > 1 then
+                Just { unheld | remainingRounds = Just (x - 1) }
 
-            Nothing ->
-                Just unheld
+            else
+                Nothing
+
+        Nothing ->
+            Just unheld
 
 
 tick : Status -> Status
@@ -160,15 +163,15 @@ tick status =
         update =
             updateCriticalStatus (Maybe.andThen tickCriticalStatus)
     in
-        status
-            |> update LifeSupport
-            |> update Sensors
-            |> update (WeaponsArray Arc.Forward)
-            |> update (WeaponsArray Arc.Aft)
-            |> update (WeaponsArray Arc.Starboard)
-            |> update (WeaponsArray Arc.Port)
-            |> update Engines
-            |> update PowerCore
+    status
+        |> update LifeSupport
+        |> update Sensors
+        |> update (WeaponsArray Arc.Forward)
+        |> update (WeaponsArray Arc.Aft)
+        |> update (WeaponsArray Arc.Starboard)
+        |> update (WeaponsArray Arc.Port)
+        |> update Engines
+        |> update PowerCore
 
 
 damageArc : PatchableSystem -> Starship -> AnArc -> Int -> Status -> Status
@@ -183,23 +186,26 @@ damageArc criticalSystem build arc amount status =
         shielding =
             if shieldsOn then
                 Arc.getArc arc status.shields
+
             else
                 0
 
         hullDamage =
             amount - shielding
     in
-        if hullDamage <= 0 then
-            { status | shields = Arc.updateArc (\x -> x - amount) arc status.shields }
+    if hullDamage <= 0 then
+        { status | shields = Arc.updateArc (\x -> x - amount) arc status.shields }
+
+    else
+        let
+            nonCritical =
+                { status
+                    | shields = Arc.updateArc (always 0) arc status.shields
+                    , damage = status.damage + hullDamage
+                }
+        in
+        if hullDamage >= criticalThreshold then
+            damageStatus Nothing criticalSystem nonCritical
+
         else
-            let
-                nonCritical =
-                    { status
-                        | shields = Arc.updateArc (always 0) arc status.shields
-                        , damage = status.damage + hullDamage
-                    }
-            in
-                if hullDamage >= criticalThreshold then
-                    damageStatus Nothing criticalSystem nonCritical
-                else
-                    nonCritical
+            nonCritical

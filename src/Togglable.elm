@@ -1,4 +1,4 @@
-module Togglable exposing (Togglable, toggle, map, extract, meta, pure)
+module Togglable exposing (Togglable, extract, map, meta, pure, toggle)
 
 import Switch exposing (..)
 
@@ -13,7 +13,7 @@ toggle togglable =
         (Togglable switch a) =
             togglable
     in
-        Togglable (Switch.toggle switch) a
+    Togglable (Switch.toggle switch) a
 
 
 map : (a -> b) -> Togglable a -> Togglable b

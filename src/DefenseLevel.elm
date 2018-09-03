@@ -1,4 +1,4 @@
-module DefenseLevel exposing (..)
+module DefenseLevel exposing (DefenseLevel(..), decDefenseLevel, getDefenseLevelSeq, incDefenseLevel, toString)
 
 
 type DefenseLevel
@@ -17,6 +17,55 @@ type DefenseLevel
     | Mk13
     | Mk14
     | Mk15
+
+
+toString : DefenseLevel -> String
+toString defenseLevel =
+    case defenseLevel of
+        Mk1 ->
+            "Mk1"
+
+        Mk2 ->
+            "Mk2"
+
+        Mk3 ->
+            "Mk3"
+
+        Mk4 ->
+            "Mk4"
+
+        Mk5 ->
+            "Mk5"
+
+        Mk6 ->
+            "Mk6"
+
+        Mk7 ->
+            "Mk7"
+
+        Mk8 ->
+            "Mk8"
+
+        Mk9 ->
+            "Mk9"
+
+        Mk10 ->
+            "Mk10"
+
+        Mk11 ->
+            "Mk11"
+
+        Mk12 ->
+            "Mk12"
+
+        Mk13 ->
+            "Mk13"
+
+        Mk14 ->
+            "Mk14"
+
+        Mk15 ->
+            "Mk15"
 
 
 getDefenseLevelSeq : DefenseLevel -> ( Maybe DefenseLevel, Maybe DefenseLevel )

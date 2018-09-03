@@ -1,14 +1,12 @@
-module ShipAssets exposing (..)
+module ShipAssets exposing (blackwindSepulcher, coilgun, fighter, gyrolaser, heavyEmpCannon, lightLaserCannon, lightPlasmaCannon, lightShields10, lightShields60, lightShields80, lightTorpedoLauncher, mediumTransport, norikamaDropship, persistentParticleBeam)
 
-import Starship exposing (..)
-import Weapon exposing (..)
+import DefenseLevel exposing (..)
+import ExpansionBay exposing (..)
+import LinkAndTogglable as LT exposing (LinkAndTogglable)
 import Size exposing (..)
 import Starship exposing (..)
-import Weapon exposing (..)
-import ExpansionBay exposing (..)
-import DefenseLevel exposing (..)
 import Togglable exposing (..)
-import LinkAndTogglable as LT exposing (LinkAndTogglable)
+import Weapon exposing (..)
 
 
 mediumTransport : Frame

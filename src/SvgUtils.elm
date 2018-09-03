@@ -1,10 +1,10 @@
-module SvgUtils exposing (Segment(..), Strategy(..), Point, Path, d)
+module SvgUtils exposing (Path, Point, Segment(..), Strategy(..), d)
 
 --TODO: This is lifted from geo and should become a package!!!
 
+import String
 import Svg exposing (..)
 import Svg.Attributes exposing (..)
-import String
 
 
 type Strategy
@@ -44,13 +44,14 @@ stratStr char strat =
 
 pointStr : Point -> String
 pointStr ( x, y ) =
-    toString x ++ "," ++ toString y
+    String.fromFloat x ++ "," ++ String.fromFloat y
 
 
 flagStr : Bool -> String
 flagStr b =
     if b then
         "1"
+
     else
         "0"
 
@@ -93,10 +94,10 @@ segmentStr segment =
             pointStr p
 
         Horizontal x ->
-            toString x
+            String.fromFloat x
 
         Vertical y ->
-            toString y
+            String.fromFloat y
 
         Linear p ->
             pointStr p
@@ -114,7 +115,7 @@ segmentStr segment =
             pointStr cp ++ "," ++ pointStr p
 
         Arc origin xAxisRotate largeArcFlag sweepFlag p ->
-            pointStr origin ++ " " ++ toString xAxisRotate ++ " " ++ flagStr largeArcFlag ++ " " ++ flagStr sweepFlag ++ " " ++ pointStr p
+            pointStr origin ++ " " ++ String.fromFloat xAxisRotate ++ " " ++ flagStr largeArcFlag ++ " " ++ flagStr sweepFlag ++ " " ++ pointStr p
 
 
 stratSegStr : ( Strategy, Segment ) -> String
@@ -125,10 +126,12 @@ stratSegStr ( strategy, segment ) =
 pathStr : Path -> String
 pathStr ( closed, p ) =
     List.foldr (stratSegStr >> (++)) "" p
-        ++ if closed then
-            "z"
-           else
-            ""
+        ++ (if closed then
+                "z"
+
+            else
+                ""
+           )
 
 
 d : Path -> Svg.Attribute a

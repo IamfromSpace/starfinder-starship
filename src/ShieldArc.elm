@@ -1,12 +1,14 @@
-module ShieldArc exposing (..)
+module ShieldArc exposing (Model, asHtml, getHeight, getIsConcaveUp, getIsWide, main, mapBoth, view)
 
 import Arc exposing (AnArc(..))
-import Html exposing (Html, div, button, text, beginnerProgram)
-import Svg exposing (Svg)
-import Svg.Attributes as SA
+import Browser exposing (sandbox)
 import Color exposing (Color)
 import Color.Convert exposing (colorToCssRgb)
-import SvgUtils as SU exposing (Strategy(..), Segment(..))
+import Html exposing (Html, button, div, text)
+import Svg exposing (Svg)
+import Svg.Attributes as SA
+import SvgUtils as SU exposing (Segment(..), Strategy(..))
+
 
 
 -- TODO: This whole module is very focused on getting a single arc of any
@@ -94,30 +96,31 @@ view model =
         delta =
             if getIsWide model.arc then
                 ( model.size, 0 )
+
             else
                 ( 0, model.size )
     in
-        Svg.path
-            [ SA.fill (colorToCssRgb model.color)
-            , SU.d
-                ( True
-                , [ ( Absolute, MoveTo origin )
-                  , ( Relative, Arc ( outerRadius, outerRadius ) 0 False isConcaveUp delta )
-                  , ( Relative, Arc ( innerRadius, innerRadius ) 0 False (not isConcaveUp) (mapBoth ((*) -1) delta) )
-                  ]
-                )
-            ]
-            []
+    Svg.path
+        [ SA.fill (colorToCssRgb model.color)
+        , SU.d
+            ( True
+            , [ ( Absolute, MoveTo origin )
+              , ( Relative, Arc ( outerRadius, outerRadius ) 0 False isConcaveUp delta )
+              , ( Relative, Arc ( innerRadius, innerRadius ) 0 False (not isConcaveUp) (mapBoth ((*) -1) delta) )
+              ]
+            )
+        ]
+        []
 
 
 asHtml : Model -> Svg a
 asHtml model =
     let
         shortStr =
-            toString (getHeight model.size)
+            String.fromFloat (getHeight model.size)
 
         longStr =
-            toString model.size
+            String.fromFloat model.size
 
         isWide =
             getIsWide model.arc
@@ -125,33 +128,35 @@ asHtml model =
         heightStr =
             if isWide then
                 shortStr
+
             else
                 longStr
 
         widthStr =
             if isWide then
                 longStr
+
             else
                 shortStr
     in
-        div []
-            [ Svg.svg
-                [ SA.height heightStr
-                , SA.width widthStr
-                , SA.viewBox ("0 0 " ++ widthStr ++ " " ++ heightStr)
-                ]
-                [ view model ]
+    div []
+        [ Svg.svg
+            [ SA.height heightStr
+            , SA.width widthStr
+            , SA.viewBox ("0 0 " ++ widthStr ++ " " ++ heightStr)
             ]
+            [ view model ]
+        ]
 
 
 
 --TODO: Move to examples
 
 
-main : Program Never Model a
+main : Program () Model a
 main =
-    beginnerProgram
-        { model = { arc = Forward, size = 400, color = Color.green }
+    sandbox
+        { init = { arc = Forward, size = 400, color = Color.green }
         , update = always identity
         , view = asHtml
         }

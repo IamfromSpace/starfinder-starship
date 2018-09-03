@@ -1,4 +1,4 @@
-module LinkAndTogglable exposing (..)
+module LinkAndTogglable exposing (LinkAndTogglable(..), Meta, extract, link, map, meta, pure, toggle, unlink)
 
 import Link exposing (..)
 import Switch exposing (..)

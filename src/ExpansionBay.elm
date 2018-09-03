@@ -1,4 +1,4 @@
-module ExpansionBay exposing (..)
+module ExpansionBay exposing (ExpansionBay(..), getBuildPoints, getExpansionBayCost, getExpansionBaysUsed, getPowerDraw, getSizeConstraints, isValidSize, toString)
 
 import Size exposing (..)
 
@@ -29,82 +29,148 @@ type ExpansionBay
     | TechWorkshop
 
 
-getExpansionBayCost : ExpansionBay -> ( Int, Int, Int, Maybe (List Size) )
+toString : ExpansionBay -> String
+toString expansionBay =
+    case expansionBay of
+        ArcaneLaboratory ->
+            "ArcaneLaboratory"
+
+        CargoHold ->
+            "CargoHold"
+
+        EscapePods ->
+            "EscapePods"
+
+        GuestQuarters ->
+            "GuestQuarters"
+
+        HangarBay ->
+            "HangarBay"
+
+        LifeBoats ->
+            "LifeBoats"
+
+        MedicalBay ->
+            "MedicalBay"
+
+        PassengerSeating ->
+            "PassengerSeating"
+
+        PowerCoreHousing ->
+            "PowerCoreHousing"
+
+        RecreationSuiteGym ->
+            "RecreationSuiteGym"
+
+        RecreationSuiteTrivedDen ->
+            "RecreationSuiteTrivedDen"
+
+        RecreationSuiteHac ->
+            "RecreationSuiteHac"
+
+        ScienceLab ->
+            "ScienceLab"
+
+        SealedEnvironmentChamber ->
+            "SealedEnvironmentChamber"
+
+        ShuttleBay ->
+            "ShuttleBay"
+
+        SmugglerCompartment x ->
+            "SmugglerCompartment " ++ String.fromInt x
+
+        SynthesisBay ->
+            "SynthesisBay"
+
+        TechWorkshop ->
+            "TechWorkshop"
+
+
+type alias ExpansionBayCost =
+    { powerDraw : Int
+    , buildPoints : Int
+    , expansionBaysUsed : Int
+    , sizeConstraints : Maybe (List Size)
+    }
+
+
+getExpansionBayCost : ExpansionBay -> ExpansionBayCost
 getExpansionBayCost expansionBay =
     case expansionBay of
         ArcaneLaboratory ->
-            ( 1, 1, 1, Nothing )
+            ExpansionBayCost 1 1 1 Nothing
 
         CargoHold ->
-            ( 0, 0, 1, Nothing )
+            ExpansionBayCost 0 0 1 Nothing
 
         EscapePods ->
-            ( 2, 1, 1, Nothing )
+            ExpansionBayCost 2 1 1 Nothing
 
         GuestQuarters ->
-            ( 1, 1, 1, Nothing )
+            ExpansionBayCost 1 1 1 Nothing
 
         HangarBay ->
-            ( 30, 10, 4, Just [ Gargantuan, Colossal ] )
+            ExpansionBayCost 30 10 4 (Just [ Gargantuan, Colossal ])
 
         LifeBoats ->
-            ( 5, 3, 1, Nothing )
+            ExpansionBayCost 5 3 1 Nothing
 
         MedicalBay ->
-            ( 4, 8, 1, Nothing )
+            ExpansionBayCost 4 8 1 Nothing
 
         PassengerSeating ->
-            ( 0, 0, 1, Nothing )
+            ExpansionBayCost 0 0 1 Nothing
 
         PowerCoreHousing ->
-            ( 0, 10, 1, Just [ Medium, Large, Huge, Gargantuan, Colossal ] )
+            ExpansionBayCost 0 10 1 (Just [ Medium, Large, Huge, Gargantuan, Colossal ])
 
         RecreationSuiteGym ->
-            ( 0, 1, 1, Nothing )
+            ExpansionBayCost 0 1 1 Nothing
 
         RecreationSuiteTrivedDen ->
-            ( 1, 1, 1, Nothing )
+            ExpansionBayCost 1 1 1 Nothing
 
         RecreationSuiteHac ->
-            ( 3, 1, 1, Nothing )
+            ExpansionBayCost 3 1 1 Nothing
 
         ScienceLab ->
-            ( 2, 1, 1, Nothing )
+            ExpansionBayCost 2 1 1 Nothing
 
         SealedEnvironmentChamber ->
-            ( 2, 1, 1, Nothing )
+            ExpansionBayCost 2 1 1 Nothing
 
         ShuttleBay ->
-            ( 10, 4, 2, Just [ Huge, Gargantuan, Colossal ] )
+            ExpansionBayCost 10 4 2 (Just [ Huge, Gargantuan, Colossal ])
 
         SmugglerCompartment dc ->
-            ( (dc - 1) // 5 + 1, (dc - 1) // 5 - 1, 1, Nothing )
+            ExpansionBayCost ((dc - 1) // 5 + 1) ((dc - 1) // 5 - 1) 1 Nothing
 
         SynthesisBay ->
-            ( 2, 1, 1, Nothing )
+            ExpansionBayCost 2 1 1 Nothing
 
         TechWorkshop ->
-            ( 3, 1, 1, Nothing )
+            ExpansionBayCost 3 1 1 Nothing
 
 
 getPowerDraw : ExpansionBay -> Int
 getPowerDraw =
-    getExpansionBayCost >> (\( x, _, _, _ ) -> x)
+    getExpansionBayCost >> .powerDraw
 
 
 getBuildPoints : ExpansionBay -> Int
 getBuildPoints =
-    getExpansionBayCost >> (\( _, x, _, _ ) -> x)
+    getExpansionBayCost >> .buildPoints
 
 
 getExpansionBaysUsed : ExpansionBay -> Int
 getExpansionBaysUsed =
-    getExpansionBayCost >> (\( _, _, x, _ ) -> x)
+    getExpansionBayCost >> .expansionBaysUsed
 
 
 getSizeConstraints : ExpansionBay -> Maybe (List Size)
 getSizeConstraints =
-    getExpansionBayCost >> (\( _, _, _, x ) -> x)
+    getExpansionBayCost >> .sizeConstraints
 
 
 isValidSize : Size -> ExpansionBay -> Bool

@@ -1,0 +1,30 @@
+{
+  "name": "starfinder-starship-combat",
+  "version": "1.0.0",
+  "description": "",
+  "main": "index.js",
+  "directories": {
+    "test": "tests"
+  },
+  "dependencies": {
+    "elm-test": "^0.18.13-beta",
+    "elm": "^0.19.0-bugfix2",
+    "elm-format": "^0.8.0",
+    "elm-upgrade": "^0.19.2"
+  },
+  "devDependencies": {},
+  "scripts": {
+    "reactor": "elm reactor --port=9876",
+    "test": "elm-test"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/IamfromSpace/starfinder-starship.git"
+  },
+  "author": "",
+  "license": "ISC",
+  "bugs": {
+    "url": "https://github.com/IamfromSpace/starfinder-starship/issues"
+  },
+  "homepage": "https://github.com/IamfromSpace/starfinder-starship#readme"
+}

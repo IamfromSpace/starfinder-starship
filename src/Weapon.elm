@@ -1,10 +1,23 @@
-module Weapon exposing (..)
+module Weapon exposing (Class(..), Irradiation(..), Range(..), Type(..), Weapon, WeaponProperty(..), getArcMountPointBuiltPoints, getTurretMountPointBuiltPoints, isTrackingWeapon, rangeToString)
 
 
 type Range
     = Short
     | Medium
     | Long
+
+
+rangeToString : Range -> String
+rangeToString range =
+    case range of
+        Short ->
+            "Short"
+
+        Medium ->
+            "Medium"
+
+        Long ->
+            "Long"
 
 
 type Class

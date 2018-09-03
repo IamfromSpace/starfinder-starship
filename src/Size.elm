@@ -1,4 +1,4 @@
-module Size exposing (..)
+module Size exposing (Size(..), toString, topSpeed)
 
 
 type Size
@@ -31,3 +31,28 @@ topSpeed size =
 
         _ ->
             8
+
+
+toString : Size -> String
+toString size =
+    case size of
+        Tiny ->
+            "Tiny"
+
+        Small ->
+            "Small"
+
+        Medium ->
+            "Medium"
+
+        Large ->
+            "Large"
+
+        Huge ->
+            "Huge"
+
+        Gargantuan ->
+            "Gargantuan"
+
+        Colossal ->
+            "Colossal"

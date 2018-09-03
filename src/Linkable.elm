@@ -1,4 +1,4 @@
-module Linkable exposing (..)
+module Linkable exposing (Linkable(..), link, map, unlink)
 
 import Link exposing (..)
 
@@ -13,7 +13,7 @@ link linkable =
         (Linkable l a) =
             linkable
     in
-        Linkable (Link.link l) a
+    Linkable (Link.link l) a
 
 
 unlink : Linkable a -> Linkable a
@@ -22,7 +22,7 @@ unlink linkable =
         (Linkable l a) =
             linkable
     in
-        Linkable (Link.unlink l) a
+    Linkable (Link.unlink l) a
 
 
 map : (a -> b) -> Linkable a -> Linkable b

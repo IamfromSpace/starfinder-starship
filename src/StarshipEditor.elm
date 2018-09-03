@@ -1,20 +1,22 @@
-module StarshipEditor exposing (..)
+module StarshipEditor exposing (ArcMsg(..), LinkAndToggleMsg(..), ListMsg(..), Model, Msg(..), ToggleMsg(..), arcUpdate, arcView, init, linkAndTogglableView, linkAndToggleUpdate, listUpdate, listView, main, namedToDict, selectionView, togglableView, toggleUpdate, update, view, weaponDict, weaponView)
 
-import Dict
 import Arc exposing (Arc)
-import Starship exposing (..)
-import Togglable exposing (..)
+import Browser exposing (sandbox)
+import Computer exposing (..)
+import DefenseLevel exposing (..)
+import Dict
+import ExpansionBay exposing (..)
+import Html exposing (..)
+import Html.Attributes exposing (disabled, selected, value)
+import Html.Events exposing (onClick, onInput)
 import Link exposing (..)
 import LinkAndTogglable as LT exposing (LinkAndTogglable)
-import Weapon exposing (..)
-import Size exposing (..)
-import DefenseLevel exposing (..)
-import ExpansionBay exposing (..)
-import Computer exposing (..)
-import Html exposing (..)
-import Html.Events exposing (onInput, onClick)
-import Html.Attributes exposing (value, disabled, selected)
 import ShipAssets exposing (..)
+import Size exposing (..)
+import Starship exposing (..)
+import Switch
+import Togglable exposing (..)
+import Weapon exposing (..)
 
 
 type alias Model =
@@ -122,6 +124,7 @@ listUpdate innerUpdate listMsg list =
                 (\i x ->
                     if i == index then
                         innerUpdate innerMsg x
+
                     else
                         x
                 )
@@ -232,7 +235,7 @@ togglableView : (a -> Html b) -> Togglable a -> Html (ToggleMsg b)
 togglableView innerView togglable =
     div []
         [ Html.map UpdateToggled <| innerView (extract togglable)
-        , text <| " (" ++ toString (meta togglable) ++ ") "
+        , text <| " (" ++ Switch.toString (meta togglable) ++ ") "
         , button [ onClick Toggle ] [ text "Toggle" ]
         ]
 
@@ -248,7 +251,8 @@ linkAndTogglableView testCanLink innerView togglable =
 
         linkText =
             if canLink then
-                ", " ++ toString (.link m)
+                ", " ++ Link.toString (.link m)
+
             else
                 ""
 
@@ -262,16 +266,17 @@ linkAndTogglableView testCanLink innerView togglable =
 
         base =
             [ Html.map UpdateInner <| innerView (LT.extract togglable)
-            , text <| " (" ++ toString (.switch m) ++ linkText ++ ") "
+            , text <| " (" ++ Switch.toString (.switch m) ++ linkText ++ ") "
             , button [ onClick LTToggle ] [ text "Toggle" ]
             ]
     in
-        div []
-            (if canLink then
-                base ++ [ linkButton ]
-             else
-                base
-            )
+    div []
+        (if canLink then
+            base ++ [ linkButton ]
+
+         else
+            base
+        )
 
 
 listView : (a -> Bool) -> Dict.Dict String a -> (a -> Html b) -> List a -> Html (ListMsg b a)
@@ -293,7 +298,7 @@ listView canAdd optionMap innerView list =
                     Cons value
 
                 Nothing ->
-                    Debug.crash "Unselectable option was selected!"
+                    Debug.todo "Unselectable option was selected!"
 
         helperOption =
             option
@@ -312,7 +317,7 @@ listView canAdd optionMap innerView list =
                 [ onInput inputCallback ]
                 (helperOption :: options)
     in
-        div [] (addItem :: items)
+    div [] (addItem :: items)
 
 
 arcView : (a -> Html b) -> Arc a -> Html (ArcMsg b)
@@ -352,7 +357,7 @@ selectionView canAdd optionMap x =
                         v
 
                     Nothing ->
-                        Debug.crash "Unselectable option was selected!"
+                        Debug.todo "Unselectable option was selected!"
             )
         ]
         (Dict.values <|
@@ -366,7 +371,7 @@ selectionView canAdd optionMap x =
 
 weaponDict : Dict.Dict String (LinkAndTogglable Weapon)
 weaponDict =
-    (Dict.map (always LT.pure)
+    Dict.map (always LT.pure)
         (namedToDict
             [ coilgun
             , persistentParticleBeam
@@ -377,7 +382,6 @@ weaponDict =
             , lightTorpedoLauncher
             ]
         )
-    )
 
 
 view : Model -> Html Msg
@@ -396,7 +400,7 @@ view model =
                     model.frame
                 ]
         , div []
-            [ div [] [ text <| "Power Core Units: " ++ toString model.powerCoreUnits ]
+            [ div [] [ text <| "Power Core Units: " ++ String.fromInt model.powerCoreUnits ]
             , button [ onClick (SetPcu (model.powerCoreUnits + 10)) ] [ text "Increase" ]
             , button [ onClick (SetPcu (model.powerCoreUnits - 10)) ] [ text "Decrease" ]
             ]
@@ -404,25 +408,25 @@ view model =
             speed =
                 extract model.thrusters
           in
-            Html.map SetThrusters <|
-                div []
-                    [ div [] [ text <| "Thrusters (" ++ toString (meta model.thrusters) ++ "): " ++ toString speed ]
-                    , button [ onClick Toggle ] [ text "Toggle Status" ]
-                    , button
-                        [ disabled (topSpeed model.frame.size < speed + 1)
-                        , onClick (UpdateToggled (speed + 1))
-                        ]
-                        [ text "Increase" ]
-                    , button
-                        [ disabled (speed <= 1)
-                        , onClick (UpdateToggled (speed - 1))
-                        ]
-                        [ text "Decrease" ]
+          Html.map SetThrusters <|
+            div []
+                [ div [] [ text <| "Thrusters (" ++ Switch.toString (meta model.thrusters) ++ "): " ++ String.fromInt speed ]
+                , button [ onClick Toggle ] [ text "Toggle Status" ]
+                , button
+                    [ disabled (topSpeed model.frame.size < speed + 1)
+                    , onClick (UpdateToggled (speed + 1))
                     ]
+                    [ text "Increase" ]
+                , button
+                    [ disabled (speed <= 1)
+                    , onClick (UpdateToggled (speed - 1))
+                    ]
+                    [ text "Decrease" ]
+                ]
         , div [] <|
             case model.armor of
                 Just dL ->
-                    [ div [] [ text <| "Armor: " ++ toString dL ]
+                    [ div [] [ text <| "Armor: " ++ DefenseLevel.toString dL ]
                     , button
                         [ disabled (incDefenseLevel dL == Nothing)
                         , onClick (SetArmor (incDefenseLevel dL))
@@ -442,41 +446,42 @@ view model =
             nodeText =
                 computer.bonus
                     |> List.repeat computer.nodes
-                    |> List.map (toString >> (++) "+")
+                    |> List.map (String.fromInt >> (++) "+")
                     |> String.join "/"
           in
-            Html.map SetComputer <|
-                div []
-                    (if computer.nodes > 0 && computer.bonus > 0 then
-                        [ div []
-                            [ text <| "Computer (" ++ toString (meta model.computer) ++ "): " ++ nodeText ]
-                        , button [ onClick Toggle ] [ text "Toggle Status" ]
-                        , button
-                            [ onClick (UpdateToggled { computer | nodes = computer.nodes - 1 })
-                            ]
-                            [ text "Remove Node" ]
-                        , button
-                            [ onClick (UpdateToggled { computer | nodes = computer.nodes + 1 }) ]
-                            [ text "Add Node" ]
-                        , button
-                            [ onClick (UpdateToggled { computer | bonus = computer.bonus - 1 })
-                            ]
-                            [ text "Decrease Bonus" ]
-                        , button
-                            [ onClick (UpdateToggled { computer | bonus = computer.bonus + 1 }) ]
-                            [ text "Increase Bonus" ]
+          Html.map SetComputer <|
+            div []
+                (if computer.nodes > 0 && computer.bonus > 0 then
+                    [ div []
+                        [ text <| "Computer (" ++ Switch.toString (meta model.computer) ++ "): " ++ nodeText ]
+                    , button [ onClick Toggle ] [ text "Toggle Status" ]
+                    , button
+                        [ onClick (UpdateToggled { computer | nodes = computer.nodes - 1 })
                         ]
-                     else
-                        [ div [] [ text "Computer: None" ]
-                        , button
-                            [ onClick (UpdateToggled { nodes = 1, bonus = 1 }) ]
-                            [ text "Add Computer" ]
+                        [ text "Remove Node" ]
+                    , button
+                        [ onClick (UpdateToggled { computer | nodes = computer.nodes + 1 }) ]
+                        [ text "Add Node" ]
+                    , button
+                        [ onClick (UpdateToggled { computer | bonus = computer.bonus - 1 })
                         ]
-                    )
+                        [ text "Decrease Bonus" ]
+                    , button
+                        [ onClick (UpdateToggled { computer | bonus = computer.bonus + 1 }) ]
+                        [ text "Increase Bonus" ]
+                    ]
+
+                 else
+                    [ div [] [ text "Computer: None" ]
+                    , button
+                        [ onClick (UpdateToggled { nodes = 1, bonus = 1 }) ]
+                        [ text "Add Computer" ]
+                    ]
+                )
         , let
             mkOption x =
-                option [ value (toString x), (selected (model.crewQuarters == x)) ]
-                    [ text (toString x) ]
+                option [ value (crewQuartersToString x), selected (model.crewQuarters == x) ]
+                    [ text (crewQuartersToString x) ]
 
             inputCallback str =
                 SetCrewQuarters <|
@@ -490,13 +495,13 @@ view model =
                         _ ->
                             Common
           in
-            div []
-                [ select [ onInput inputCallback ]
-                    [ mkOption Common
-                    , mkOption GoodQuarters
-                    , mkOption Luxurious
-                    ]
+          div []
+            [ select [ onInput inputCallback ]
+                [ mkOption Common
+                , mkOption GoodQuarters
+                , mkOption Luxurious
                 ]
+            ]
         , div [] <|
             case model.defensiveCountermeasures of
                 Just togglable ->
@@ -504,15 +509,15 @@ view model =
                         dL =
                             extract togglable
                     in
-                        [ div [] [ text <| "Defensive Countermeasures (" ++ toString (meta togglable) ++ "): " ++ toString dL ]
-                        , button [ onClick (ToggleDefensiveCountermeasures) ] [ text "Toggle Status" ]
-                        , button
-                            [ disabled (incDefenseLevel dL == Nothing)
-                            , onClick (SetDefensiveCountermeasures (incDefenseLevel dL))
-                            ]
-                            [ text "Increase" ]
-                        , button [ onClick (SetDefensiveCountermeasures (decDefenseLevel dL)) ] [ text "Decrease" ]
+                    [ div [] [ text <| "Defensive Countermeasures (" ++ Switch.toString (meta togglable) ++ "): " ++ DefenseLevel.toString dL ]
+                    , button [ onClick ToggleDefensiveCountermeasures ] [ text "Toggle Status" ]
+                    , button
+                        [ disabled (incDefenseLevel dL == Nothing)
+                        , onClick (SetDefensiveCountermeasures (incDefenseLevel dL))
                         ]
+                        [ text "Increase" ]
+                    , button [ onClick (SetDefensiveCountermeasures (decDefenseLevel dL)) ] [ text "Decrease" ]
+                    ]
 
                 Nothing ->
                     [ div [] [ text <| "Defensive Countermeasures: None" ]
@@ -522,8 +527,8 @@ view model =
             Just driftEngine ->
                 let
                     mkOption x =
-                        option [ value (toString x), (selected (driftEngine == x)) ]
-                            [ text (toString x) ]
+                        option [ value (driftEngineToString x), selected (driftEngine == x) ]
+                            [ text (driftEngineToString x) ]
 
                     inputCallback str =
                         SetDriftEngine <|
@@ -544,19 +549,19 @@ view model =
                                     _ ->
                                         Basic
                 in
-                    div []
-                        [ div [] [ text <| "Drift Engine: " ++ toString driftEngine ]
-                        , select [ onInput inputCallback ]
-                            [ mkOption Basic
-                            , mkOption Booster
-                            , mkOption Major
-                            , mkOption Superior
-                            , mkOption Ultra
-                            ]
-                        , button
-                            [ onClick (SetDriftEngine Nothing) ]
-                            [ text "Remove Drift Engine" ]
+                div []
+                    [ div [] [ text <| "Drift Engine: " ++ driftEngineToString driftEngine ]
+                    , select [ onInput inputCallback ]
+                        [ mkOption Basic
+                        , mkOption Booster
+                        , mkOption Major
+                        , mkOption Superior
+                        , mkOption Ultra
                         ]
+                    , button
+                        [ onClick (SetDriftEngine Nothing) ]
+                        [ text "Remove Drift Engine" ]
+                    ]
 
             Nothing ->
                 div []
@@ -580,7 +585,7 @@ view model =
                     fitsOnFrame =
                         isValidSize model.frame.size x
                 in
-                    notEnoughSlots || not fitsOnFrame
+                notEnoughSlots || not fitsOnFrame
 
             bays =
                 [ ArcaneLaboratory
@@ -607,40 +612,42 @@ view model =
                 div [] <|
                     case bay of
                         SmugglerCompartment dc ->
-                            [ div [] [ text <| "SmugglerCompartment: " ++ toString dc ]
-                              -- TODO: Currently there are no validations on min/max DC (20-50)
+                            [ div [] [ text <| "SmugglerCompartment: " ++ String.fromInt dc ]
+
+                            -- TODO: Currently there are no validations on min/max DC (20-50)
                             , button [ onClick <| SmugglerCompartment <| dc + 5 ] [ text "Increase" ]
                             , button [ onClick <| SmugglerCompartment <| dc - 5 ] [ text "Decrease" ]
                             ]
 
                         b ->
-                            [ div [] [ text <| toString b ] ]
+                            [ div [] [ text <| ExpansionBay.toString b ] ]
           in
-            Html.map SetExpansionBay <|
-                div []
-                    [ div [] [ text "ExpansionBays:" ]
-                    , listView
-                        (extract >> canAdd)
-                        (List.foldr (\b -> Dict.insert (toString b) (pure b)) Dict.empty bays)
-                        (togglableView expansionBayView)
-                        model.expansionBays
-                    ]
+          Html.map SetExpansionBay <|
+            div []
+                [ div [] [ text "ExpansionBays:" ]
+                , listView
+                    (extract >> canAdd)
+                    (List.foldr (\b -> Dict.insert (ExpansionBay.toString b) (pure b)) Dict.empty bays)
+                    (togglableView expansionBayView)
+                    model.expansionBays
+                ]
         , let
             sensors =
                 model.sensors
 
             mkOption x =
-                option [ value (toString x), (selected (sensors.range == x)) ]
-                    [ text (toString x) ]
+                option [ value (rangeToString x), selected (sensors.range == x) ]
+                    [ text (rangeToString x) ]
 
             -- TODO: This is really a general util function
             formatBonus x =
                 (if x < 0 then
                     ""
+
                  else
                     "+"
                 )
-                    ++ toString x
+                    ++ String.fromInt x
 
             inputCallback str =
                 SetSensors <|
@@ -657,21 +664,21 @@ view model =
                                     Short
                     }
           in
-            div []
-                [ div []
-                    [ text <| "Sensors (" ++ formatBonus sensors.bonus ++ "):" ]
-                , select [ onInput inputCallback ]
-                    [ mkOption Short
-                    , mkOption Weapon.Medium
-                    , mkOption Long
-                    ]
-                , button
-                    [ onClick (SetSensors { sensors | bonus = sensors.bonus + 1 }) ]
-                    [ text "Increase Bonus" ]
-                , button
-                    [ onClick (SetSensors { sensors | bonus = sensors.bonus - 1 }) ]
-                    [ text "Decrease Bonus" ]
+          div []
+            [ div []
+                [ text <| "Sensors (" ++ formatBonus sensors.bonus ++ "):" ]
+            , select [ onInput inputCallback ]
+                [ mkOption Short
+                , mkOption Weapon.Medium
+                , mkOption Long
                 ]
+            , button
+                [ onClick (SetSensors { sensors | bonus = sensors.bonus + 1 }) ]
+                [ text "Increase Bonus" ]
+            , button
+                [ onClick (SetSensors { sensors | bonus = sensors.bonus - 1 }) ]
+                [ text "Decrease Bonus" ]
+            ]
         , Html.map SetTurretWeapon <|
             div []
                 [ div [] [ text "Turret Weapons:" ]
@@ -717,9 +724,9 @@ view model =
                     )
                     model.shields
                 ]
-        , div [] [ text <| "Total Power Draw: " ++ toString (getStarshipPowerDraw model) ++ " PCU" ]
-        , div [] [ text <| "Total Build Points: " ++ toString (getStarshipBuildPoints model) ]
-        , div [] [ text <| "Tier: " ++ toString (getTierFromBuildPoints (getStarshipBuildPoints model)) ]
+        , div [] [ text <| "Total Power Draw: " ++ String.fromInt (getStarshipPowerDraw model) ++ " PCU" ]
+        , div [] [ text <| "Total Build Points: " ++ String.fromInt (getStarshipBuildPoints model) ]
+        , div [] [ text <| "Tier: " ++ String.fromFloat (getTierFromBuildPoints (getStarshipBuildPoints model)) ]
         , div []
             (case validateStarship model of
                 [] ->
@@ -727,11 +734,11 @@ view model =
 
                 x ->
                     div [] [ text "Starship has errors!:" ]
-                        :: List.map (\err -> div [] [ text (" - " ++ toString err) ]) x
+                        :: List.map (\err -> div [] [ text (" - " ++ buildErrorToString err) ]) x
             )
         ]
 
 
-main : Program Never Model Msg
+main : Program () Model Msg
 main =
-    beginnerProgram { model = init, update = update, view = view }
+    sandbox { init = init, update = update, view = view }

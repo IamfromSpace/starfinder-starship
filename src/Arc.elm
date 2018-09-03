@@ -1,4 +1,4 @@
-module Arc exposing (..)
+module Arc exposing (AnArc(..), Arc, all, concat, foldr, getArc, map, pure, updateArc)
 
 
 type alias Arc a =

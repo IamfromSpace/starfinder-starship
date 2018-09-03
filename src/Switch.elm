@@ -1,9 +1,19 @@
-module Switch exposing (..)
+module Switch exposing (Switch(..), toString, toggle)
 
 
 type Switch
     = On
     | Off
+
+
+toString : Switch -> String
+toString switch =
+    case switch of
+        On ->
+            "On"
+
+        Off ->
+            "Off"
 
 
 toggle : Switch -> Switch

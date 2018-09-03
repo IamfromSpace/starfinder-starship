@@ -1,15 +1,15 @@
-module Starship exposing (..)
+module Starship exposing (BuildError(..), CrewQuarters(..), DriftEngine(..), Frame, Maneuverability(..), Sensor, Shields, Starship, areArcMountPointsValid, areTurretMountPointsValid, areTurretWeaponClassesValid, areWeaponClassesValidForFrame, buildErrorToString, crewQuartersToString, driftEngineToString, getAllOnlineWeapons, getAllWeapons, getAllowedClasses, getArmorBuildPoints, getArmorTargetLockBonus, getCrewQuartersBuildPoints, getDefensiveCountermeasuresBuildPoints, getDefensiveCountermeasuresPowerDraw, getDriftEngineBuildPoints, getFrameBuildPoints, getMaxHitPoints, getMaxPcuPerPowerCore, getMaxPowerCoreCount, getMountPointLimit, getMountPointsBuiltPoints, getMountPointsUsed, getPowerCoreCount, getPowerCoreUnitsBuildPoints, getSensorBuildPoints, getSizeCategory, getStarshipBuildPoints, getStarshipPowerDraw, getThrusterBuildPoints, getThrusterPowerDraw, getTierFromBuildPoints, getTogglablePowerDraw, getWeaponsBuildPoints, getWeaponsPowerDraw, hasEnoughPowerCoresForPcu, hasNoTrackingWeaponLinks, hasSufficientPowerCoreUnits, hasSufficientPowerCoreUnitsForDriftEngine, hasTurretIfHasTurretWeapons, hasValidExpansionBayCount, hasValidPowerCoreCount, isSmallEnoughForDriftEngine, isTrue, isValidSizeForExpansionBays, isValidSpeed, maxiumumSizeForDriftEngine, minimumPowerCoreUnitsForDriftEngine, mountPointCountForGroupIsValid, validateStarship)
 
 import Arc exposing (Arc)
-import Weapon exposing (Weapon)
 import Computer exposing (Computer)
-import ExpansionBay exposing (ExpansionBay)
-import Size exposing (..)
 import DefenseLevel exposing (..)
-import Switch exposing (..)
+import ExpansionBay exposing (ExpansionBay)
 import Link exposing (..)
-import Togglable exposing (..)
 import LinkAndTogglable as LT exposing (LinkAndTogglable)
+import Size exposing (..)
+import Switch exposing (..)
+import Togglable exposing (..)
+import Weapon exposing (Weapon)
 
 
 type Maneuverability
@@ -45,7 +45,7 @@ getFrameBuildPoints { listedBuildPoints, arcMounts, turretMounts } =
         turretCosts =
             List.map Weapon.getTurretMountPointBuiltPoints turretMounts
     in
-        listedBuildPoints - List.sum (arcCosts ++ turretCosts)
+    listedBuildPoints - List.sum (arcCosts ++ turretCosts)
 
 
 getThrusterPowerDraw : Starship -> Int
@@ -54,32 +54,32 @@ getThrusterPowerDraw { frame, thrusters } =
         speed =
             extract thrusters
     in
-        case meta thrusters of
-            Off ->
-                0
+    case meta thrusters of
+        Off ->
+            0
 
-            On ->
-                case frame.size of
-                    Tiny ->
-                        round ((toFloat speed) * 2.5 + 5)
+        On ->
+            case frame.size of
+                Tiny ->
+                    round (toFloat speed * 2.5 + 5)
 
-                    Small ->
-                        speed * 5
+                Small ->
+                    speed * 5
 
-                    Medium ->
-                        speed * 5 + 20
+                Medium ->
+                    speed * 5 + 20
 
-                    Large ->
-                        speed * 10 + 20
+                Large ->
+                    speed * 10 + 20
 
-                    Huge ->
-                        speed * 20
+                Huge ->
+                    speed * 20
 
-                    Gargantuan ->
-                        speed * 30
+                Gargantuan ->
+                    speed * 30
 
-                    Colossal ->
-                        speed * 50
+                Colossal ->
+                    speed * 50
 
 
 getThrusterBuildPoints : Starship -> Int
@@ -88,21 +88,21 @@ getThrusterBuildPoints { frame, thrusters } =
         speed =
             extract thrusters
     in
-        case frame.size of
-            Large ->
-                speed
+    case frame.size of
+        Large ->
+            speed
 
-            Huge ->
-                speed
+        Huge ->
+            speed
 
-            Gargantuan ->
-                speed * 2
+        Gargantuan ->
+            speed * 2
 
-            Colossal ->
-                speed * 2
+        Colossal ->
+            speed * 2
 
-            _ ->
-                round ((toFloat speed) * 0.5)
+        _ ->
+            round (toFloat speed * 0.5)
 
 
 getSizeCategory : Size -> Int
@@ -180,7 +180,7 @@ getArmorBuildPoints size defenseLevel =
                 Mk15 ->
                     45
     in
-        getSizeCategory size * costMultiplier
+    getSizeCategory size * costMultiplier
 
 
 getArmorTargetLockBonus : DefenseLevel -> Int
@@ -236,6 +236,19 @@ type CrewQuarters
     = Common
     | GoodQuarters
     | Luxurious
+
+
+crewQuartersToString : CrewQuarters -> String
+crewQuartersToString crewQuarters =
+    case crewQuarters of
+        Common ->
+            "Common"
+
+        GoodQuarters ->
+            "GoodQuarters"
+
+        Luxurious ->
+            "Luxurious"
 
 
 getCrewQuartersBuildPoints : CrewQuarters -> Int
@@ -319,10 +332,29 @@ type DriftEngine
     | Ultra
 
 
+driftEngineToString : DriftEngine -> String
+driftEngineToString driftEngine =
+    case driftEngine of
+        Basic ->
+            "Basic"
+
+        Booster ->
+            "Booster"
+
+        Major ->
+            "Major"
+
+        Superior ->
+            "Superior"
+
+        Ultra ->
+            "Ultra"
+
+
 getDriftEngineBuildPoints : Size -> DriftEngine -> Int
 getDriftEngineBuildPoints size driftEngine =
     getSizeCategory size
-        * case driftEngine of
+        * (case driftEngine of
             Basic ->
                 2
 
@@ -337,6 +369,7 @@ getDriftEngineBuildPoints size driftEngine =
 
             Ultra ->
                 20
+          )
 
 
 type alias Sensor =
@@ -374,12 +407,14 @@ getWeaponsPowerDraw =
     let
         getDraw lt =
             .powerDraw (LT.extract lt)
-                * if .link (LT.meta lt) == Linked then
+                * (if .link (LT.meta lt) == Linked then
                     2
-                  else
+
+                   else
                     1
+                  )
     in
-        getAllOnlineWeapons >> List.map getDraw >> List.sum
+    getAllOnlineWeapons >> List.map getDraw >> List.sum
 
 
 getWeaponsBuildPoints : Starship -> Int
@@ -388,18 +423,21 @@ getWeaponsBuildPoints =
         getPoints lt =
             round <|
                 toFloat (.buildPoints (LT.extract lt))
-                    * if .link (LT.meta lt) == Linked then
+                    * (if .link (LT.meta lt) == Linked then
                         2.5
-                      else
+
+                       else
                         1
+                      )
     in
-        getAllWeapons >> List.map getPoints >> List.sum
+    getAllWeapons >> List.map getPoints >> List.sum
 
 
 getMountPointsUsed : LinkAndTogglable Weapon -> Int
 getMountPointsUsed weapon =
     if .link (LT.meta weapon) == Linked then
         2
+
     else
         1
 
@@ -421,7 +459,7 @@ getMountPointsBuiltPoints ship =
                 (getLinkableCost Weapon.getTurretMountPointBuiltPoints)
                 ship.turretWeapons
     in
-        List.sum (arcCost ++ turretCost)
+    List.sum (arcCost ++ turretCost)
 
 
 type alias Shields =
@@ -487,77 +525,99 @@ getStarshipBuildPoints ship =
         shields =
             extract ship.shields
     in
-        getFrameBuildPoints ship.frame
-            + getPowerCoreUnitsBuildPoints ship.powerCoreUnits
-            + getThrusterBuildPoints ship
-            + (ship.armor
-                |> Maybe.map (getArmorBuildPoints ship.frame.size)
-                |> Maybe.withDefault 0
-              )
-            + Computer.getBuildPoints computer
-            + getCrewQuartersBuildPoints ship.crewQuarters
-            + (ship.defensiveCountermeasures
-                |> Maybe.map
-                    (extract >> getDefensiveCountermeasuresBuildPoints)
-                |> Maybe.withDefault 0
-              )
-            + (ship.driftEngine
-                |> Maybe.map (getDriftEngineBuildPoints ship.frame.size)
-                |> Maybe.withDefault 0
-              )
-            + List.sum (List.map (extract >> ExpansionBay.getBuildPoints) ship.expansionBays)
-            + getSensorBuildPoints ship.sensors
-            + getWeaponsBuildPoints ship
-            + getMountPointsBuiltPoints ship
-            + shields.buildPoints
+    getFrameBuildPoints ship.frame
+        + getPowerCoreUnitsBuildPoints ship.powerCoreUnits
+        + getThrusterBuildPoints ship
+        + (ship.armor
+            |> Maybe.map (getArmorBuildPoints ship.frame.size)
+            |> Maybe.withDefault 0
+          )
+        + Computer.getBuildPoints computer
+        + getCrewQuartersBuildPoints ship.crewQuarters
+        + (ship.defensiveCountermeasures
+            |> Maybe.map
+                (extract >> getDefensiveCountermeasuresBuildPoints)
+            |> Maybe.withDefault 0
+          )
+        + (ship.driftEngine
+            |> Maybe.map (getDriftEngineBuildPoints ship.frame.size)
+            |> Maybe.withDefault 0
+          )
+        + List.sum (List.map (extract >> ExpansionBay.getBuildPoints) ship.expansionBays)
+        + getSensorBuildPoints ship.sensors
+        + getWeaponsBuildPoints ship
+        + getMountPointsBuiltPoints ship
+        + shields.buildPoints
 
 
 getTierFromBuildPoints : Int -> Float
 getTierFromBuildPoints bp =
     if bp < 25 then
         1 / 4
+
     else if bp < 30 then
         1 / 3
+
     else if bp < 40 then
         1 / 2
+
     else if bp < 55 then
         1
+
     else if bp < 75 then
         2
+
     else if bp < 95 then
         3
+
     else if bp < 115 then
         4
+
     else if bp < 135 then
         5
+
     else if bp < 155 then
         6
+
     else if bp < 180 then
         7
+
     else if bp < 205 then
         8
+
     else if bp < 230 then
         9
+
     else if bp < 270 then
         10
+
     else if bp < 310 then
         11
+
     else if bp < 350 then
         12
+
     else if bp < 400 then
         13
+
     else if bp < 450 then
         14
+
     else if bp < 500 then
         15
+
     else if bp < 600 then
         16
+
     else if bp < 700 then
         17
+
     else if bp < 800 then
         18
+
     else if bp < 900 then
         19
+
     else
         20
 
@@ -568,7 +628,7 @@ getMaxHitPoints ship =
         increases =
             (ship |> getStarshipBuildPoints |> getTierFromBuildPoints |> round) // 4
     in
-        ship.frame.baseHitPoints + ship.frame.hitPointsIncrement * increases
+    ship.frame.baseHitPoints + ship.frame.hitPointsIncrement * increases
 
 
 
@@ -717,7 +777,7 @@ areWeaponClassesValidForFrame { arcWeapons, turretWeapons, frame } =
     List.all
         (LT.extract
             >> .weaponClass
-            >> flip List.member (getAllowedClasses frame.size)
+            >> (\a -> List.member a (getAllowedClasses frame.size))
         )
         (Arc.concat arcWeapons ++ turretWeapons)
 
@@ -748,9 +808,9 @@ getPowerCoreCount : Starship -> Int
 getPowerCoreCount { expansionBays } =
     let
         isPowerCoreHousing =
-            (extract >> (==) ExpansionBay.PowerCoreHousing)
+            extract >> (==) ExpansionBay.PowerCoreHousing
     in
-        List.length (List.filter isPowerCoreHousing expansionBays) + 1
+    List.length (List.filter isPowerCoreHousing expansionBays) + 1
 
 
 hasEnoughPowerCoresForPcu : Starship -> Bool
@@ -771,7 +831,7 @@ hasValidExpansionBayCount { expansionBays, frame } =
                 |> List.map (extract >> ExpansionBay.getExpansionBaysUsed)
                 |> List.sum
     in
-        baysUsed <= frame.expansionBays
+    baysUsed <= frame.expansionBays
 
 
 isValidSizeForExpansionBays : Starship -> Bool
@@ -811,7 +871,7 @@ isValidSpeed { frame, thrusters } =
         speed =
             extract thrusters
     in
-        speed <= Size.topSpeed frame.size && speed > 0
+    speed <= Size.topSpeed frame.size && speed > 0
 
 
 type BuildError
@@ -831,17 +891,64 @@ type BuildError
     | SpeedTooFastForSizeOrLessThan1
 
 
+buildErrorToString : BuildError -> String
+buildErrorToString buildError =
+    case buildError of
+        TooManyWeaponMountsOnArc ->
+            "TooManyWeaponMountsOnArc"
+
+        TooManyWeaponMountsOnTurret ->
+            "TooManyWeaponMountsOnTurret"
+
+        InvalidWeaponClassOnFrame ->
+            "InvalidWeaponClassOnFrame"
+
+        IllegalCapitalWeaponOnTurret ->
+            "IllegalCapitalWeaponOnTurret"
+
+        IllegalTurretMountsOnTurretlessFrame ->
+            "IllegalTurretMountsOnTurretlessFrame"
+
+        IllegalLinkedTrackingWeapon ->
+            "IllegalLinkedTrackingWeapon"
+
+        PcuRequiresRequiresAdditionalPowerCore ->
+            "PcuRequiresRequiresAdditionalPowerCore"
+
+        TooManyPowerCores ->
+            "TooManyPowerCores"
+
+        TooManyExpansionBays ->
+            "TooManyExpansionBays"
+
+        InvalidExpansionBayOnFrame ->
+            "InvalidExpansionBayOnFrame"
+
+        NotEnoughPowerForActiveSystems ->
+            "NotEnoughPowerForActiveSystems"
+
+        PowerCoreTooSmallForDriftEngines ->
+            "PowerCoreTooSmallForDriftEngines"
+
+        ShipToLargeForDriftEngine ->
+            "ShipToLargeForDriftEngine"
+
+        SpeedTooFastForSizeOrLessThan1 ->
+            "SpeedTooFastForSizeOrLessThan1"
+
+
 isTrue : (a -> Bool) -> b -> ( List b, a ) -> ( List b, a )
 isTrue fn err ( errs, value ) =
     if fn value then
         ( errs, value )
+
     else
         ( err :: errs, value )
 
 
 validateStarship : Starship -> List BuildError
 validateStarship =
-    (,) []
+    (\b -> ( [], b ))
         >> isTrue areArcMountPointsValid TooManyWeaponMountsOnArc
         >> isTrue areTurretMountPointsValid TooManyWeaponMountsOnTurret
         >> isTrue areWeaponClassesValidForFrame InvalidWeaponClassOnFrame
