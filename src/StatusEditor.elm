@@ -57,6 +57,7 @@ type Msg
 
 update : Msg -> Model -> ( Model, Cmd Msg )
 update msg model =
+    -- TODO: Restrict actions based on the current phase of the round
     case msg of
         Damage arc damage ->
             -- This may be over defensive, but we lock the model
@@ -197,6 +198,11 @@ view model =
                     }
                 ]
             ]
+
+        -- TODO: patch a patchable system
+        -- TODO: hold together a patchable system
+        -- TODO: quick fix a patchable system
+        -- TODO: Apply a temporary status to patchable system
         , patchableDisplay "Life Support" model.status.lifeSupport
         , patchableDisplay "Sensors" model.status.sensors
         , patchableDisplay "Weapons Array - Forward" model.status.weaponsArray.forward
@@ -205,6 +211,8 @@ view model =
         , patchableDisplay "Weapons Array - Starboard" model.status.weaponsArray.starboard
         , patchableDisplay "Engines" model.status.engines
         , patchableDisplay "Power Core" model.status.powerCore
+
+        -- TODO: Arc/points should be based on user input
         , button [ E.onClick (Damage Forward 14) ] [ text "Damage" ]
         ]
 
