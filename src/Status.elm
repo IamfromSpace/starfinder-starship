@@ -1,6 +1,7 @@
-module Status exposing (CriticalStatus, PatchableSystem(..), Severity(..), Status, damage, damageArc, damageSeverity, damageStatus, getEffectiveCriticalStatus, patchCriticalStatus, patchSeverity, patchStatus, tick, tickCriticalStatus, updateCriticalStatus)
+module Status exposing (CriticalStatus, PatchableSystem(..), Severity(..), Status, damage, damageArc, damageSeverity, damageStatus, getEffectiveCriticalStatus, patchCriticalStatus, patchSeverity, patchStatus, pickPatchableSystem, tick, tickCriticalStatus, updateCriticalStatus)
 
 import Arc exposing (AnArc, Arc)
+import Random exposing (Generator)
 import Starship exposing (Starship)
 import Switch exposing (Switch(..))
 import Togglable exposing (meta)
@@ -108,6 +109,24 @@ type PatchableSystem
     | WeaponsArray AnArc
     | Engines
     | PowerCore
+
+
+
+-- A generator that picks a system to damage based on the odds
+-- of impacting that system.
+
+
+pickPatchableSystem : Generator PatchableSystem
+pickPatchableSystem =
+    Random.weighted ( 10, LifeSupport )
+        [ ( 20, Sensors )
+        , ( 7.5, WeaponsArray Arc.Forward )
+        , ( 7.5, WeaponsArray Arc.Aft )
+        , ( 7.5, WeaponsArray Arc.Port )
+        , ( 7.5, WeaponsArray Arc.Starboard )
+        , ( 20, Engines )
+        , ( 20, PowerCore )
+        ]
 
 
 updateCriticalStatus : (Maybe CriticalStatus -> Maybe CriticalStatus) -> PatchableSystem -> Status -> Status

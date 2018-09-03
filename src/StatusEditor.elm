@@ -1,7 +1,7 @@
 module StatusEditor exposing (Model, Msg(..), colorTransition, criticalStatusToRgb, init, main, maybeSeverityToPercent, update, view)
 
 import Arc exposing (AnArc(..))
-import Browser exposing (sandbox)
+import Browser exposing (element)
 import Color exposing (Color, green, grey, red, yellow)
 import Color.Convert exposing (colorToCssRgb)
 import Color.Manipulate exposing (weightedMix)
@@ -9,6 +9,9 @@ import Fighter
 import Html exposing (Html, button, div, text)
 import Html.Attributes as A
 import Html.Events as E
+import Platform.Cmd exposing (Cmd)
+import Platform.Sub
+import Random
 import ShieldArc
 import ShipAssets exposing (..)
 import Starship exposing (Starship)
@@ -22,6 +25,7 @@ import Togglable exposing (extract, meta)
 type alias Model =
     { status : Status
     , starship : Starship
+    , locked : Bool
     }
 
 
@@ -42,28 +46,45 @@ init =
 
     -- TODO: Obviously this should be injectable, not pre-defined
     , starship = norikamaDropship
+    , locked = False
     }
 
 
-type
-    Msg
-    -- TODO: The patchable system needs to be chosen at random based on rulebook table
-    = Damage PatchableSystem AnArc Int
+type Msg
+    = Damage AnArc Int
+    | ApplyDamage Status
 
 
-update : Msg -> Model -> Model
+update : Msg -> Model -> ( Model, Cmd Msg )
 update msg model =
     case msg of
-        Damage criticalSystem arc damage ->
-            { model
-                | status =
-                    Status.damageArc
-                        criticalSystem
-                        model.starship
-                        arc
-                        damage
-                        model.status
-            }
+        Damage arc damage ->
+            -- This may be over defensive, but we lock the model
+            -- while we are waiting for the random result to come back
+            if not model.locked then
+                ( { model | locked = True }
+                , Random.generate
+                    (\criticalSystem ->
+                        ApplyDamage <|
+                            Status.damageArc
+                                criticalSystem
+                                model.starship
+                                arc
+                                damage
+                                model.status
+                    )
+                    Status.pickPatchableSystem
+                )
+
+            else
+                ( model, Cmd.none )
+
+        ApplyDamage status ->
+            if model.locked then
+                ( { model | status = status, locked = False }, Cmd.none )
+
+            else
+                ( model, Cmd.none )
 
 
 colorTransition : Float -> Color
@@ -140,6 +161,20 @@ view model =
 
         shipOffset =
             (size - shipSize) / 2
+
+        patchableDisplay name status =
+            div
+                [ A.style
+                    "background-color"
+                    (colorToCssRgb <|
+                        if damagePercent > 0 then
+                            criticalStatusToRgb status
+
+                        else
+                            grey
+                    )
+                ]
+                [ text name ]
     in
     div []
         [ Svg.svg
@@ -162,22 +197,23 @@ view model =
                     }
                 ]
             ]
-        , div
-            [ A.style
-                "background-color"
-                (colorToCssRgb <|
-                    if damagePercent > 0 then
-                        criticalStatusToRgb model.status.lifeSupport
-
-                    else
-                        grey
-                )
-            ]
-            [ text "Life Support" ]
-        , button [ E.onClick (Damage LifeSupport Forward 14) ] [ text "Damage" ]
+        , patchableDisplay "Life Support" model.status.lifeSupport
+        , patchableDisplay "Sensors" model.status.sensors
+        , patchableDisplay "Weapons Array - Forward" model.status.weaponsArray.forward
+        , patchableDisplay "Weapons Array - Aft" model.status.weaponsArray.aft
+        , patchableDisplay "Weapons Array - Port" model.status.weaponsArray.portSide
+        , patchableDisplay "Weapons Array - Starboard" model.status.weaponsArray.starboard
+        , patchableDisplay "Engines" model.status.engines
+        , patchableDisplay "Power Core" model.status.powerCore
+        , button [ E.onClick (Damage Forward 14) ] [ text "Damage" ]
         ]
 
 
 main : Program () Model Msg
 main =
-    sandbox { init = init, update = update, view = view }
+    element
+        { init = \_ -> ( init, Cmd.none )
+        , update = update
+        , view = view
+        , subscriptions = \_ -> Sub.none
+        }
