@@ -1,4 +1,4 @@
-module Fighter exposing (Model, asHtml, fighter, main)
+module Fighter exposing (Model, asHtml, main, view)
 
 import Browser exposing (sandbox)
 import Color exposing (Color)
@@ -14,8 +14,8 @@ type alias Model =
     }
 
 
-fighter : Model -> Svg a
-fighter model =
+view : Model -> Svg a
+view model =
     -- TODO: the figher doesn't quite fill its bounding box
     let
         scale =
@@ -47,7 +47,7 @@ asHtml model =
             , SA.width sizeStr
             , SA.viewBox ("0 0 " ++ sizeStr ++ " " ++ sizeStr)
             ]
-            [ fighter model ]
+            [ view model ]
         ]
 
 

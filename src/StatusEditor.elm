@@ -13,6 +13,8 @@ import ShieldArc
 import ShipAssets exposing (..)
 import Starship exposing (Starship)
 import Status exposing (CriticalStatus, PatchableSystem(..), Severity(..), Status)
+import Svg exposing (Svg)
+import Svg.Attributes as SA
 import Switch exposing (Switch(..))
 import Togglable exposing (extract, meta)
 
@@ -104,70 +106,62 @@ criticalStatusToRgb =
 view : Model -> Html Msg
 view model =
     let
+        size =
+            200
+
+        sizeStr =
+            String.fromFloat size
+
         hp =
             Starship.getMaxHitPoints model.starship
 
         damagePercent =
             toFloat (hp - model.status.damage) / toFloat hp
 
-        shieldDamagePercent arc =
-            let
-                points =
-                    case arc of
-                        Forward ->
-                            model.status.shields.forward
+        shieldDamagePercents =
+            Arc.map
+                (\points ->
+                    if damagePercent > 0 && meta model.starship.shields == On then
+                        toFloat points
+                            / (toFloat (extract model.starship.shields).shieldPoints / 4)
 
-                        Port ->
-                            model.status.shields.portSide
+                    else
+                        0
+                )
+                model.status.shields
 
-                        Starboard ->
-                            model.status.shields.starboard
+        arcModel =
+            { radius = size / 2
+            , colors = Arc.map colorTransition shieldDamagePercents
+            }
 
-                        Aft ->
-                            model.status.shields.aft
-            in
-            if damagePercent > 0 && meta model.starship.shields == On then
-                toFloat points
-                    / (toFloat (extract model.starship.shields).shieldPoints / 4)
+        shipSize =
+            ShieldArc.radiusToInnerSize (size / 2)
 
-            else
-                0
-
-        rowStyle =
-            [ A.style "display" "flex"
-            , A.style "flex-direction" "row"
-            ]
-
-        spacer =
-            div [ A.style "width" (String.fromFloat (ShieldArc.getHeight 150) ++ "px") ] []
-
-        -- TODO: See the note in the ShieldArc module, this strategy has led down
-        -- a more complex path than anticipated, and what was originally intended
-        -- as pure SVG is now heavily dependent on div/styles for positioning.
-        -- Things like dependence on ShieldArc.getHeight show abstraction leaks.
-        mkArc arc =
-            ShieldArc.asHtml
-                { arc = arc
-                , size = 150
-                , color = colorTransition (shieldDamagePercent arc)
-                }
+        shipOffset =
+            (size - shipSize) / 2
     in
     div []
-        [ div rowStyle
-            [ spacer
-            , mkArc Forward
+        [ Svg.svg
+            [ SA.height sizeStr
+            , SA.width sizeStr
+            , SA.viewBox <| "0 0 " ++ sizeStr ++ " " ++ sizeStr
             ]
-        , div rowStyle
-            [ mkArc Port
-            , Fighter.asHtml { size = 150, color = colorTransition damagePercent }
-            , mkArc Starboard
+            [ ShieldArc.view arcModel
+            , Svg.g
+                [ SA.transform <|
+                    "translate("
+                        ++ String.fromFloat shipOffset
+                        ++ ","
+                        ++ String.fromFloat shipOffset
+                        ++ ")"
+                ]
+                [ Fighter.view
+                    { size = shipSize
+                    , color = colorTransition damagePercent
+                    }
+                ]
             ]
-        , div rowStyle
-            [ spacer
-            , mkArc Aft
-            ]
-
-        -- TODO: Damage needs to be input-able
         , div
             [ A.style
                 "background-color"

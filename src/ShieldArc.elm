@@ -1,4 +1,4 @@
-module ShieldArc exposing (Model, asHtml, getHeight, getIsConcaveUp, getIsWide, main, mapBoth, view)
+module ShieldArc exposing (Model, innerSizeToRadius, radiusToInnerSize, view)
 
 import Arc exposing (AnArc(..))
 import Browser exposing (sandbox)
@@ -10,143 +10,75 @@ import Svg.Attributes as SA
 import SvgUtils as SU exposing (Segment(..), Strategy(..))
 
 
-
--- TODO: This whole module is very focused on getting a single arc of any
--- orientation to fit at origin (0,0), so it can then be manipulated later
--- in a HTML-ish way of stacking divs horizontally and vertically.
--- however, being SVG, this kind of misses the point.  Instead, it should
--- make a component that takes another component and builds the four shield
--- arcs around it.
--- The math is much simpler because we can do a single offset, and then
--- rotate around the center, and then we don't need any of our 'asHtml' functions
-
-
-mapBoth : (a -> b) -> ( a, a ) -> ( b, b )
-mapBoth fn ( x, y ) =
-    ( fn x, fn y )
-
-
-type alias Model =
-    { size : Float
+type alias SingleModel =
+    { radius : Float
     , color : Color
-    , arc : AnArc
+    , rotation : Float
     }
 
 
-getIsWide : AnArc -> Bool
-getIsWide a =
-    case a of
-        Forward ->
-            True
-
-        Aft ->
-            True
-
-        _ ->
-            False
+innerSizeToRadius : Float -> Float
+innerSizeToRadius size =
+    size * sqrt 2 / 2
 
 
-
--- get the direction that the shield is pointing using some
--- good ol' calculus definitions.
-
-
-getIsConcaveUp : AnArc -> Bool
-getIsConcaveUp a =
-    case a of
-        Forward ->
-            True
-
-        Starboard ->
-            -- yes?
-            True
-
-        _ ->
-            False
+radiusToInnerSize : Float -> Float
+radiusToInnerSize radius =
+    2 * radius / sqrt 2
 
 
-getHeight : Float -> Float
-getHeight size =
-    (sqrt 2 - 1) * size / 2
-
-
-view : Model -> Svg a
-view model =
+single : SingleModel -> Svg a
+single model =
     let
-        outerRadius =
-            model.size * sqrt 2 / 2
+        innerSize =
+            radiusToInnerSize model.radius
 
-        innerRadius =
-            model.size
-
-        isConcaveUp =
-            getIsConcaveUp model.arc
-
-        origin =
-            case model.arc of
-                Forward ->
-                    ( 0, getHeight model.size )
-
-                Port ->
-                    ( getHeight model.size, 0 )
-
-                _ ->
-                    ( 0, 0 )
-
-        delta =
-            if getIsWide model.arc then
-                ( model.size, 0 )
-
-            else
-                ( 0, model.size )
+        depth =
+            model.radius - innerSize / 2
     in
     Svg.path
         [ SA.fill (colorToCssRgb model.color)
+        , SA.transform <|
+            "rotate("
+                ++ String.fromFloat model.rotation
+                ++ ","
+                ++ String.fromFloat model.radius
+                ++ ","
+                ++ String.fromFloat model.radius
+                ++ ")"
         , SU.d
             ( True
-            , [ ( Absolute, MoveTo origin )
-              , ( Relative, Arc ( outerRadius, outerRadius ) 0 False isConcaveUp delta )
-              , ( Relative, Arc ( innerRadius, innerRadius ) 0 False (not isConcaveUp) (mapBoth ((*) -1) delta) )
+            , [ ( Absolute, MoveTo ( depth, depth ) )
+              , ( Relative, Arc ( model.radius, model.radius ) 0 False True ( innerSize, 0 ) )
+              , ( Relative, Arc ( innerSize, innerSize ) 0 False False ( -innerSize, 0 ) )
               ]
             )
         ]
         []
 
 
-asHtml : Model -> Svg a
-asHtml model =
-    let
-        shortStr =
-            String.fromFloat (getHeight model.size)
+type alias Model =
+    { radius : Float
+    , colors : Arc.Arc Color
+    }
 
-        longStr =
-            String.fromFloat model.size
 
-        isWide =
-            getIsWide model.arc
-
-        heightStr =
-            if isWide then
-                shortStr
-
-            else
-                longStr
-
-        widthStr =
-            if isWide then
-                longStr
-
-            else
-                shortStr
-    in
-    div []
-        [ Svg.svg
-            [ SA.height heightStr
-            , SA.width widthStr
-            , SA.viewBox ("0 0 " ++ widthStr ++ " " ++ heightStr)
-            ]
-            [ view model ]
-        ]
+view : Model -> Svg a
+view model =
+    Svg.g
+        []
+        (Arc.foldWithAnArc
+            (\arc color list ->
+                single
+                    { radius = model.radius
+                    , rotation = Arc.getDegrees arc
+                    , color = color
+                    }
+                    :: list
+            )
+            []
+            model.colors
+        )
 
 
 
@@ -156,7 +88,32 @@ asHtml model =
 main : Program () Model a
 main =
     sandbox
-        { init = { arc = Forward, size = 400, color = Color.green }
+        { init =
+            { radius = 200
+            , colors =
+                { forward = Color.green
+                , portSide = Color.green
+                , aft = Color.green
+                , starboard = Color.blue
+                }
+            }
         , update = always identity
-        , view = asHtml
+        , view =
+            \model ->
+                let
+                    heightStr =
+                        String.fromFloat (model.radius * 2)
+
+                    widthStr =
+                        String.fromFloat (model.radius * 2)
+                in
+                div []
+                    [ Svg.svg
+                        [ SA.height heightStr
+                        , SA.width widthStr
+                        , SA.viewBox ("0 0 " ++ widthStr ++ " " ++ heightStr)
+                        ]
+                        [ view model
+                        ]
+                    ]
         }
