@@ -200,12 +200,13 @@ view model =
                             )
                             (Arc.pure ())
             , onClick =
-                case model.selected of
-                    Nothing ->
-                        SelectSheildArc
+                \arc ->
+                    -- Clear the selection if this is the selected arc
+                    if Just arc == model.selected then
+                        DeselectSheildArc
 
-                    _ ->
-                        \_ -> DeselectSheildArc
+                    else
+                        SelectSheildArc arc
             }
 
         shipSize =
