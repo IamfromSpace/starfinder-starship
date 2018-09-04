@@ -6,7 +6,7 @@ import Color exposing (Color, green, grey, red, yellow)
 import Color.Convert exposing (colorToCssRgb)
 import Color.Manipulate exposing (weightedMix)
 import Fighter
-import Html exposing (Html, button, div, text)
+import Html exposing (Html, button, div, input, text)
 import Html.Attributes as A
 import Html.Events as E
 import Platform.Cmd exposing (Cmd)
@@ -27,6 +27,7 @@ type alias Model =
     , starship : Starship
     , locked : Bool
     , selected : Maybe AnArc
+    , damageInput : Int
     }
 
 
@@ -49,6 +50,7 @@ init =
     , starship = norikamaDropship
     , locked = False
     , selected = Nothing
+    , damageInput = 1
     }
 
 
@@ -57,6 +59,7 @@ type Msg
     | ApplyDamage Status
     | SelectSheildArc AnArc
     | DeselectSheildArc
+    | ChangeDamageInput Int
 
 
 update : Msg -> Model -> ( Model, Cmd Msg )
@@ -101,6 +104,13 @@ update msg model =
 
         DeselectSheildArc ->
             ( { model | selected = Nothing }, Cmd.none )
+
+        ChangeDamageInput x ->
+            if x > 0 then
+                ( { model | damageInput = x }, Cmd.none )
+
+            else
+                ( model, Cmd.none )
 
 
 colorTransition : Float -> Color
@@ -239,15 +249,20 @@ view model =
                     }
                 ]
             ]
-
-        -- TODO: Damage points should be based on user input
+        , input
+            [ A.value (String.fromInt model.damageInput)
+            , A.disabled (model.selected == Nothing)
+            , E.onInput (String.toInt >> Maybe.withDefault 1 >> ChangeDamageInput)
+            , A.type_ "number"
+            ]
+            []
         , button
             (case model.selected of
                 Nothing ->
                     [ A.disabled True ]
 
                 Just arc ->
-                    [ E.onClick (Damage arc 14) ]
+                    [ E.onClick (Damage arc model.damageInput) ]
             )
             [ text "Damage" ]
 
