@@ -24,7 +24,6 @@ import Togglable exposing (extract, meta)
 
 type alias Model =
     { status : Status
-    , starship : Starship
     , locked : Bool
     , selected : Maybe AnArc
     , damageInput : Int
@@ -47,7 +46,6 @@ init =
         }
 
     -- TODO: Obviously this should be injectable, not pre-defined
-    , starship = norikamaDropship
     , locked = False
     , selected = Nothing
     , damageInput = 1
@@ -62,8 +60,8 @@ type Msg
     | ChangeDamageInput Int
 
 
-update : Msg -> Model -> ( Model, Cmd Msg )
-update msg model =
+update : Starship -> Msg -> Model -> ( Model, Cmd Msg )
+update starship msg model =
     -- TODO: Restrict actions based on the current phase of the round
     case msg of
         Damage arc damage ->
@@ -76,7 +74,7 @@ update msg model =
                         ApplyDamage <|
                             Status.damageArc
                                 criticalSystem
-                                model.starship
+                                starship
                                 arc
                                 damage
                                 model.status
@@ -96,7 +94,7 @@ update msg model =
 
         SelectSheildArc arc ->
             -- Shields are unselectable when the ship is dead
-            if getDamagePercent model.starship model.status > 0 then
+            if getDamagePercent starship model.status > 0 then
                 ( { model | selected = Just arc }, Cmd.none )
 
             else
@@ -158,8 +156,8 @@ getDamagePercent starship status =
     toFloat (hp - status.damage) / toFloat hp
 
 
-view : Model -> Html Msg
-view model =
+view : Starship -> Model -> Html Msg
+view starship model =
     let
         size =
             200
@@ -168,14 +166,14 @@ view model =
             String.fromFloat size
 
         damagePercent =
-            getDamagePercent model.starship model.status
+            getDamagePercent starship model.status
 
         shieldDamagePercents =
             Arc.map
                 (\points ->
-                    if damagePercent > 0 && meta model.starship.shields == On then
+                    if damagePercent > 0 && meta starship.shields == On then
                         toFloat points
-                            / (toFloat (extract model.starship.shields).shieldPoints / 4)
+                            / (toFloat (extract starship.shields).shieldPoints / 4)
 
                     else
                         0
@@ -286,7 +284,7 @@ main : Program () Model Msg
 main =
     element
         { init = \_ -> ( init, Cmd.none )
-        , update = update
-        , view = view
+        , update = update norikamaDropship
+        , view = view norikamaDropship
         , subscriptions = \_ -> Sub.none
         }
