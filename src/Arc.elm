@@ -1,4 +1,4 @@
-module Arc exposing (AnArc(..), Arc, all, concat, foldWithAnArc, foldr, getArc, getDegrees, map, mapWithAnArc, pure, updateArc)
+module Arc exposing (AnArc(..), Arc, all, concat, foldWithAnArc, foldr, getArc, getDegrees, map, mapWithAnArc, pure, setArc, updateArc)
 
 
 type alias Arc a =
@@ -118,3 +118,19 @@ getArc arc arcOf =
 
         Starboard ->
             arcOf.starboard
+
+
+setArc : (a -> a) -> AnArc -> Arc a -> Arc a
+setArc fn arc arcOf =
+    case arc of
+        Forward ->
+            { arcOf | forward = fn arcOf.forward }
+
+        Aft ->
+            { arcOf | aft = fn arcOf.aft }
+
+        Port ->
+            { arcOf | portSide = fn arcOf.portSide }
+
+        Starboard ->
+            { arcOf | starboard = fn arcOf.starboard }

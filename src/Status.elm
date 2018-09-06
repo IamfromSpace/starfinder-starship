@@ -1,10 +1,10 @@
-module Status exposing (CriticalStatus, PatchableSystem(..), Severity(..), Status, damage, damageArc, damageSeverity, damageStatus, getEffectiveCriticalStatus, patchCriticalStatus, patchSeverity, patchStatus, pickPatchableSystem, tick, tickCriticalStatus, updateCriticalStatus)
+module Status exposing (CriticalStatus, PatchableSystem(..), Severity(..), Status, balanceToAll, damage, damageArc, damageSeverity, damageStatus, getEffectiveCriticalStatus, patchCriticalStatus, patchSeverity, patchStatus, pickPatchableSystem, tick, tickCriticalStatus, updateCriticalStatus)
 
 import Arc exposing (AnArc, Arc)
 import Random exposing (Generator)
 import Starship exposing (Starship)
 import Switch exposing (Switch(..))
-import Togglable exposing (meta)
+import Togglable exposing (extract, meta)
 
 
 type Severity
@@ -228,3 +228,37 @@ damageArc criticalSystem build arc amount status =
 
         else
             nonCritical
+
+
+balanceToAll_ : Starship -> AnArc -> Int -> Arc.Arc Int -> Maybe (Arc.Arc Int)
+balanceToAll_ starship arc amount shields =
+    let
+        -- TODO: should this round up or down?
+        minRemaining =
+            round (toFloat (extract starship.shields).shieldPoints * 0.1)
+
+        maxMovable =
+            Arc.getArc arc shields - minRemaining
+
+        leftover =
+            amount - 3 * (amount // 3)
+    in
+    if amount > maxMovable then
+        Nothing
+
+    else
+        shields
+            -- Add 1/3rd of the amount to _each_ arc (cleaned up in the next step)
+            |> Arc.map (\x -> x + amount // 3)
+            -- remove the extra 1/3rd and the target amount from the 'from' arc
+            |> Arc.setArc (\x -> x - amount - amount // 3) arc
+            -- add the leftover to the forward arc
+            |> Arc.setArc (\x -> x + leftover) Arc.Forward
+            |> Just
+
+
+balanceToAll : Starship -> AnArc -> Int -> Status -> Maybe Status
+balanceToAll starship arc amount status =
+    Maybe.map
+        (\shields -> { status | shields = shields })
+        (balanceToAll_ starship arc amount status.shields)

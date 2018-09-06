@@ -58,6 +58,7 @@ type Msg
     | SelectSheildArc AnArc
     | DeselectSheildArc
     | ChangeDamageInput Int
+    | BalanceToAllFrom AnArc Int
 
 
 update : Starship -> Msg -> Model -> ( Model, Cmd Msg )
@@ -109,6 +110,14 @@ update starship msg model =
 
             else
                 ( model, Cmd.none )
+
+        BalanceToAllFrom arc amount ->
+            case Status.balanceToAll starship arc amount model.status of
+                Just status ->
+                    ( { model | status = status, selected = Nothing }, Cmd.none )
+
+                Nothing ->
+                    ( model, Cmd.none )
 
 
 colorTransition : Float -> Color
@@ -264,6 +273,19 @@ view starship model =
                     [ E.onClick (Damage arc model.damageInput) ]
             )
             [ text "Damage" ]
+        , button
+            (case model.selected of
+                Nothing ->
+                    [ A.disabled True ]
+
+                Just arc ->
+                    [ A.disabled
+                        (Status.balanceToAll starship arc model.damageInput model.status == Nothing)
+                    , E.onClick
+                        (BalanceToAllFrom arc model.damageInput)
+                    ]
+            )
+            [ text "Balance To All Others" ]
 
         -- TODO: patch a patchable system
         -- TODO: hold together a patchable system
