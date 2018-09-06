@@ -230,15 +230,21 @@ damageArc criticalSystem build arc amount status =
             nonCritical
 
 
-balanceToAll_ : Starship -> AnArc -> Int -> Arc.Arc Int -> Maybe (Arc.Arc Int)
-balanceToAll_ starship arc amount shields =
+maxMovableShieldPoints : Starship -> AnArc -> Arc.Arc Int -> Int
+maxMovableShieldPoints starship arc shields =
     let
         -- TODO: should this round up or down?
         minRemaining =
             round (toFloat (extract starship.shields).shieldPoints * 0.1)
+    in
+    Arc.getArc arc shields - minRemaining
 
+
+balanceToAll_ : Starship -> AnArc -> Int -> Arc.Arc Int -> Maybe (Arc.Arc Int)
+balanceToAll_ starship arc amount shields =
+    let
         maxMovable =
-            Arc.getArc arc shields - minRemaining
+            maxMovableShieldPoints starship arc shields
 
         leftover =
             amount - 3 * (amount // 3)
@@ -262,3 +268,28 @@ balanceToAll starship arc amount status =
     Maybe.map
         (\shields -> { status | shields = shields })
         (balanceToAll_ starship arc amount status.shields)
+
+
+moveShieldPoints_ : Starship -> AnArc -> AnArc -> Int -> Arc.Arc Int -> Maybe (Arc.Arc Int)
+moveShieldPoints_ starship from to amount shields =
+    let
+        maxMovable =
+            maxMovableShieldPoints starship from shields
+    in
+    if amount > maxMovable then
+        Nothing
+
+    else
+        shields
+            -- Add 1/3rd of the amount to _each_ arc (cleaned up in the next step)
+            |> Arc.setArc (\x -> x - amount) from
+            -- add the leftover to the forward arc
+            |> Arc.setArc (\x -> x + amount) to
+            |> Just
+
+
+moveShieldPoints : Starship -> AnArc -> AnArc -> Int -> Status -> Maybe Status
+moveShieldPoints starship from to amount status =
+    Maybe.map
+        (\shields -> { status | shields = shields })
+        (moveShieldPoints_ starship from to amount status.shields)
