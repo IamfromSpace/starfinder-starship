@@ -293,3 +293,26 @@ moveShieldPoints starship from to amount status =
     Maybe.map
         (\shields -> { status | shields = shields })
         (moveShieldPoints_ starship from to amount status.shields)
+
+
+divertPowerToShields_ : Starship -> Arc Int -> Arc Int -> Maybe (Arc Int)
+divertPowerToShields_ starship added shields =
+    let
+        pointsAdded =
+            Arc.foldr (+) 0 added
+
+        newTotalPoints =
+            Arc.foldr (+) pointsAdded shields
+    in
+    if pointsAdded > starship.powerCoreUnits // 20 || newTotalPoints > (extract starship.shields).shieldPoints then
+        Nothing
+
+    else
+        Just <| Arc.liftA2 (+) added shields
+
+
+divertPowerToShields : Starship -> Arc Int -> Status -> Maybe Status
+divertPowerToShields starship added status =
+    Maybe.map
+        (\shields -> { status | shields = shields })
+        (divertPowerToShields_ starship added status.shields)
