@@ -2,7 +2,7 @@ module StatusEditor exposing (Model, Msg(..), colorTransition, criticalStatusToR
 
 import Arc exposing (AnArc(..))
 import Browser exposing (element)
-import Color exposing (Color, green, grey, red, yellow)
+import Color exposing (Color, blue, green, grey, red, yellow)
 import Color.Convert exposing (colorToCssRgb)
 import Color.Manipulate exposing (weightedMix)
 import Fighter
@@ -122,7 +122,10 @@ update starship msg model =
 
 colorTransition : Float -> Color
 colorTransition x =
-    if x > 0.5 then
+    if x > 1 then
+        weightedMix Color.blue green ((x - 1) / 1.8)
+
+    else if x > 0.5 then
         weightedMix green yellow (2 * (x - 0.5))
 
     else if x > 0 then
@@ -200,7 +203,7 @@ view starship model =
                         Arc.mapWithAnArc
                             (\arc _ ->
                                 if arc == a then
-                                    Color.blue
+                                    Color.black
 
                                 else
                                     Color.grey
