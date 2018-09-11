@@ -13,6 +13,7 @@ import Platform.Cmd exposing (Cmd)
 import Platform.Sub
 import Random
 import ShieldArc
+import Shielded
 import ShipAssets exposing (..)
 import Starship exposing (Starship)
 import Status exposing (CriticalStatus, PatchableSystem(..), Severity(..), Status)
@@ -192,9 +193,9 @@ view starship model =
                 )
                 model.status.shields
 
-        arcModel =
-            { radius = size / 2
-            , colors =
+        shipAndShieldsModel =
+            { size = size
+            , arcColors =
                 case model.selected of
                     Nothing ->
                         Arc.map colorTransition shieldDamagePercents
@@ -209,7 +210,7 @@ view starship model =
                                     Color.grey
                             )
                             (Arc.pure ())
-            , onClick =
+            , arcOnClick =
                 \arc ->
                     -- Clear the selection if this is the selected arc
                     if Just arc == model.selected then
@@ -217,13 +218,8 @@ view starship model =
 
                     else
                         SelectSheildArc arc
+            , shielded = colorTransition damagePercent
             }
-
-        shipSize =
-            ShieldArc.radiusToInnerSize (size / 2)
-
-        shipOffset =
-            (size - shipSize) / 2
 
         patchableDisplay name status =
             div
@@ -245,20 +241,14 @@ view starship model =
             , SA.width sizeStr
             , SA.viewBox <| "0 0 " ++ sizeStr ++ " " ++ sizeStr
             ]
-            [ ShieldArc.view arcModel
-            , Svg.g
-                [ SA.transform <|
-                    "translate("
-                        ++ String.fromFloat shipOffset
-                        ++ ","
-                        ++ String.fromFloat shipOffset
-                        ++ ")"
-                ]
-                [ Fighter.view
-                    { size = shipSize
-                    , color = colorTransition damagePercent
-                    }
-                ]
+            [ Shielded.view
+                (\size_ color ->
+                    Fighter.view
+                        { size = size_
+                        , color = color
+                        }
+                )
+                shipAndShieldsModel
             ]
         , input
             [ A.value (String.fromInt model.damageInput)
