@@ -45,8 +45,6 @@ init =
         , engines = Nothing
         , powerCore = Nothing
         }
-
-    -- TODO: Obviously this should be injectable, not pre-defined
     , locked = False
     , selected = Nothing
     , damageInput = 1
