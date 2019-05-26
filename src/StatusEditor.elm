@@ -191,27 +191,29 @@ view starship model =
                 )
                 model.status.shields
 
-        shipAndShieldsModel =
+        shipAndShieldsBase =
+            { size = size
+            , arcColors = Arc.map colorTransition shieldDamagePercents
+            , arcOnClick = SelectSheildArc
+            , shielded = colorTransition damagePercent
+            }
+
+        selectedArc a =
             { size = size
             , arcColors =
-                case model.selected of
-                    Nothing ->
-                        Arc.map colorTransition shieldDamagePercents
+                Arc.mapWithAnArc
+                    (\arc _ ->
+                        if arc == a then
+                            Color.black
 
-                    Just a ->
-                        Arc.mapWithAnArc
-                            (\arc _ ->
-                                if arc == a then
-                                    Color.black
-
-                                else
-                                    Color.grey
-                            )
-                            (Arc.pure ())
+                        else
+                            Color.grey
+                    )
+                    (Arc.pure ())
             , arcOnClick =
                 \arc ->
                     -- Clear the selection if this is the selected arc
-                    if Just arc == model.selected then
+                    if arc == a then
                         DeselectSheildArc
 
                     else
@@ -246,7 +248,10 @@ view starship model =
                         , color = color
                         }
                 )
-                shipAndShieldsModel
+                (model.selected
+                    |> Maybe.map selectedArc
+                    |> Maybe.withDefault shipAndShieldsBase
+                )
             ]
         , input
             [ A.value (String.fromInt model.damageInput)
