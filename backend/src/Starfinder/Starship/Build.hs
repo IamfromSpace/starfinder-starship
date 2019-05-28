@@ -4,6 +4,7 @@
 module Starfinder.Starship.Build (BuildError(..), CrewQuarters(..), DriftEngine(..), Sensor, Shields, Build, areArcMountPointsValid, areTurretMountPointsValid, areTurretWeaponClassesValid, areWeaponClassesValidForFrame, getAllowedClasses, getArmorTargetLockBonus, getMaxHitPoints, getMaxPcuPerPowerCore, getMaxPowerCoreCount, getMountPointLimit, getPowerCoreCount, getTierFromBuildPoints, hasEnoughPowerCoresForPcu, hasSufficientPowerCoreUnits, hasSufficientPowerCoreUnitsForDriftEngine, hasTurretIfHasTurretWeapons, hasValidExpansionBayCount, hasValidPowerCoreCount, isSmallEnoughForDriftEngine, isTrue, isValidSizeForExpansionBays, isValidSpeed, maxiumumSizeForDriftEngine, minimumPowerCoreUnitsForDriftEngine, mountPointCountForGroupIsValid, validateStarship) where
 
 import Data.Set (member, Set, fromList)
+import Data.Text (Text)
 import Starfinder.Starship.Arc (Arc)
 import Starfinder.Starship.Computer (Computer)
 import Starfinder.Starship.DefenseLevel (DefenseLevel(..))
@@ -300,7 +301,7 @@ instance CostsBuildPoints Sensor where
 
 
 data Shields = Shields
-    { name :: String
+    { name :: Text
     , shieldPoints :: Int
     , regenPerMinute :: Int
     , powerDraw :: Int
@@ -318,7 +319,7 @@ instance DrawsPower Shields where
 
 
 data Build frame weapon shields = Build
-    { name :: String
+    { name :: Text
     , frame :: frame
     , powerCoreUnits :: PowerCoreUnits
     , thrusters :: Togglable Thrusters

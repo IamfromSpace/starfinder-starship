@@ -1,6 +1,7 @@
 {-# LANGUAGE NamedFieldPuns #-}
 module Starfinder.Starship.Frame (Maneuverability(..), Frame(..)) where
 
+import Data.Text (Text)
 import Starfinder.Starship.CostsBuildPoints (CostsBuildPoints(..))
 import Starfinder.Starship.Weapon (ArcMountClass, TurretMountClass)
 import Starfinder.Starship.Size (Size)
@@ -14,7 +15,7 @@ data Maneuverability
 
 
 data Frame = Frame
-    { name :: String
+    { name :: Text
     , size :: Size
     , maneuverability :: Maneuverability
     , baseHitPoints :: Int

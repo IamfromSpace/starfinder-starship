@@ -5,6 +5,7 @@ module Starfinder.Starship.Weapon (Class(..), Irradiation(..), Range(..), Type(.
 import Starfinder.Starship.CostsBuildPoints (CostsBuildPoints(..))
 import Starfinder.Starship.DrawsPower (DrawsPower(..))
 import Data.Set (Set)
+import Data.Text (Text)
 
 data Range
     = Short
@@ -50,7 +51,7 @@ data WeaponProperty
 
 
 data Weapon = Weapon
-    { name :: String
+    { name :: Text
     , range :: Range
     , weaponClass :: Class
     , weaponType :: Type
