@@ -317,9 +317,9 @@ instance DrawsPower Shields where
 --TODO: Security Systems
 
 
-data Build = Build
+data Build frame weapon = Build
     { name :: String
-    , frame :: Frame
+    , frame :: frame
     , powerCoreUnits :: PowerCoreUnits
     , thrusters :: Togglable Thrusters
     , armor :: Maybe Armor
@@ -329,13 +329,13 @@ data Build = Build
     , driftEngine :: Maybe DriftEngine
     , expansionBays :: [Togglable ExpansionBay]
     , sensors :: Sensor
-    , arcWeapons :: Arc [Togglable Weapon]
-    , turretWeapons :: [Togglable Weapon]
+    , arcWeapons :: Arc [Togglable weapon]
+    , turretWeapons :: [Togglable weapon]
     , shields :: Togglable Shields
     }
 
 
-instance DrawsPower Build where
+instance DrawsPower (Build Frame Weapon) where
     getPowerDraw Build { frame = Frame { size }, thrusters, computer, defensiveCounterMeasures, expansionBays, arcWeapons, turretWeapons, shields } =
       getPowerDraw (fmap (Sized size) thrusters)
         + getPowerDraw computer
@@ -346,7 +346,7 @@ instance DrawsPower Build where
         + getPowerDraw shields
 
 
-instance CostsBuildPoints Build where
+instance CostsBuildPoints (Build Frame Weapon) where
     getBuildPoints Build { frame = Frame { size }, powerCoreUnits, thrusters, armor, computer, crewQuarters, defensiveCounterMeasures, driftEngine, expansionBays, sensors, arcWeapons, turretWeapons, shields } =
       getBuildPoints powerCoreUnits
         + getBuildPoints (fmap (Sized size) thrusters)
@@ -442,7 +442,7 @@ getTierFromBuildPoints bp =
         20
 
 
-getMaxHitPoints :: Build -> Int
+getMaxHitPoints :: (Build Frame Weapon) -> Int
 getMaxHitPoints build@Build { frame = Frame { baseHitPoints, hitPointsIncrement } } =
     let
         increases =
@@ -582,37 +582,37 @@ mountPointCountForGroupIsValid size group =
     length (concatMap (getMountPointsUsed . extract) group) <= getMountPointLimit size
 
 
-areArcMountPointsValid :: Build -> Bool
+areArcMountPointsValid :: Build Frame Weapon -> Bool
 areArcMountPointsValid Build { arcWeapons, frame = Frame { size } } =
     all (mountPointCountForGroupIsValid size) arcWeapons
 
 
-areTurretMountPointsValid :: Build -> Bool
+areTurretMountPointsValid :: Build Frame Weapon -> Bool
 areTurretMountPointsValid Build { turretWeapons, frame = Frame { size } } =
     mountPointCountForGroupIsValid size turretWeapons
 
 
-areWeaponClassesValidForFrame :: Build -> Bool
+areWeaponClassesValidForFrame :: Build Frame Weapon -> Bool
 areWeaponClassesValidForFrame Build { arcWeapons, turretWeapons, frame = Frame { size } } =
     all
         (\a -> member (weaponClass (extract a)) (getAllowedClasses size))
         (concat arcWeapons <> turretWeapons)
 
 
-areTurretWeaponClassesValid :: Build -> Bool
+areTurretWeaponClassesValid :: Build Frame Weapon -> Bool
 areTurretWeaponClassesValid Build { turretWeapons, frame } =
     all
         ((/=) Weapon.Capital . weaponClass . extract)
         turretWeapons
 
 
-hasTurretIfHasTurretWeapons :: Build -> Bool
+hasTurretIfHasTurretWeapons :: Build Frame Weapon -> Bool
 hasTurretIfHasTurretWeapons Build { turretWeapons, frame = Frame { turretMounts } } =
     length turretWeapons == 0 || length turretMounts > 0
 
 
 
-getPowerCoreCount :: Build -> Int
+getPowerCoreCount :: Build a b -> Int
 getPowerCoreCount Build { expansionBays } =
     let
         isPowerCoreHousing =
@@ -621,17 +621,17 @@ getPowerCoreCount Build { expansionBays } =
     length (filter isPowerCoreHousing expansionBays) + 1
 
 
-hasEnoughPowerCoresForPcu :: Build -> Bool
+hasEnoughPowerCoresForPcu :: Build Frame a -> Bool
 hasEnoughPowerCoresForPcu build@Build { powerCoreUnits, frame = Frame { size } } =
     getUnits powerCoreUnits <= getPowerCoreCount build * getMaxPcuPerPowerCore size
 
 
-hasValidPowerCoreCount :: Build -> Bool
+hasValidPowerCoreCount :: Build Frame a -> Bool
 hasValidPowerCoreCount build@Build { frame = Frame { size } } =
     getPowerCoreCount build <= getMaxPowerCoreCount size
 
 
-hasValidExpansionBayCount :: Build -> Bool
+hasValidExpansionBayCount :: Build Frame a -> Bool
 hasValidExpansionBayCount Build { expansionBays, frame } =
     let
         baysUsed = sum
@@ -641,17 +641,17 @@ hasValidExpansionBayCount Build { expansionBays, frame } =
     baysUsed <= maxExpansionBays frame
 
 
-isValidSizeForExpansionBays :: Build -> Bool
+isValidSizeForExpansionBays :: Build Frame a -> Bool
 isValidSizeForExpansionBays Build { frame, expansionBays } =
     all (isValidSize (size frame) . extract) expansionBays
 
 
-hasSufficientPowerCoreUnits :: Build -> Bool
+hasSufficientPowerCoreUnits :: Build Frame Weapon -> Bool
 hasSufficientPowerCoreUnits build =
     getUnits (powerCoreUnits build) >= getPowerDraw build
 
 
-hasSufficientPowerCoreUnitsForDriftEngine :: Build -> Bool
+hasSufficientPowerCoreUnitsForDriftEngine :: Build a b -> Bool
 hasSufficientPowerCoreUnitsForDriftEngine Build { driftEngine, powerCoreUnits } =
     case driftEngine of
         Just driftEngine ->
@@ -661,7 +661,7 @@ hasSufficientPowerCoreUnitsForDriftEngine Build { driftEngine, powerCoreUnits } 
             True
 
 
-isSmallEnoughForDriftEngine :: Build -> Bool
+isSmallEnoughForDriftEngine :: Build Frame a -> Bool
 isSmallEnoughForDriftEngine Build { driftEngine, frame = Frame { size } } =
     case driftEngine of
         Just dE ->
@@ -672,7 +672,7 @@ isSmallEnoughForDriftEngine Build { driftEngine, frame = Frame { size } } =
             True
 
 
-isValidSpeed :: Build -> Bool
+isValidSpeed :: Build Frame a -> Bool
 isValidSpeed Build { thrusters, frame = Frame { size } } =
   let speed = getSpeed $ extract thrusters
   in speed <= topSpeed size && speed > 0
@@ -703,7 +703,7 @@ isTrue fn err ( errs, value ) =
         ( err : errs, value )
 
 
-validateStarship :: Build -> [BuildError]
+validateStarship :: Build Frame Weapon -> [BuildError]
 validateStarship =
     fst
         . isTrue areArcMountPointsValid TooManyWeaponMountsOnArc
