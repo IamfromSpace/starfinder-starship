@@ -365,10 +365,10 @@ instance CostsBuildPoints (Build Frame Weapon Shields) where
         -- TODO: Could create a UsesMountPoints typeclass for Arc, List, Togglable, Weapon...
         + (getBuildPoints
              $ fmap ArcMountClass
-             $ concatMap (getMountPointsUsed . extract) (concat arcWeapons))
+             $ getMountPointsUsed arcWeapons)
         + (getBuildPoints
              $ fmap TurretMountClass
-             $ concatMap (getMountPointsUsed . extract) turretWeapons)
+             $ getMountPointsUsed turretWeapons)
 
 
 getTierFromBuildPoints :: Int -> Float

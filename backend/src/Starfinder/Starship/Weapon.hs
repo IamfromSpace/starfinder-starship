@@ -1,11 +1,14 @@
 {-# LANGUAGE DuplicateRecordFields #-}
 {-# LANGUAGE NamedFieldPuns #-}
-module Starfinder.Starship.Weapon (Class(..), Irradiation(..), Range(..), Type(..), Weapon(..), WeaponProperty(..), TurretMountClass(..), ArcMountClass(..), isTrackingWeapon, getMountPointsUsed) where
+module Starfinder.Starship.Weapon (Class(..), Irradiation(..), Range(..), Type(..), Weapon(..), WeaponProperty(..), TurretMountClass(..), ArcMountClass(..), isTrackingWeapon, UsesMountPoints(..)) where
 
 import Starfinder.Starship.CostsBuildPoints (CostsBuildPoints(..))
 import Starfinder.Starship.DrawsPower (DrawsPower(..))
+import Starfinder.Starship.Arc (Arc)
+import Starfinder.Starship.Togglable (Togglable, extract)
 import Data.Set (Set)
 import Data.Text (Text)
+import Data.Maybe (fromMaybe)
 
 data Range
     = Short
@@ -103,13 +106,6 @@ instance CostsBuildPoints TurretMountClass where
                 100000
 
 
-getMountPointsUsed :: Weapon -> [Class]
-getMountPointsUsed Weapon { weaponType, weaponClass } =
-  case weaponType of
-    DirectFire linked -> if linked then [weaponClass, weaponClass] else [weaponClass]
-    _ -> [weaponClass]
-
-
 isTrackingWeapon :: Weapon -> Bool
 isTrackingWeapon weapon =
     case weaponType weapon of
@@ -118,3 +114,26 @@ isTrackingWeapon weapon =
 
         _ ->
             False
+
+-- TODO: is this the right place for these to live?
+-- this is a _very_ weapon related concept
+class UsesMountPoints a where
+  getMountPointsUsed :: a -> [Class]
+
+instance UsesMountPoints Weapon where
+  getMountPointsUsed Weapon { weaponType, weaponClass } =
+    flip replicate weaponClass $ case weaponType of
+      DirectFire linked -> if linked then 2 else 1
+      _ -> 1
+
+instance UsesMountPoints a => UsesMountPoints [a] where
+  getMountPointsUsed = foldMap getMountPointsUsed
+
+instance UsesMountPoints a => UsesMountPoints (Maybe a) where
+  getMountPointsUsed = fromMaybe mempty . fmap getMountPointsUsed
+
+instance UsesMountPoints a => UsesMountPoints (Arc a) where
+  getMountPointsUsed = foldMap getMountPointsUsed
+
+instance UsesMountPoints a => UsesMountPoints (Togglable a) where
+  getMountPointsUsed = getMountPointsUsed . extract
