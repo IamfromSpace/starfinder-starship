@@ -1,10 +1,13 @@
 {-# LANGUAGE DuplicateRecordFields #-}
 {-# LANGUAGE NamedFieldPuns #-}
 {-# LANGUAGE FlexibleInstances #-}
-module Starfinder.Starship.Build (BuildError(..), CrewQuarters(..), DriftEngine(..), Sensor, Shields, Build, areArcMountPointsValid, areTurretMountPointsValid, areTurretWeaponClassesValid, areWeaponClassesValidForFrame, getAllowedClasses, getArmorTargetLockBonus, getMaxHitPoints, getMaxPcuPerPowerCore, getMaxPowerCoreCount, getMountPointLimit, getPowerCoreCount, getTierFromBuildPoints, hasEnoughPowerCoresForPcu, hasSufficientPowerCoreUnits, hasSufficientPowerCoreUnitsForDriftEngine, hasTurretIfHasTurretWeapons, hasValidExpansionBayCount, hasValidPowerCoreCount, isSmallEnoughForDriftEngine, isTrue, isValidSizeForExpansionBays, isValidSpeed, maxiumumSizeForDriftEngine, minimumPowerCoreUnitsForDriftEngine, mountPointCountForGroupIsValid, validateStarship) where
+{-# LANGUAGE DeriveGeneric #-}
+module Starfinder.Starship.Build (BuildError(..), CrewQuarters(..), DriftEngine(..), Sensor, Shields, Build, areArcMountPointsValid, areTurretMountPointsValid, areTurretWeaponClassesValid, areWeaponClassesValidForFrame, getAllowedClasses, getArmorTargetLockBonus, getMaxHitPoints, getMaxPcuPerPowerCore, getMaxPowerCoreCount, getMountPointLimit, getPowerCoreCount, getTierFromBuildPoints, hasEnoughPowerCoresForPcu, hasSufficientPowerCoreUnits, hasSufficientPowerCoreUnitsForDriftEngine, hasTurretIfHasTurretWeapons, hasValidExpansionBayCount, hasValidPowerCoreCount, isSmallEnoughForDriftEngine, isTrue, isValidSizeForExpansionBays, isValidSpeed, maxiumumSizeForDriftEngine, minimumPowerCoreUnitsForDriftEngine, mountPointCountForGroupIsValid, validateStarship, PowerCoreUnits(..)) where
 
 import Data.Set (member, Set, fromList)
 import Data.Text (Text)
+import Data.Aeson (FromJSON, ToJSON, toJSON, parseJSON)
+import GHC.Generics (Generic)
 import Starfinder.Starship.Arc (Arc)
 import Starfinder.Starship.Computer (Computer)
 import Starfinder.Starship.DefenseLevel (DefenseLevel(..))
@@ -19,6 +22,12 @@ import Starfinder.Starship.DrawsPower (DrawsPower(..))
 
 
 newtype Thrusters = Thrusters { getSpeed :: Int }
+
+instance FromJSON Thrusters where
+  parseJSON v = Thrusters <$> parseJSON v
+
+instance ToJSON Thrusters where
+  toJSON = toJSON . getSpeed
 
 instance DrawsPower (Sized Thrusters) where
     getPowerDraw (Sized size t) =
@@ -68,6 +77,12 @@ instance CostsBuildPoints (Sized Thrusters) where
                 speed `div` 2
 
 newtype Armor = Armor { getDefenseLevelA :: DefenseLevel }
+
+instance FromJSON Armor where
+  parseJSON v = Armor <$> parseJSON v
+
+instance ToJSON Armor where
+  toJSON = toJSON . getDefenseLevelA
 
 instance CostsBuildPoints (Sized Armor) where
     getBuildPoints (Sized size a) =
@@ -175,6 +190,10 @@ data CrewQuarters
     = Common
     | GoodQuarters
     | Luxurious
+    deriving Generic
+
+instance FromJSON CrewQuarters
+instance ToJSON CrewQuarters
 
 
 instance CostsBuildPoints CrewQuarters where
@@ -190,6 +209,12 @@ instance CostsBuildPoints CrewQuarters where
                 5
 
 newtype DefensiveCounterMeasures = DefensiveCounterMeasures { getDefenseLevel :: DefenseLevel }
+
+instance FromJSON DefensiveCounterMeasures where
+  parseJSON v = DefensiveCounterMeasures <$> parseJSON v
+
+instance ToJSON DefensiveCounterMeasures where
+  toJSON = toJSON . getDefenseLevel
 
 instance DrawsPower DefensiveCounterMeasures where
     getPowerDraw =
@@ -246,6 +271,12 @@ instance CostsBuildPoints DefensiveCounterMeasures where
 
 newtype PowerCoreUnits = PowerCoreUnits { getUnits :: Int }
 
+instance FromJSON PowerCoreUnits where
+  parseJSON v = PowerCoreUnits <$> parseJSON v
+
+instance ToJSON PowerCoreUnits where
+  toJSON = toJSON . getUnits
+
 instance CostsBuildPoints PowerCoreUnits where
     getBuildPoints pcu =
         -- Totally ignoring that like 2 numbers are incorrect here, because it's stupid
@@ -258,6 +289,10 @@ data DriftEngine
     | Major
     | Superior
     | Ultra
+    deriving Generic
+
+instance FromJSON DriftEngine
+instance ToJSON DriftEngine
 
 
 instance CostsBuildPoints (Sized DriftEngine) where
@@ -284,7 +319,10 @@ instance CostsBuildPoints (Sized DriftEngine) where
 data Sensor = Sensor
     { range :: Weapon.Range
     , bonus :: Int
-    }
+    } deriving Generic
+
+instance FromJSON Sensor
+instance ToJSON Sensor
 
 
 instance CostsBuildPoints Sensor where
@@ -333,7 +371,11 @@ data Build frame weapon shields = Build
     , arcWeapons :: Arc [Togglable weapon]
     , turretWeapons :: [Togglable weapon]
     , shields :: Togglable shields
-    }
+    } deriving Generic
+
+
+instance (FromJSON a, FromJSON b, FromJSON c) => FromJSON (Build a b c)
+instance (ToJSON a, ToJSON b, ToJSON c) => ToJSON (Build a b c)
 
 
 instance DrawsPower (Build Frame Weapon Shields) where

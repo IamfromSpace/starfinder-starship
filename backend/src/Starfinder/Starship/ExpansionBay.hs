@@ -1,3 +1,4 @@
+{-# LANGUAGE DeriveGeneric #-}
 module Starfinder.Starship.ExpansionBay (ExpansionBay(..), getExpansionBaysUsed, getSizeConstraints, isValidSize) where
 
 import Starfinder.Starship.Size (Size(..))
@@ -5,6 +6,8 @@ import Starfinder.Starship.DrawsPower (DrawsPower(..))
 import Starfinder.Starship.CostsBuildPoints (CostsBuildPoints(..))
 import Data.Set (Set, member, fromList)
 import Data.Maybe (fromMaybe)
+import GHC.Generics (Generic)
+import Data.Aeson (FromJSON, ToJSON)
 
 
 data ExpansionBay
@@ -31,8 +34,10 @@ data ExpansionBay
     | SmugglerCompartment Int
     | SynthesisBay
     | TechWorkshop
-    deriving (Show, Eq, Ord)
+    deriving (Show, Eq, Ord, Generic)
 
+instance FromJSON ExpansionBay
+instance ToJSON ExpansionBay
 
 data ExpansionBayCost = ExpansionBayCost
     { powerDraw :: Int

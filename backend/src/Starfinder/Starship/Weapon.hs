@@ -1,20 +1,26 @@
 {-# LANGUAGE DuplicateRecordFields #-}
 {-# LANGUAGE NamedFieldPuns #-}
+{-# LANGUAGE DeriveGeneric #-}
 module Starfinder.Starship.Weapon (Class(..), Irradiation(..), Range(..), Type(..), Weapon(..), WeaponProperty(..), TurretMountClass(..), ArcMountClass(..), isTrackingWeapon, UsesMountPoints(..)) where
 
 import Starfinder.Starship.CostsBuildPoints (CostsBuildPoints(..))
 import Starfinder.Starship.DrawsPower (DrawsPower(..))
 import Starfinder.Starship.Arc (Arc)
 import Starfinder.Starship.Togglable (Togglable, extract)
+import Data.Aeson (FromJSON, ToJSON)
 import Data.Set (Set)
 import Data.Text (Text)
 import Data.Maybe (fromMaybe)
+import GHC.Generics (Generic)
 
 data Range
     = Short
     | Medium
     | Long
-    deriving (Show, Eq, Ord)
+    deriving (Show, Eq, Ord, Generic)
+
+instance FromJSON Range
+instance ToJSON Range
 
 
 data Class

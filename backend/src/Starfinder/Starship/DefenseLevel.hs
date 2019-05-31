@@ -1,4 +1,8 @@
+{-# LANGUAGE DeriveGeneric #-}
 module Starfinder.Starship.DefenseLevel (DefenseLevel(..)) where
+
+import GHC.Generics (Generic)
+import Data.Aeson (FromJSON, ToJSON)
 
 
 data DefenseLevel
@@ -17,4 +21,7 @@ data DefenseLevel
     | Mk13
     | Mk14
     | Mk15
-    deriving (Show)
+    deriving (Show, Generic)
+
+instance FromJSON DefenseLevel
+instance ToJSON DefenseLevel

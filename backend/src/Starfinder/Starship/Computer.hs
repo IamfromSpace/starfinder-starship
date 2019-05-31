@@ -1,14 +1,20 @@
 {-# LANGUAGE NamedFieldPuns #-}
-module Starfinder.Starship.Computer (Computer, getBuildPoints, getPowerDraw) where
+{-# LANGUAGE DeriveGeneric #-}
+module Starfinder.Starship.Computer (Computer(..), getBuildPoints, getPowerDraw) where
 
 import Starfinder.Starship.DrawsPower (DrawsPower(..))
 import Starfinder.Starship.CostsBuildPoints (CostsBuildPoints(..))
+import GHC.Generics (Generic)
+import Data.Aeson (FromJSON, ToJSON)
 
 
 data Computer = Computer
     { bonus :: Int
     , nodes :: Int
-    }
+    } deriving (Generic)
+
+instance FromJSON Computer
+instance ToJSON Computer
 
 instance DrawsPower Computer where
     getPowerDraw Computer { bonus, nodes } =

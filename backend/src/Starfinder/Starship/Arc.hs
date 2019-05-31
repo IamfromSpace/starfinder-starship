@@ -1,16 +1,22 @@
 {-# LANGUAGE NamedFieldPuns #-}
+{-# LANGUAGE DeriveGeneric #-}
 module Starfinder.Starship.Arc (AnArc(..), Arc, foldWithAnArc, getArc, getDegrees, mapWithAnArc, setArc, updateArc) where
 
 import Starfinder.Starship.DrawsPower (DrawsPower(..))
 import Starfinder.Starship.CostsBuildPoints (CostsBuildPoints(..))
+import Data.Aeson (FromJSON, ToJSON)
 import Data.Foldable (toList)
+import GHC.Generics (Generic)
 
 data Arc a = Arc
     { forward :: a
     , aft :: a
     , portSide :: a
     , starboard :: a
-    }
+    } deriving Generic
+
+instance FromJSON a => FromJSON (Arc a)
+instance ToJSON a => ToJSON (Arc a)
 
 instance Functor Arc where
   fmap f Arc { forward, aft, portSide, starboard } =
