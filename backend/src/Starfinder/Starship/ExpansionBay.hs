@@ -34,7 +34,7 @@ data ExpansionBay
     | SmugglerCompartment Int
     | SynthesisBay
     | TechWorkshop
-    deriving (Show, Eq, Ord, Generic)
+    deriving (Show, Eq, Ord, Generic, Read)
 
 instance FromJSON ExpansionBay
 instance ToJSON ExpansionBay

@@ -17,7 +17,7 @@ data Range
     = Short
     | Medium
     | Long
-    deriving (Show, Eq, Ord, Generic)
+    deriving (Show, Eq, Ord, Generic, Read)
 
 instance FromJSON Range
 instance ToJSON Range

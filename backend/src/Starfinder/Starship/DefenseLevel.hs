@@ -21,7 +21,7 @@ data DefenseLevel
     | Mk13
     | Mk14
     | Mk15
-    deriving (Show, Generic)
+    deriving (Show, Read, Generic)
 
 instance FromJSON DefenseLevel
 instance ToJSON DefenseLevel

@@ -5,26 +5,31 @@
 
 module Main where
 
-import Control.Lens (Lens', _1, _2, set)
+import Control.Lens (Lens', _1, _2, set, view)
 import Control.Lens.At (at)
+import Control.Monad ((>=>))
 import Data.Foldable (toList)
-import Data.HashMap.Strict (HashMap, fromList)
+import Data.HashMap.Strict (HashMap, fromList, lookup)
 import qualified Data.Map as Map
 import Data.Maybe (fromMaybe)
 import Data.Scientific (FPFormat(..), Scientific, formatScientific)
 import Data.Set (Set, member)
-import Data.Text (Text, pack)
+import Data.Text (Text, pack, unpack)
 import Network.AWS.DynamoDB.Types
        (AttributeValue, attributeValue, avBOOL, avL, avM, avN, avNULL,
         avS, avSS)
+import Prelude hiding (lookup)
 import Starfinder.Starship.Arc (Arc(..))
 import Starfinder.Starship.Build
        (Armor(..), Build(..), CrewQuarters, DefensiveCounterMeasures(..),
         DriftEngine, PowerCoreUnits(..), Sensor(..), Thrusters(..))
 import Starfinder.Starship.Computer (Computer(..))
 import Starfinder.Starship.CostsBuildPoints (CostsBuildPoints(..))
+import Starfinder.Starship.DefenseLevel (DefenseLevel)
 import Starfinder.Starship.ExpansionBay (ExpansionBay)
 import Starfinder.Starship.Togglable (Togglable(..))
+import Starfinder.Starship.Weapon (Range)
+import Text.Read (readMaybe)
 
 data DynamoValue
     = String Text
@@ -159,6 +164,99 @@ ownedReferencedBuildToItem x
  =
     let Object y = toValue x
     in fmap toAttrValue y
+
+class FromDynamoDbAttrValue a where
+    fromAttrValue :: AttributeValue -> Maybe a
+
+instance FromDynamoDbAttrValue Text where
+    fromAttrValue = view avS
+
+instance FromDynamoDbAttrValue a => FromDynamoDbAttrValue [a] where
+    fromAttrValue = traverse fromAttrValue . view avL
+
+instance FromDynamoDbAttrValue a => FromDynamoDbAttrValue (Togglable a) where
+    fromAttrValue =
+        (\hashMap ->
+             Togglable <$> (view avBOOL =<< lookup "isOn" hashMap) <*>
+             (fromAttrValue =<< lookup "togglable" hashMap)) .
+        view avM
+
+instance FromDynamoDbAttrValue a => FromDynamoDbAttrValue (Arc a) where
+    fromAttrValue =
+        (\hashMap ->
+             Arc <$> (fromAttrValue =<< lookup "forward" hashMap) <*>
+             (fromAttrValue =<< lookup "aft" hashMap) <*>
+             (fromAttrValue =<< lookup "portside" hashMap) <*>
+             (fromAttrValue =<< lookup "starboard" hashMap)) .
+        view avM
+
+maybeHead :: [a] -> Maybe a
+maybeHead (a:_) = Just a
+maybeHead _ = Nothing
+
+instance FromDynamoDbAttrValue Int where
+    fromAttrValue = view avN >=> (readMaybe . unpack)
+
+instance FromDynamoDbAttrValue PowerCoreUnits where
+    fromAttrValue = (fmap PowerCoreUnits) . fromAttrValue
+
+instance FromDynamoDbAttrValue Thrusters where
+    fromAttrValue = (fmap Thrusters) . fromAttrValue
+
+instance FromDynamoDbAttrValue DefenseLevel where
+    fromAttrValue = view avS >=> (readMaybe . unpack)
+
+instance FromDynamoDbAttrValue Armor where
+    fromAttrValue = (fmap Armor) . fromAttrValue
+
+instance FromDynamoDbAttrValue Computer where
+    fromAttrValue =
+        (\hashMap ->
+             Computer <$> (fromAttrValue =<< lookup "bonus" hashMap) <*>
+             (fromAttrValue =<< lookup "nodes" hashMap)) .
+        view avM
+
+instance FromDynamoDbAttrValue CrewQuarters where
+    fromAttrValue = view avS >=> (readMaybe . unpack)
+
+instance FromDynamoDbAttrValue DefensiveCounterMeasures where
+    fromAttrValue = (fmap DefensiveCounterMeasures) . fromAttrValue
+
+instance FromDynamoDbAttrValue DriftEngine where
+    fromAttrValue = view avS >=> (readMaybe . unpack)
+
+instance FromDynamoDbAttrValue ExpansionBay where
+    fromAttrValue = view avS >=> (readMaybe . unpack)
+
+instance FromDynamoDbAttrValue Range where
+    fromAttrValue = view avS >=> (readMaybe . unpack)
+
+instance FromDynamoDbAttrValue Sensor where
+    fromAttrValue =
+        (\hashMap ->
+             Sensor <$> (fromAttrValue =<< lookup "range" hashMap) <*>
+             (fromAttrValue =<< lookup "bonus" hashMap)) .
+        view avM
+
+instance FromDynamoDbAttrValue (OwnedBy (Build Text Text Text)) where
+    fromAttrValue =
+        (\hashMap ->
+             OwnedBy <$> (fromAttrValue =<< lookup "userId" hashMap) <*>
+             (Build <$> (fromAttrValue =<< lookup "name" hashMap) <*>
+              (fromAttrValue =<< lookup "frame" hashMap) <*>
+              (fromAttrValue =<< lookup "powerCoreUnits" hashMap) <*>
+              (fromAttrValue =<< lookup "thrusters" hashMap) <*>
+              (fromAttrValue <$> lookup "armor" hashMap) <*>
+              (fromAttrValue =<< lookup "computer" hashMap) <*>
+              (fromAttrValue =<< lookup "crewQuarters" hashMap) <*>
+              (fromAttrValue <$> lookup "defensiveCounterMeasures" hashMap) <*>
+              (fromAttrValue <$> lookup "driftEngine" hashMap) <*>
+              (fromAttrValue =<< lookup "expansionBays" hashMap) <*>
+              (fromAttrValue =<< lookup "sensor" hashMap) <*>
+              (fromAttrValue =<< lookup "arcWeapons" hashMap) <*>
+              (fromAttrValue =<< lookup "turretWeapons" hashMap) <*>
+              (fromAttrValue =<< lookup "shields" hashMap))) .
+        view avM
 
 main :: IO ()
 main = return ()

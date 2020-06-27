@@ -190,7 +190,7 @@ data CrewQuarters
     = Common
     | GoodQuarters
     | Luxurious
-    deriving (Generic, Show)
+    deriving (Generic, Show, Read)
 
 instance FromJSON CrewQuarters
 instance ToJSON CrewQuarters
@@ -289,7 +289,7 @@ data DriftEngine
     | Major
     | Superior
     | Ultra
-    deriving (Generic, Show)
+    deriving (Generic, Show, Read)
 
 instance FromJSON DriftEngine
 instance ToJSON DriftEngine
