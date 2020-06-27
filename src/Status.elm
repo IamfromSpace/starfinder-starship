@@ -1,4 +1,4 @@
-module Status exposing (CriticalStatus, PatchableSystem(..), Severity(..), Status, balanceToAll, damage, damageArc, damageSeverity, damageStatus, getEffectiveCriticalStatus, patchCriticalStatus, patchSeverity, patchStatus, pickPatchableSystem, tick, tickCriticalStatus, updateCriticalStatus)
+module Status exposing (CriticalStatus, PatchableSystem(..), Severity(..), Status, balanceToAll, damage, damageArc, damageSeverity, damageSystem, getEffectiveCriticalStatus, patchCriticalStatus, patchSeverity, patchStatus, pickPatchableSystem, tick, tickCriticalStatus, updateCriticalStatus)
 
 import Arc exposing (AnArc, Arc)
 import Random exposing (Generator)
@@ -35,6 +35,7 @@ type alias Status =
     , weaponsArray : Arc (Maybe CriticalStatus)
     , engines : Maybe CriticalStatus
     , powerCore : Maybe CriticalStatus
+    , unresolvedCriticals : Int
     }
 
 
@@ -153,9 +154,17 @@ patchStatus =
     updateCriticalStatus (Maybe.andThen patchCriticalStatus)
 
 
-damageStatus : Maybe Int -> PatchableSystem -> Status -> Status
-damageStatus rounds =
-    updateCriticalStatus (damage rounds >> Just)
+damageSystem : Maybe Int -> PatchableSystem -> Status -> Status
+damageSystem rounds sys status =
+    if status.unresolvedCriticals > 0 then
+        let
+            s =
+                updateCriticalStatus (damage rounds >> Just) sys status
+        in
+        { s | unresolvedCriticals = s.unresolvedCriticals - 1 }
+
+    else
+        status
 
 
 tickCriticalStatus : CriticalStatus -> Maybe CriticalStatus
@@ -193,8 +202,8 @@ tick status =
         |> update PowerCore
 
 
-damageArc : PatchableSystem -> Starship -> AnArc -> Int -> Status -> Status
-damageArc criticalSystem build arc amount status =
+damageArc : Bool -> Starship -> AnArc -> Int -> Status -> Status
+damageArc wasCrit build arc amount status =
     let
         criticalThreshold =
             Starship.getMaxHitPoints build // 5
@@ -223,19 +232,22 @@ damageArc criticalSystem build arc amount status =
             newCriticalThresholdCount =
                 (status.damage + hullDamage) // criticalThreshold
 
-            nonCritical =
-                { status
-                    | shields = Arc.updateArc (always 0) arc status.shields
-                    , damage = status.damage + hullDamage
-                }
-        in
-        -- TODO: Technically, it's possible to hit hard enough that you affect two critical systems.
-        -- TODO: on 20 (or 19 too with ScienceOfficer assistance) and hull damage, a critical system is also affected
-        if newCriticalThresholdCount > oldCriticalThresholdCount then
-            damageStatus Nothing criticalSystem nonCritical
+            newCritCount =
+                (newCriticalThresholdCount
+                    - oldCriticalThresholdCount
+                )
+                    + (if wasCrit then
+                        1
 
-        else
-            nonCritical
+                       else
+                        0
+                      )
+        in
+        { status
+            | shields = Arc.updateArc (always 0) arc status.shields
+            , damage = status.damage + hullDamage
+            , unresolvedCriticals = status.unresolvedCriticals + newCritCount
+        }
 
 
 maxMovableShieldPoints : Starship -> AnArc -> Arc.Arc Int -> Int

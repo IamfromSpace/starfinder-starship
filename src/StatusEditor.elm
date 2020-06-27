@@ -44,6 +44,7 @@ init =
         , weaponsArray = Arc.pure Nothing
         , engines = Nothing
         , powerCore = Nothing
+        , unresolvedCriticals = 0
         }
     , locked = False
     , selected = Nothing
@@ -52,8 +53,9 @@ init =
 
 
 type Msg
-    = Damage AnArc Int
-    | ApplyDamage Status
+    = Damage AnArc Int Bool
+    | ResolveCrit
+    | ApplyCrit Status.PatchableSystem
     | SelectSheildArc AnArc
     | DeselectSheildArc
     | ChangeDamageInput Int
@@ -64,30 +66,41 @@ update : Starship -> Msg -> Model -> ( Model, Cmd Msg )
 update starship msg model =
     -- TODO: Restrict actions based on the current phase of the round
     case msg of
-        Damage arc damage ->
+        Damage arc damage wasCrit ->
             -- This may be over defensive, but we lock the model
             -- while we are waiting for the random result to come back
             if not model.locked then
-                ( { model | locked = True }
-                , Random.generate
-                    (\criticalSystem ->
-                        ApplyDamage <|
-                            Status.damageArc
-                                criticalSystem
-                                starship
-                                arc
-                                damage
-                                model.status
-                    )
-                    Status.pickPatchableSystem
+                ( { model
+                    | status =
+                        Status.damageArc
+                            wasCrit
+                            starship
+                            arc
+                            damage
+                            model.status
+                    , selected = Nothing
+                  }
+                , Cmd.none
                 )
 
             else
                 ( model, Cmd.none )
 
-        ApplyDamage status ->
+        ResolveCrit ->
+            ( { model | locked = True }
+            , Random.generate ApplyCrit
+                Status.pickPatchableSystem
+            )
+
+        ApplyCrit system ->
             if model.locked then
-                ( { model | status = status, locked = False, selected = Nothing }, Cmd.none )
+                ( { model
+                    | status = Status.damageSystem Nothing system model.status
+                    , locked = False
+                    , selected = Nothing
+                  }
+                , Cmd.none
+                )
 
             else
                 ( model, Cmd.none )
@@ -261,12 +274,29 @@ view starship model =
             ]
             []
         , button
+            (if model.status.unresolvedCriticals > 0 then
+                [ E.onClick ResolveCrit ]
+
+             else
+                [ A.disabled True ]
+            )
+            [ text ("Resolve Critical (" ++ String.fromInt model.status.unresolvedCriticals ++ ")") ]
+        , button
             (case model.selected of
                 Nothing ->
                     [ A.disabled True ]
 
                 Just arc ->
-                    [ E.onClick (Damage arc model.damageInput) ]
+                    [ E.onClick (Damage arc model.damageInput True) ]
+            )
+            [ text "Damage w/Crit" ]
+        , button
+            (case model.selected of
+                Nothing ->
+                    [ A.disabled True ]
+
+                Just arc ->
+                    [ E.onClick (Damage arc model.damageInput False) ]
             )
             [ text "Damage" ]
         , button
