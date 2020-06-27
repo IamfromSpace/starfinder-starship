@@ -26,7 +26,6 @@ type alias Frame =
     , baseHitPoints : Int
     , hitPointsIncrement : Int
     , damageThreshold : Int
-    , criticalThreshold : Int
     , arcMounts : Arc (List Weapon.Class)
     , turretMounts : List Weapon.Class
     , expansionBays : Int

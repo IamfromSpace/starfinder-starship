@@ -197,7 +197,7 @@ damageArc : PatchableSystem -> Starship -> AnArc -> Int -> Status -> Status
 damageArc criticalSystem build arc amount status =
     let
         criticalThreshold =
-            build.frame.criticalThreshold
+            Starship.getMaxHitPoints build // 5
 
         shieldsOn =
             meta build.shields == On
@@ -217,13 +217,21 @@ damageArc criticalSystem build arc amount status =
 
     else
         let
+            oldCriticalThresholdCount =
+                status.damage // criticalThreshold
+
+            newCriticalThresholdCount =
+                (status.damage + hullDamage) // criticalThreshold
+
             nonCritical =
                 { status
                     | shields = Arc.updateArc (always 0) arc status.shields
                     , damage = status.damage + hullDamage
                 }
         in
-        if hullDamage >= criticalThreshold then
+        -- TODO: Technically, it's possible to hit hard enough that you affect two critical systems.
+        -- TODO: on 20 (or 19 too with ScienceOfficer assistance) and hull damage, a critical system is also affected
+        if newCriticalThresholdCount > oldCriticalThresholdCount then
             damageStatus Nothing criticalSystem nonCritical
 
         else

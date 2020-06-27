@@ -21,7 +21,6 @@ data Frame = Frame
     , baseHitPoints :: Int
     , hitPointsIncrement :: Int
     , damageThreshold :: Int
-    , criticalThreshold :: Int
     , arcMounts :: Arc [ArcMountClass]
     , turretMounts :: [TurretMountClass]
     , maxExpansionBays :: Int
