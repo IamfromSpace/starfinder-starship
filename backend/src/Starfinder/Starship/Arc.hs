@@ -1,6 +1,6 @@
 {-# LANGUAGE NamedFieldPuns #-}
 {-# LANGUAGE DeriveGeneric #-}
-module Starfinder.Starship.Arc (AnArc(..), Arc, foldWithAnArc, getArc, getDegrees, mapWithAnArc, setArc, updateArc) where
+module Starfinder.Starship.Arc (AnArc(..), Arc(..), foldWithAnArc, getArc, getDegrees, mapWithAnArc, setArc, updateArc) where
 
 import Starfinder.Starship.DrawsPower (DrawsPower(..))
 import Starfinder.Starship.CostsBuildPoints (CostsBuildPoints(..))
