@@ -11,7 +11,7 @@ import Control.Monad ((>=>))
 import Data.Foldable (toList)
 import Data.HashMap.Strict (HashMap, fromList, lookup)
 import qualified Data.Map as Map
-import Data.Maybe (fromMaybe)
+import Data.Maybe (fromMaybe, fromJust)
 import Data.Scientific (FPFormat(..), Scientific, formatScientific)
 import Data.Set (Set, member)
 import Data.Text (Text, pack, unpack)
@@ -31,139 +31,138 @@ import Starfinder.Starship.Togglable (Togglable(..))
 import Starfinder.Starship.Weapon (Range)
 import Text.Read (readMaybe)
 
-data DynamoValue
-    = String Text
-    | Number Scientific
-    | Object (HashMap Text DynamoValue)
-    | Null
-    | StringSet (Set Text)
-    | List [DynamoValue]
-    | Boolean Bool
-
-toAttrValue :: DynamoValue -> AttributeValue
-toAttrValue x =
-    case x of
-        String s -> set avS (Just s) attributeValue
-        Number n -> set avS (Just $ pack $ show n) attributeValue
-        Object o -> set avM (fmap toAttrValue o) attributeValue
-        Null -> set avNULL (Just True) attributeValue
-        StringSet s -> set avSS (toList s) attributeValue
-        List xs -> set avL (fmap toAttrValue xs) attributeValue
-        Boolean b -> set avBOOL (Just b) attributeValue
-
 data OwnedBy a =
     OwnedBy Text
             a
 
-class ToDynamoDbValue a where
-    toValue :: a -> DynamoValue
+class ToDynamoDbAttrValue a where
+    toAttrValue :: a -> AttributeValue
 
-instance ToDynamoDbValue DynamoValue where
-    toValue x = x
+instance ToDynamoDbAttrValue AttributeValue where
+    toAttrValue x = x
 
-instance ToDynamoDbValue Text where
-    toValue = String
+instance ToDynamoDbAttrValue Text where
+    toAttrValue s = set avS (Just s) attributeValue
 
-instance ToDynamoDbValue a => ToDynamoDbValue [a] where
-    toValue = List . fmap toValue
+instance ToDynamoDbAttrValue Scientific where
+    toAttrValue n = set avN (Just $ pack $ show n) attributeValue
 
-instance ToDynamoDbValue a => ToDynamoDbValue (Maybe a) where
-    toValue x = fromMaybe Null $ fmap toValue x
+instance ToDynamoDbAttrValue Int where
+    toAttrValue n = set avN (Just $ pack $ show n) attributeValue
 
-instance ToDynamoDbValue a => ToDynamoDbValue (Togglable a) where
-    toValue Togglable {toggled, isOn} =
-        Object $
-        fromList [("isOn" :: Text, Boolean isOn), ("toggled", toValue toggled)]
+instance ToDynamoDbAttrValue a => ToDynamoDbAttrValue (HashMap Text a) where
+    toAttrValue o = set avM (fmap toAttrValue o) attributeValue
 
-instance ToDynamoDbValue Thrusters where
-    toValue = Number . fromIntegral . getSpeed
+instance ToDynamoDbAttrValue a => ToDynamoDbAttrValue (Maybe a) where
+    toAttrValue x =
+        fromMaybe (set avNULL (Just True) attributeValue) $ fmap toAttrValue x
 
-instance ToDynamoDbValue Armor where
-    toValue = String . pack . show . getDefenseLevelA
+instance ToDynamoDbAttrValue a => ToDynamoDbAttrValue [a] where
+    toAttrValue xs = set avL (fmap toAttrValue xs) attributeValue
 
-instance ToDynamoDbValue Computer where
-    toValue Computer {nodes, bonus} =
-        Object $
+instance ToDynamoDbAttrValue Bool where
+    toAttrValue b = set avBOOL (Just b) attributeValue
+
+instance ToDynamoDbAttrValue a => ToDynamoDbAttrValue (Togglable a) where
+    toAttrValue Togglable {toggled, isOn} =
+        toAttrValue $
         fromList
-            [ ("nodes", Number $ fromIntegral nodes)
-            , ("bonus", Number $ fromIntegral bonus)
+            [("isOn" :: Text, toAttrValue isOn), ("toggled", toAttrValue toggled)]
+
+instance ToDynamoDbAttrValue PowerCoreUnits where
+    toAttrValue = toAttrValue . getUnits
+
+instance ToDynamoDbAttrValue Thrusters where
+    toAttrValue = toAttrValue . getSpeed
+
+instance ToDynamoDbAttrValue Armor where
+    toAttrValue = toAttrValue . pack . show . getDefenseLevelA
+
+instance ToDynamoDbAttrValue Computer where
+    toAttrValue Computer {nodes, bonus} =
+        toAttrValue $
+        fromList
+            [ ("nodes" :: Text, nodes)
+            , ("bonus", bonus)
             ]
 
-instance ToDynamoDbValue CrewQuarters where
-    toValue = String . pack . show
+instance ToDynamoDbAttrValue CrewQuarters where
+    toAttrValue = toAttrValue . pack . show
 
-instance ToDynamoDbValue DefensiveCounterMeasures where
-    toValue = String . pack . show . getDefenseLevel
+instance ToDynamoDbAttrValue DefensiveCounterMeasures where
+    toAttrValue = toAttrValue . pack . show . getDefenseLevel
 
-instance ToDynamoDbValue DriftEngine where
-    toValue = String . pack . show
+instance ToDynamoDbAttrValue DriftEngine where
+    toAttrValue = toAttrValue . pack . show
 
-instance ToDynamoDbValue ExpansionBay where
-    toValue = String . pack . show
+instance ToDynamoDbAttrValue ExpansionBay where
+    toAttrValue = toAttrValue . pack . show
 
-instance ToDynamoDbValue Sensor where
-    toValue Sensor {range, bonus} =
-        Object $
+instance ToDynamoDbAttrValue Range where
+    toAttrValue = toAttrValue . pack . show
+
+instance ToDynamoDbAttrValue Sensor where
+    toAttrValue Sensor {range, bonus} =
+        toAttrValue $
         fromList
-            [ ("range", String $ pack $ show range)
-            , ("bonus", Number $ fromIntegral $ bonus)
+            [ ("range" :: Text, toAttrValue range)
+            , ("bonus", toAttrValue bonus)
             ]
 
-instance ToDynamoDbValue a => ToDynamoDbValue (Arc a) where
-    toValue Arc {forward, aft, portSide, starboard} =
-        Object $
+instance ToDynamoDbAttrValue a => ToDynamoDbAttrValue (Arc a) where
+    toAttrValue Arc {forward, aft, portSide, starboard} =
+        toAttrValue $
         fromList
-            [ ("forward", toValue forward)
-            , ("aft", toValue aft)
-            , ("portSide", toValue portSide)
-            , ("starboard", toValue starboard)
+            [ ("forward" :: Text, forward)
+            , ("aft", aft)
+            , ("portSide", portSide)
+            , ("starboard", starboard)
             ]
 
-instance ToDynamoDbValue (OwnedBy (Build Text Text Text)) where
-    toValue (OwnedBy userId build@Build { frame
-                                        , powerCoreUnits
-                                        , thrusters
-                                        , armor
-                                        , computer
-                                        , crewQuarters
-                                        , defensiveCounterMeasures
-                                        , driftEngine
-                                        , name
-                                        , expansionBays
-                                        , sensors
-                                        , arcWeapons
-                                        , turretWeapons
-                                        , shields
-                                        }) =
-        Object $
+instance ToDynamoDbAttrValue (OwnedBy (Build Text Text Text)) where
+    toAttrValue (OwnedBy userId build@Build { frame
+                                            , powerCoreUnits
+                                            , thrusters
+                                            , armor
+                                            , computer
+                                            , crewQuarters
+                                            , defensiveCounterMeasures
+                                            , driftEngine
+                                            , name
+                                            , expansionBays
+                                            , sensors
+                                            , arcWeapons
+                                            , turretWeapons
+                                            , shields
+                                            }) =
+        toAttrValue $
         fromList
-            [ ("HASH1", String userId)
-            , ("RANGE1.1", String name)
+            [ ("HASH1" :: Text, toAttrValue userId)
+            , ("RANGE1.1", toAttrValue name)
           --, ("RANGE1.2", Number $ getBuildPoints build) (sorting by build points would be great!  But there is no insance for Build Text Text Text...)
-            , ("frame", String frame)
-            , ( "powerCoreUnits"
-              , Number $ fromIntegral $ getUnits powerCoreUnits)
-            , ("thrusters", toValue thrusters)
-            , ("armor", toValue armor)
-            , ("computer", toValue computer)
-            , ("crewQuarters", toValue crewQuarters)
+            , ("frame", toAttrValue frame)
+            , ("powerCoreUnits", toAttrValue powerCoreUnits)
+            , ("thrusters", toAttrValue thrusters)
+            , ("armor", toAttrValue armor)
+            , ("computer", toAttrValue computer)
+            , ("crewQuarters", toAttrValue crewQuarters)
             -- TODO: Countermeasure is a single word!
-            , ("defensiveCounterMeasures", toValue defensiveCounterMeasures)
-            , ("driftEngine", toValue driftEngine)
-            , ("expansionBays", toValue expansionBays)
-            , ("sensor", toValue sensors)
-            , ("arcWeapons", toValue arcWeapons)
-            , ("turretWeapons", toValue turretWeapons)
-            , ("shields", toValue shields)
+            , ("defensiveCounterMeasures", toAttrValue defensiveCounterMeasures)
+            , ("driftEngine", toAttrValue driftEngine)
+            , ("expansionBays", toAttrValue expansionBays)
+            , ("sensor", toAttrValue sensors)
+            , ("arcWeapons", toAttrValue arcWeapons)
+            , ("turretWeapons", toAttrValue turretWeapons)
+            , ("shields", toAttrValue shields)
             ]
 
 ownedReferencedBuildToItem ::
        OwnedBy (Build Text Text Text) -> HashMap Text AttributeValue
-ownedReferencedBuildToItem x
-  -- Invariant, this cannot fail
- =
-    let Object y = toValue x
-    in fmap toAttrValue y
+ownedReferencedBuildToItem
+  -- Since we known that this type is always a HashMap, we're good,
+  -- but this does not work across _all_ AttributeValues, because if
+  -- it's a String/Number/etc, this will just return an empty HashMap
+ = view avM . toAttrValue
 
 class FromDynamoDbAttrValue a where
     fromAttrValue :: AttributeValue -> Maybe a
