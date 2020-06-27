@@ -21,7 +21,7 @@ import Network.AWS.DynamoDB.Types
 import Prelude hiding (lookup)
 import Starfinder.Starship.Arc (Arc(..))
 import Starfinder.Starship.Build
-       (Armor(..), Build(..), CrewQuarters, DefensiveCounterMeasures(..),
+       (Armor(..), Build(..), CrewQuarters, DefensiveCountermeasures(..),
         DriftEngine, PowerCoreUnits(..), Sensor(..), Thrusters(..))
 import Starfinder.Starship.Computer (Computer(..))
 import Starfinder.Starship.CostsBuildPoints (CostsBuildPoints(..))
@@ -89,7 +89,7 @@ instance ToDynamoDbAttrValue Computer where
 instance ToDynamoDbAttrValue CrewQuarters where
     toAttrValue = toAttrValue . pack . show
 
-instance ToDynamoDbAttrValue DefensiveCounterMeasures where
+instance ToDynamoDbAttrValue DefensiveCountermeasures where
     toAttrValue = toAttrValue . pack . show . getDefenseLevel
 
 instance ToDynamoDbAttrValue DriftEngine where
@@ -126,7 +126,7 @@ instance ToDynamoDbAttrValue (OwnedBy (Build Text Text Text)) where
                                             , armor
                                             , computer
                                             , crewQuarters
-                                            , defensiveCounterMeasures
+                                            , defensiveCountermeasures
                                             , driftEngine
                                             , name
                                             , expansionBays
@@ -146,8 +146,7 @@ instance ToDynamoDbAttrValue (OwnedBy (Build Text Text Text)) where
             , ("armor", toAttrValue armor)
             , ("computer", toAttrValue computer)
             , ("crewQuarters", toAttrValue crewQuarters)
-            -- TODO: Countermeasure is a single word!
-            , ("defensiveCounterMeasures", toAttrValue defensiveCounterMeasures)
+            , ("defensiveCountermeasures", toAttrValue defensiveCountermeasures)
             , ("driftEngine", toAttrValue driftEngine)
             , ("expansionBays", toAttrValue expansionBays)
             , ("sensor", toAttrValue sensors)
@@ -218,8 +217,8 @@ instance FromDynamoDbAttrValue Computer where
 instance FromDynamoDbAttrValue CrewQuarters where
     fromAttrValue = view avS >=> (readMaybe . unpack)
 
-instance FromDynamoDbAttrValue DefensiveCounterMeasures where
-    fromAttrValue = (fmap DefensiveCounterMeasures) . fromAttrValue
+instance FromDynamoDbAttrValue DefensiveCountermeasures where
+    fromAttrValue = (fmap DefensiveCountermeasures) . fromAttrValue
 
 instance FromDynamoDbAttrValue DriftEngine where
     fromAttrValue = view avS >=> (readMaybe . unpack)
@@ -248,7 +247,7 @@ instance FromDynamoDbAttrValue (OwnedBy (Build Text Text Text)) where
               (fromAttrValue <$> lookup "armor" hashMap) <*>
               (fromAttrValue =<< lookup "computer" hashMap) <*>
               (fromAttrValue =<< lookup "crewQuarters" hashMap) <*>
-              (fromAttrValue <$> lookup "defensiveCounterMeasures" hashMap) <*>
+              (fromAttrValue <$> lookup "defensiveCountermeasures" hashMap) <*>
               (fromAttrValue <$> lookup "driftEngine" hashMap) <*>
               (fromAttrValue =<< lookup "expansionBays" hashMap) <*>
               (fromAttrValue =<< lookup "sensor" hashMap) <*>

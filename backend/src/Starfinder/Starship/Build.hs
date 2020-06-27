@@ -2,7 +2,7 @@
 {-# LANGUAGE NamedFieldPuns #-}
 {-# LANGUAGE FlexibleInstances #-}
 {-# LANGUAGE DeriveGeneric #-}
-module Starfinder.Starship.Build (BuildError(..), CrewQuarters(..), DriftEngine(..), Sensor(..), Shields, Build(..), areArcMountPointsValid, areTurretMountPointsValid, areTurretWeaponClassesValid, areWeaponClassesValidForFrame, getAllowedClasses, getArmorTargetLockBonus, getMaxHitPoints, getMaxPcuPerPowerCore, getMaxPowerCoreCount, getMountPointLimit, getPowerCoreCount, getTierFromBuildPoints, hasEnoughPowerCoresForPcu, hasSufficientPowerCoreUnits, hasSufficientPowerCoreUnitsForDriftEngine, hasTurretIfHasTurretWeapons, hasValidExpansionBayCount, hasValidPowerCoreCount, isSmallEnoughForDriftEngine, isTrue, isValidSizeForExpansionBays, isValidSpeed, maxiumumSizeForDriftEngine, minimumPowerCoreUnitsForDriftEngine, mountPointCountForGroupIsValid, validateStarship, PowerCoreUnits(..), Armor(..), DefensiveCounterMeasures(..), Thrusters(..)) where
+module Starfinder.Starship.Build (BuildError(..), CrewQuarters(..), DriftEngine(..), Sensor(..), Shields, Build(..), areArcMountPointsValid, areTurretMountPointsValid, areTurretWeaponClassesValid, areWeaponClassesValidForFrame, getAllowedClasses, getArmorTargetLockBonus, getMaxHitPoints, getMaxPcuPerPowerCore, getMaxPowerCoreCount, getMountPointLimit, getPowerCoreCount, getTierFromBuildPoints, hasEnoughPowerCoresForPcu, hasSufficientPowerCoreUnits, hasSufficientPowerCoreUnitsForDriftEngine, hasTurretIfHasTurretWeapons, hasValidExpansionBayCount, hasValidPowerCoreCount, isSmallEnoughForDriftEngine, isTrue, isValidSizeForExpansionBays, isValidSpeed, maxiumumSizeForDriftEngine, minimumPowerCoreUnitsForDriftEngine, mountPointCountForGroupIsValid, validateStarship, PowerCoreUnits(..), Armor(..), DefensiveCountermeasures(..), Thrusters(..)) where
 
 import Data.Set (member, Set, fromList)
 import Data.Text (Text)
@@ -208,20 +208,20 @@ instance CostsBuildPoints CrewQuarters where
             Luxurious ->
                 5
 
-newtype DefensiveCounterMeasures = DefensiveCounterMeasures { getDefenseLevel :: DefenseLevel }
+newtype DefensiveCountermeasures = DefensiveCountermeasures { getDefenseLevel :: DefenseLevel }
 
-instance FromJSON DefensiveCounterMeasures where
-  parseJSON v = DefensiveCounterMeasures <$> parseJSON v
+instance FromJSON DefensiveCountermeasures where
+  parseJSON v = DefensiveCountermeasures <$> parseJSON v
 
-instance ToJSON DefensiveCounterMeasures where
+instance ToJSON DefensiveCountermeasures where
   toJSON = toJSON . getDefenseLevel
 
-instance DrawsPower DefensiveCounterMeasures where
+instance DrawsPower DefensiveCountermeasures where
     getPowerDraw =
         (`div` 2) . getBuildPoints
 
 
-instance CostsBuildPoints DefensiveCounterMeasures where
+instance CostsBuildPoints DefensiveCountermeasures where
     getBuildPoints dcm =
         case getDefenseLevel dcm of
             Mk1 ->
@@ -364,7 +364,7 @@ data Build frame weapon shields = Build
     , armor :: Maybe Armor
     , computer :: Togglable Computer
     , crewQuarters :: CrewQuarters
-    , defensiveCounterMeasures :: Maybe (Togglable DefensiveCounterMeasures)
+    , defensiveCountermeasures :: Maybe (Togglable DefensiveCountermeasures)
     , driftEngine :: Maybe DriftEngine
     , expansionBays :: [Togglable ExpansionBay]
     , sensors :: Sensor
@@ -379,10 +379,10 @@ instance (ToJSON a, ToJSON b, ToJSON c) => ToJSON (Build a b c)
 
 
 instance DrawsPower (Build Frame Weapon Shields) where
-    getPowerDraw Build { frame = Frame { size }, thrusters, computer, defensiveCounterMeasures, expansionBays, arcWeapons, turretWeapons, shields } =
+    getPowerDraw Build { frame = Frame { size }, thrusters, computer, defensiveCountermeasures, expansionBays, arcWeapons, turretWeapons, shields } =
       getPowerDraw (fmap (Sized size) thrusters)
         + getPowerDraw computer
-        + getPowerDraw defensiveCounterMeasures
+        + getPowerDraw defensiveCountermeasures
         + getPowerDraw expansionBays
         + getPowerDraw arcWeapons
         + getPowerDraw turretWeapons
@@ -390,13 +390,13 @@ instance DrawsPower (Build Frame Weapon Shields) where
 
 
 instance CostsBuildPoints (Build Frame Weapon Shields) where
-    getBuildPoints Build { frame = Frame { size }, powerCoreUnits, thrusters, armor, computer, crewQuarters, defensiveCounterMeasures, driftEngine, expansionBays, sensors, arcWeapons, turretWeapons, shields } =
+    getBuildPoints Build { frame = Frame { size }, powerCoreUnits, thrusters, armor, computer, crewQuarters, defensiveCountermeasures, driftEngine, expansionBays, sensors, arcWeapons, turretWeapons, shields } =
       getBuildPoints powerCoreUnits
         + getBuildPoints (fmap (Sized size) thrusters)
         + getBuildPoints (fmap (Sized size) armor)
         + getBuildPoints computer
         + getBuildPoints crewQuarters
-        + getBuildPoints defensiveCounterMeasures
+        + getBuildPoints defensiveCountermeasures
         + getBuildPoints (fmap (Sized size) driftEngine)
         + getBuildPoints expansionBays
         + getBuildPoints sensors
