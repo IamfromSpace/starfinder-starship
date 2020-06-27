@@ -2,7 +2,7 @@
 {-# LANGUAGE NamedFieldPuns #-}
 {-# LANGUAGE FlexibleInstances #-}
 {-# LANGUAGE DeriveGeneric #-}
-module Starfinder.Starship.Build (BuildError(..), CrewQuarters(..), DriftEngine(..), Sensor, Shields, Build, areArcMountPointsValid, areTurretMountPointsValid, areTurretWeaponClassesValid, areWeaponClassesValidForFrame, getAllowedClasses, getArmorTargetLockBonus, getMaxHitPoints, getMaxPcuPerPowerCore, getMaxPowerCoreCount, getMountPointLimit, getPowerCoreCount, getTierFromBuildPoints, hasEnoughPowerCoresForPcu, hasSufficientPowerCoreUnits, hasSufficientPowerCoreUnitsForDriftEngine, hasTurretIfHasTurretWeapons, hasValidExpansionBayCount, hasValidPowerCoreCount, isSmallEnoughForDriftEngine, isTrue, isValidSizeForExpansionBays, isValidSpeed, maxiumumSizeForDriftEngine, minimumPowerCoreUnitsForDriftEngine, mountPointCountForGroupIsValid, validateStarship, PowerCoreUnits(..)) where
+module Starfinder.Starship.Build (BuildError(..), CrewQuarters(..), DriftEngine(..), Sensor, Shields, Build(..), areArcMountPointsValid, areTurretMountPointsValid, areTurretWeaponClassesValid, areWeaponClassesValidForFrame, getAllowedClasses, getArmorTargetLockBonus, getMaxHitPoints, getMaxPcuPerPowerCore, getMaxPowerCoreCount, getMountPointLimit, getPowerCoreCount, getTierFromBuildPoints, hasEnoughPowerCoresForPcu, hasSufficientPowerCoreUnits, hasSufficientPowerCoreUnitsForDriftEngine, hasTurretIfHasTurretWeapons, hasValidExpansionBayCount, hasValidPowerCoreCount, isSmallEnoughForDriftEngine, isTrue, isValidSizeForExpansionBays, isValidSpeed, maxiumumSizeForDriftEngine, minimumPowerCoreUnitsForDriftEngine, mountPointCountForGroupIsValid, validateStarship, PowerCoreUnits(..), Armor(..), DefensiveCounterMeasures(..), Thrusters(..)) where
 
 import Data.Set (member, Set, fromList)
 import Data.Text (Text)
@@ -190,7 +190,7 @@ data CrewQuarters
     = Common
     | GoodQuarters
     | Luxurious
-    deriving Generic
+    deriving (Generic, Show)
 
 instance FromJSON CrewQuarters
 instance ToJSON CrewQuarters
@@ -289,7 +289,7 @@ data DriftEngine
     | Major
     | Superior
     | Ultra
-    deriving Generic
+    deriving (Generic, Show)
 
 instance FromJSON DriftEngine
 instance ToJSON DriftEngine
