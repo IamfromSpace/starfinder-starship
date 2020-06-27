@@ -142,6 +142,7 @@ instance ToDynamoDbValue (OwnedBy (Build Text Text Text)) where
             , ("armor", toValue armor)
             , ("computer", toValue computer)
             , ("crewQuarters", toValue crewQuarters)
+            -- TODO: Countermeasure is a single word!
             , ("defensiveCounterMeasures", toValue defensiveCounterMeasures)
             , ("driftEngine", toValue driftEngine)
             , ("expansionBays", toValue expansionBays)
