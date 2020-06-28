@@ -169,6 +169,8 @@ ownedReferencedBuildToItem
   -- it's a String/Number/etc, this will just return an empty HashMap
  = view avM . toAttrValue
 
+-- TODO: A Maybe makes this almost impossible to debug in the face of a complex
+-- data type.  Should be at least an Either String, if not something better.
 class FromDynamoDbAttrValue a where
     fromAttrValue :: AttributeValue -> Maybe a
 
