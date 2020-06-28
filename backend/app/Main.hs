@@ -185,7 +185,7 @@ instance FromDynamoDbAttrValue a => FromDynamoDbAttrValue (Arc a) where
         (\hashMap ->
              Arc <$> (fromAttrValue =<< lookup "forward" hashMap) <*>
              (fromAttrValue =<< lookup "aft" hashMap) <*>
-             (fromAttrValue =<< lookup "portside" hashMap) <*>
+             (fromAttrValue =<< lookup "portSide" hashMap) <*>
              (fromAttrValue =<< lookup "starboard" hashMap)) .
         view avM
 
