@@ -67,7 +67,7 @@ instance ToDynamoDbAttrValue a => ToDynamoDbAttrValue (Togglable a) where
     toAttrValue Togglable {toggled, isOn} =
         toAttrValue $
         fromList
-            [("isOn" :: Text, toAttrValue isOn), ("toggled", toAttrValue toggled)]
+            [("isOn" :: Text, toAttrValue isOn), ("togglable", toAttrValue toggled)]
 
 instance ToDynamoDbAttrValue PowerCoreUnits where
     toAttrValue = toAttrValue . getUnits
