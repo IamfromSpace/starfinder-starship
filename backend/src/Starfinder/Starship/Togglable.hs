@@ -7,12 +7,16 @@ import Data.Aeson (FromJSON, ToJSON)
 import GHC.Generics (Generic)
 import Starfinder.Starship.DrawsPower (DrawsPower(..))
 import Starfinder.Starship.CostsBuildPoints (CostsBuildPoints(..))
+import Test.QuickCheck.Arbitrary (Arbitrary(..))
 
 data Togglable a = Togglable
   { isOn :: Bool
   , toggled :: a
   }
-  deriving (Functor, Generic)
+  deriving (Functor, Generic, Show, Eq)
+
+instance Arbitrary a => Arbitrary (Togglable a) where
+  arbitrary = Togglable <$> arbitrary <*> arbitrary
 
 instance FromJSON a => FromJSON (Togglable a)
 instance ToJSON a => ToJSON (Togglable a)

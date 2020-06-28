@@ -15,6 +15,7 @@ import Data.Maybe (fromMaybe, fromJust)
 import Data.Scientific (FPFormat(..), Scientific, formatScientific)
 import Data.Set (Set, member)
 import Data.Text (Text, pack, unpack)
+import Data.Text.Arbitrary
 import Network.AWS.DynamoDB.Types
        (AttributeValue, attributeValue, avBOOL, avL, avM, avN, avNULL,
         avS, avSS)
@@ -30,10 +31,14 @@ import Starfinder.Starship.ExpansionBay (ExpansionBay)
 import Starfinder.Starship.Togglable (Togglable(..))
 import Starfinder.Starship.Weapon (Range)
 import Text.Read (readMaybe)
+import Test.QuickCheck.Arbitrary (Arbitrary(..))
 
 data OwnedBy a =
     OwnedBy Text
-            a
+            a deriving (Show, Eq)
+
+instance Arbitrary a => Arbitrary (OwnedBy a) where
+  arbitrary = OwnedBy <$> arbitrary <*> arbitrary
 
 class ToDynamoDbAttrValue a where
     toAttrValue :: a -> AttributeValue

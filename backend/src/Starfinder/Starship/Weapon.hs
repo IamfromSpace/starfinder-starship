@@ -12,12 +12,21 @@ import Data.Set (Set)
 import Data.Text (Text)
 import Data.Maybe (fromMaybe)
 import GHC.Generics (Generic)
+import Test.QuickCheck.Arbitrary (Arbitrary(..))
+import Test.QuickCheck.Gen (elements)
 
 data Range
     = Short
     | Medium
     | Long
     deriving (Show, Eq, Ord, Generic, Read)
+
+instance Arbitrary Range where
+  arbitrary = elements
+    [ Short
+    , Medium
+    , Long
+    ]
 
 instance FromJSON Range
 instance ToJSON Range

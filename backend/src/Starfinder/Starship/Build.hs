@@ -6,6 +6,7 @@ module Starfinder.Starship.Build (BuildError(..), CrewQuarters(..), DriftEngine(
 
 import Data.Set (member, Set, fromList)
 import Data.Text (Text)
+import Data.Text.Arbitrary
 import Data.Aeson (FromJSON, ToJSON, toJSON, parseJSON)
 import GHC.Generics (Generic)
 import Starfinder.Starship.Arc (Arc)
@@ -19,9 +20,14 @@ import Starfinder.Starship.Weapon (Weapon(..), getMountPointsUsed, isTrackingWea
 import qualified Starfinder.Starship.Weapon as Weapon
 import Starfinder.Starship.CostsBuildPoints (CostsBuildPoints(..))
 import Starfinder.Starship.DrawsPower (DrawsPower(..))
+import Test.QuickCheck.Arbitrary (Arbitrary(..))
+import Test.QuickCheck.Gen (elements)
 
 
-newtype Thrusters = Thrusters { getSpeed :: Int }
+newtype Thrusters = Thrusters { getSpeed :: Int } deriving (Show, Eq)
+
+instance Arbitrary Thrusters where
+  arbitrary = Thrusters <$> arbitrary
 
 instance FromJSON Thrusters where
   parseJSON v = Thrusters <$> parseJSON v
@@ -76,7 +82,10 @@ instance CostsBuildPoints (Sized Thrusters) where
             _ ->
                 speed `div` 2
 
-newtype Armor = Armor { getDefenseLevelA :: DefenseLevel }
+newtype Armor = Armor { getDefenseLevelA :: DefenseLevel } deriving (Show, Eq)
+
+instance Arbitrary Armor where
+  arbitrary = Armor <$> arbitrary
 
 instance FromJSON Armor where
   parseJSON v = Armor <$> parseJSON v
@@ -190,7 +199,14 @@ data CrewQuarters
     = Common
     | GoodQuarters
     | Luxurious
-    deriving (Generic, Show, Read)
+    deriving (Generic, Show, Read, Eq)
+
+instance Arbitrary CrewQuarters where
+  arbitrary = elements
+    [ Common
+    , GoodQuarters
+    , Luxurious
+    ]
 
 instance FromJSON CrewQuarters
 instance ToJSON CrewQuarters
@@ -208,7 +224,10 @@ instance CostsBuildPoints CrewQuarters where
             Luxurious ->
                 5
 
-newtype DefensiveCountermeasures = DefensiveCountermeasures { getDefenseLevel :: DefenseLevel }
+newtype DefensiveCountermeasures = DefensiveCountermeasures { getDefenseLevel :: DefenseLevel } deriving (Show, Eq)
+
+instance Arbitrary DefensiveCountermeasures where
+  arbitrary = DefensiveCountermeasures <$> arbitrary
 
 instance FromJSON DefensiveCountermeasures where
   parseJSON v = DefensiveCountermeasures <$> parseJSON v
@@ -269,7 +288,10 @@ instance CostsBuildPoints DefensiveCountermeasures where
             Mk15 ->
                 90
 
-newtype PowerCoreUnits = PowerCoreUnits { getUnits :: Int }
+newtype PowerCoreUnits = PowerCoreUnits { getUnits :: Int } deriving (Show, Eq)
+
+instance Arbitrary PowerCoreUnits where
+  arbitrary = PowerCoreUnits <$> arbitrary
 
 instance FromJSON PowerCoreUnits where
   parseJSON v = PowerCoreUnits <$> parseJSON v
@@ -289,7 +311,16 @@ data DriftEngine
     | Major
     | Superior
     | Ultra
-    deriving (Generic, Show, Read)
+    deriving (Generic, Show, Read, Eq)
+
+instance Arbitrary DriftEngine where
+  arbitrary = elements
+    [ Basic
+    , Booster
+    , Major
+    , Superior
+    , Ultra
+    ]
 
 instance FromJSON DriftEngine
 instance ToJSON DriftEngine
@@ -319,7 +350,10 @@ instance CostsBuildPoints (Sized DriftEngine) where
 data Sensor = Sensor
     { range :: Weapon.Range
     , bonus :: Int
-    } deriving Generic
+    } deriving (Generic, Show, Eq)
+
+instance Arbitrary Sensor where
+  arbitrary = Sensor <$> arbitrary <*> arbitrary
 
 instance FromJSON Sensor
 instance ToJSON Sensor
@@ -371,8 +405,23 @@ data Build frame weapon shields = Build
     , arcWeapons :: Arc [Togglable weapon]
     , turretWeapons :: [Togglable weapon]
     , shields :: Togglable shields
-    } deriving Generic
+    } deriving (Generic, Show, Eq)
 
+instance (Arbitrary a,Arbitrary b,Arbitrary c) => Arbitrary (Build a b c) where
+  arbitrary = Build <$> arbitrary
+        <*> arbitrary
+        <*> arbitrary
+        <*> arbitrary
+        <*> arbitrary
+        <*> arbitrary
+        <*> arbitrary
+        <*> arbitrary
+        <*> arbitrary
+        <*> arbitrary
+        <*> arbitrary
+        <*> arbitrary
+        <*> arbitrary
+        <*> arbitrary
 
 instance (FromJSON a, FromJSON b, FromJSON c) => FromJSON (Build a b c)
 instance (ToJSON a, ToJSON b, ToJSON c) => ToJSON (Build a b c)

@@ -8,6 +8,8 @@ import Data.Set (Set, member, fromList)
 import Data.Maybe (fromMaybe)
 import GHC.Generics (Generic)
 import Data.Aeson (FromJSON, ToJSON)
+import Test.QuickCheck.Arbitrary (Arbitrary(..))
+import Test.QuickCheck.Gen (elements, oneof)
 
 
 data ExpansionBay
@@ -35,6 +37,28 @@ data ExpansionBay
     | SynthesisBay
     | TechWorkshop
     deriving (Show, Eq, Ord, Generic, Read)
+
+instance Arbitrary ExpansionBay where
+  arbitrary = oneof [SmugglerCompartment <$> arbitrary, elements
+    [ ArcaneLaboratory
+    , CargoHold
+    , EscapePods
+    , GuestQuarters
+    , HangarBay
+    , LifeBoats
+    , MedicalBay
+    , PassengerSeating
+    , PowerCoreHousing
+    , RecreationSuiteGym
+    , RecreationSuiteTrivedDen
+    , RecreationSuiteHac
+    , ScienceLab
+    , SealedEnvironmentChamber
+    , ShuttleBay
+    , SynthesisBay
+    , TechWorkshop
+    ]]
+
 
 instance FromJSON ExpansionBay
 instance ToJSON ExpansionBay

@@ -7,13 +7,20 @@ import Starfinder.Starship.CostsBuildPoints (CostsBuildPoints(..))
 import Data.Aeson (FromJSON, ToJSON)
 import Data.Foldable (toList)
 import GHC.Generics (Generic)
+import Test.QuickCheck.Arbitrary (Arbitrary(..))
 
 data Arc a = Arc
     { forward :: a
     , aft :: a
     , portSide :: a
     , starboard :: a
-    } deriving Generic
+    } deriving (Generic, Show, Eq)
+
+instance Arbitrary a => Arbitrary (Arc a) where
+  arbitrary = Arc <$> arbitrary
+        <*> arbitrary
+        <*> arbitrary
+        <*> arbitrary
 
 instance FromJSON a => FromJSON (Arc a)
 instance ToJSON a => ToJSON (Arc a)

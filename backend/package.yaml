@@ -22,6 +22,8 @@ dependencies:
 - amazonka-dynamodb
 - containers
 - lens
+- QuickCheck
+- quickcheck-text
 - scientific
 - text
 - unordered-containers
