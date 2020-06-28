@@ -140,6 +140,7 @@ instance ToDynamoDbAttrValue (OwnedBy (Build Text Text Text)) where
             [ ("HASH1" :: Text, toAttrValue userId)
             , ("RANGE1.1", toAttrValue name)
           --, ("RANGE1.2", Number $ getBuildPoints build) (sorting by build points would be great!  But there is no insance for Build Text Text Text...)
+            , ("name", toAttrValue name)
             , ("frame", toAttrValue frame)
             , ("powerCoreUnits", toAttrValue powerCoreUnits)
             , ("thrusters", toAttrValue thrusters)
