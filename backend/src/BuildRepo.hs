@@ -21,12 +21,15 @@ all details beyond the ones of interest to the interface.
 module BuildRepo where
 
 import Control.Exception.Lens (trying)
-import Control.Lens (set)
+import Control.Lens (set, view)
 import Control.Monad.Reader (MonadReader, ask)
 import Data.Bifunctor (bimap)
+import Data.HashMap.Strict (fromList)
 import Data.Text
 import Lib
 import Network.AWS (MonadAWS, send)
+import Network.AWS.DynamoDB.GetItem
+       (GetItem, getItem, giConsistentRead, giKey, girsItem)
 import Network.AWS.DynamoDB.PutItem
        (PutItem, piConditionExpression, piItem, putItem)
 import Network.AWS.DynamoDB.Types
@@ -51,7 +54,11 @@ class BuildRepo m a where
         -> Text
         -> OwnedBy (Build Text Text Text)
         -> m (Either UpdateError Text)
-    getBuild :: a -> Text -> Text -> m (OwnedBy (Build Text Text Text))
+    getBuild ::
+           a
+        -> Text
+        -> Text
+        -> m (Maybe (ETagged (OwnedBy (Build Text Text Text))))
     getBuildsByOwner :: a -> Text -> m [Text]
 
 -- TODO: r is a phantom type?  Do we need it?
@@ -72,5 +79,21 @@ instance (MonadAWS m, MonadReader r m, HasTableName r) =>
         res <- trying _ConditionalCheckFailedException (send item)
         return $ bimap (const AlreadyExists) (const "\"TODO\"") res
     updateBuild = undefined
-    getBuild = undefined
+    getBuild _ userId name = do
+        tableName <- getTableName <$> ask
+        let item
+                -- To keep our typeclass simple, we only support the safe
+                -- approach of reading consistently
+             =
+                set giConsistentRead (Just True) $
+                -- TODO: Another place where typed keys would help
+                set
+                    giKey
+                    (fromList
+                         [ ("HASH1", toAttrValue userId)
+                         , ("RANGE1.1", toAttrValue name)
+                         ])
+                    (getItem tableName)
+        res <- send item
+        return $ fromAttrValue $ toAttrValue $ view girsItem res
     getBuildsByOwner = undefined
