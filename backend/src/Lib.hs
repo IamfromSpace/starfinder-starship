@@ -11,7 +11,7 @@ import Control.Monad ((>=>))
 import Data.Foldable (toList)
 import Data.HashMap.Strict (HashMap, fromList, lookup)
 import qualified Data.Map as Map
-import Data.Maybe (fromMaybe, fromJust)
+import Data.Maybe (fromJust, fromMaybe)
 import Data.Scientific (FPFormat(..), Scientific, formatScientific)
 import Data.Set (Set, member)
 import Data.Text (Text, pack, unpack)
@@ -30,22 +30,24 @@ import Starfinder.Starship.DefenseLevel (DefenseLevel)
 import Starfinder.Starship.ExpansionBay (ExpansionBay)
 import Starfinder.Starship.Togglable (Togglable(..))
 import Starfinder.Starship.Weapon (Range)
-import Text.Read (readMaybe)
 import Test.QuickCheck.Arbitrary (Arbitrary(..))
+import Text.Read (readMaybe)
 
 data ETagged a =
     ETagged Text
-            a deriving (Show, Eq)
+            a
+    deriving (Show, Eq)
 
 instance Arbitrary a => Arbitrary (ETagged a) where
-  arbitrary = ETagged <$> arbitrary <*> arbitrary
+    arbitrary = ETagged <$> arbitrary <*> arbitrary
 
 data OwnedBy a =
     OwnedBy Text
-            a deriving (Show, Eq)
+            a
+    deriving (Show, Eq)
 
 instance Arbitrary a => Arbitrary (OwnedBy a) where
-  arbitrary = OwnedBy <$> arbitrary <*> arbitrary
+    arbitrary = OwnedBy <$> arbitrary <*> arbitrary
 
 class ToDynamoDbAttrValue a where
     toAttrValue :: a -> AttributeValue
@@ -79,7 +81,9 @@ instance ToDynamoDbAttrValue a => ToDynamoDbAttrValue (Togglable a) where
     toAttrValue Togglable {toggled, isOn} =
         toAttrValue $
         fromList
-            [("isOn" :: Text, toAttrValue isOn), ("togglable", toAttrValue toggled)]
+            [ ("isOn" :: Text, toAttrValue isOn)
+            , ("togglable", toAttrValue toggled)
+            ]
 
 instance ToDynamoDbAttrValue PowerCoreUnits where
     toAttrValue = toAttrValue . getUnits
@@ -92,11 +96,7 @@ instance ToDynamoDbAttrValue Armor where
 
 instance ToDynamoDbAttrValue Computer where
     toAttrValue Computer {nodes, bonus} =
-        toAttrValue $
-        fromList
-            [ ("nodes" :: Text, nodes)
-            , ("bonus", bonus)
-            ]
+        toAttrValue $ fromList [("nodes" :: Text, nodes), ("bonus", bonus)]
 
 instance ToDynamoDbAttrValue CrewQuarters where
     toAttrValue = toAttrValue . pack . show
@@ -117,9 +117,7 @@ instance ToDynamoDbAttrValue Sensor where
     toAttrValue Sensor {range, bonus} =
         toAttrValue $
         fromList
-            [ ("range" :: Text, toAttrValue range)
-            , ("bonus", toAttrValue bonus)
-            ]
+            [("range" :: Text, toAttrValue range), ("bonus", toAttrValue bonus)]
 
 instance ToDynamoDbAttrValue a => ToDynamoDbAttrValue (Arc a) where
     toAttrValue Arc {forward, aft, portSide, starboard} =
@@ -136,20 +134,20 @@ instance ToDynamoDbAttrValue a => ToDynamoDbAttrValue (Arc a) where
 -- separated.
 instance ToDynamoDbAttrValue (ETagged (OwnedBy (Build Text Text Text))) where
     toAttrValue (ETagged eTag (OwnedBy userId build@Build { frame
-                                            , powerCoreUnits
-                                            , thrusters
-                                            , armor
-                                            , computer
-                                            , crewQuarters
-                                            , defensiveCountermeasures
-                                            , driftEngine
-                                            , name
-                                            , expansionBays
-                                            , sensors
-                                            , arcWeapons
-                                            , turretWeapons
-                                            , shields
-                                            })) =
+                                                          , powerCoreUnits
+                                                          , thrusters
+                                                          , armor
+                                                          , computer
+                                                          , crewQuarters
+                                                          , defensiveCountermeasures
+                                                          , driftEngine
+                                                          , name
+                                                          , expansionBays
+                                                          , sensors
+                                                          , arcWeapons
+                                                          , turretWeapons
+                                                          , shields
+                                                          })) =
         toAttrValue $
         fromList
             [ ("HASH1" :: Text, toAttrValue userId)
