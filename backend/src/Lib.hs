@@ -33,6 +33,13 @@ import Starfinder.Starship.Weapon (Range)
 import Text.Read (readMaybe)
 import Test.QuickCheck.Arbitrary (Arbitrary(..))
 
+data ETagged a =
+    ETagged Text
+            a deriving (Show, Eq)
+
+instance Arbitrary a => Arbitrary (ETagged a) where
+  arbitrary = ETagged <$> arbitrary <*> arbitrary
+
 data OwnedBy a =
     OwnedBy Text
             a deriving (Show, Eq)
@@ -124,8 +131,11 @@ instance ToDynamoDbAttrValue a => ToDynamoDbAttrValue (Arc a) where
             , ("starboard", starboard)
             ]
 
-instance ToDynamoDbAttrValue (OwnedBy (Build Text Text Text)) where
-    toAttrValue (OwnedBy userId build@Build { frame
+-- TODO: Improved indexing strategy so composition is always preserved, and then
+-- indexes are always lenses (getters) inside and can be fully typed and
+-- separated.
+instance ToDynamoDbAttrValue (ETagged (OwnedBy (Build Text Text Text))) where
+    toAttrValue (ETagged eTag (OwnedBy userId build@Build { frame
                                             , powerCoreUnits
                                             , thrusters
                                             , armor
@@ -139,12 +149,13 @@ instance ToDynamoDbAttrValue (OwnedBy (Build Text Text Text)) where
                                             , arcWeapons
                                             , turretWeapons
                                             , shields
-                                            }) =
+                                            })) =
         toAttrValue $
         fromList
             [ ("HASH1" :: Text, toAttrValue userId)
             , ("RANGE1.1", toAttrValue name)
           --, ("RANGE1.2", Number $ getBuildPoints build) (sorting by build points would be great!  But there is no insance for Build Text Text Text...)
+            , ("eTag", toAttrValue eTag)
             , ("name", toAttrValue name)
             , ("frame", toAttrValue frame)
             , ("powerCoreUnits", toAttrValue powerCoreUnits)
@@ -162,7 +173,7 @@ instance ToDynamoDbAttrValue (OwnedBy (Build Text Text Text)) where
             ]
 
 ownedReferencedBuildToItem ::
-       OwnedBy (Build Text Text Text) -> HashMap Text AttributeValue
+       ETagged (OwnedBy (Build Text Text Text)) -> HashMap Text AttributeValue
 ownedReferencedBuildToItem
   -- Since we known that this type is always a HashMap, we're good,
   -- but this does not work across _all_ AttributeValues, because if
@@ -244,22 +255,23 @@ instance FromDynamoDbAttrValue Sensor where
              (fromAttrValue =<< lookup "bonus" hashMap)) .
         view avM
 
-instance FromDynamoDbAttrValue (OwnedBy (Build Text Text Text)) where
+instance FromDynamoDbAttrValue (ETagged (OwnedBy (Build Text Text Text))) where
     fromAttrValue =
         (\hashMap ->
-             OwnedBy <$> (fromAttrValue =<< lookup "HASH1" hashMap) <*>
-             (Build <$> (fromAttrValue =<< lookup "name" hashMap) <*>
-              (fromAttrValue =<< lookup "frame" hashMap) <*>
-              (fromAttrValue =<< lookup "powerCoreUnits" hashMap) <*>
-              (fromAttrValue =<< lookup "thrusters" hashMap) <*>
-              (fromAttrValue <$> lookup "armor" hashMap) <*>
-              (fromAttrValue =<< lookup "computer" hashMap) <*>
-              (fromAttrValue =<< lookup "crewQuarters" hashMap) <*>
-              (fromAttrValue <$> lookup "defensiveCountermeasures" hashMap) <*>
-              (fromAttrValue <$> lookup "driftEngine" hashMap) <*>
-              (fromAttrValue =<< lookup "expansionBays" hashMap) <*>
-              (fromAttrValue =<< lookup "sensor" hashMap) <*>
-              (fromAttrValue =<< lookup "arcWeapons" hashMap) <*>
-              (fromAttrValue =<< lookup "turretWeapons" hashMap) <*>
-              (fromAttrValue =<< lookup "shields" hashMap))) .
+             ETagged <$> (fromAttrValue =<< lookup "eTag" hashMap) <*>
+              (OwnedBy <$> (fromAttrValue =<< lookup "HASH1" hashMap) <*>
+              (Build <$> (fromAttrValue =<< lookup "name" hashMap) <*>
+               (fromAttrValue =<< lookup "frame" hashMap) <*>
+               (fromAttrValue =<< lookup "powerCoreUnits" hashMap) <*>
+               (fromAttrValue =<< lookup "thrusters" hashMap) <*>
+               (fromAttrValue <$> lookup "armor" hashMap) <*>
+               (fromAttrValue =<< lookup "computer" hashMap) <*>
+               (fromAttrValue =<< lookup "crewQuarters" hashMap) <*>
+               (fromAttrValue <$> lookup "defensiveCountermeasures" hashMap) <*>
+               (fromAttrValue <$> lookup "driftEngine" hashMap) <*>
+               (fromAttrValue =<< lookup "expansionBays" hashMap) <*>
+               (fromAttrValue =<< lookup "sensor" hashMap) <*>
+               (fromAttrValue =<< lookup "arcWeapons" hashMap) <*>
+               (fromAttrValue =<< lookup "turretWeapons" hashMap) <*>
+               (fromAttrValue =<< lookup "shields" hashMap)))) .
         view avM

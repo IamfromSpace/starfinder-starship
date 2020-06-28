@@ -51,4 +51,4 @@ main =
                 (\(x :: ExpansionBay) -> fromAttrValue (toAttrValue x) == Just x)
             prop
                 "should round trip Build"
-                (\(x :: OwnedBy (Build Text Text Text)) -> fromAttrValue (toAttrValue x) == Just x)
+                (\(x :: ETagged (OwnedBy (Build Text Text Text))) -> fromAttrValue (toAttrValue x) == Just x)
