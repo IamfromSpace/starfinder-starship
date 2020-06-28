@@ -240,7 +240,7 @@ instance FromDynamoDbAttrValue Sensor where
 instance FromDynamoDbAttrValue (OwnedBy (Build Text Text Text)) where
     fromAttrValue =
         (\hashMap ->
-             OwnedBy <$> (fromAttrValue =<< lookup "userId" hashMap) <*>
+             OwnedBy <$> (fromAttrValue =<< lookup "HASH1" hashMap) <*>
              (Build <$> (fromAttrValue =<< lookup "name" hashMap) <*>
               (fromAttrValue =<< lookup "frame" hashMap) <*>
               (fromAttrValue =<< lookup "powerCoreUnits" hashMap) <*>
