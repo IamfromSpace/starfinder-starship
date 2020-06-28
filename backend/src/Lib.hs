@@ -155,6 +155,7 @@ instance ToDynamoDbAttrValue (ETagged (OwnedBy (Build Text Text Text))) where
             [ ("HASH1" :: Text, toAttrValue userId)
             , ("RANGE1.1", toAttrValue name)
           --, ("RANGE1.2", Number $ getBuildPoints build) (sorting by build points would be great!  But there is no insance for Build Text Text Text...)
+            , ("version", toAttrValue ("v1" :: Text))
             , ("eTag", toAttrValue eTag)
             , ("name", toAttrValue name)
             , ("frame", toAttrValue frame)
@@ -257,21 +258,28 @@ instance FromDynamoDbAttrValue Sensor where
 
 instance FromDynamoDbAttrValue (ETagged (OwnedBy (Build Text Text Text))) where
     fromAttrValue =
-        (\hashMap ->
-             ETagged <$> (fromAttrValue =<< lookup "eTag" hashMap) <*>
-              (OwnedBy <$> (fromAttrValue =<< lookup "HASH1" hashMap) <*>
-              (Build <$> (fromAttrValue =<< lookup "name" hashMap) <*>
-               (fromAttrValue =<< lookup "frame" hashMap) <*>
-               (fromAttrValue =<< lookup "powerCoreUnits" hashMap) <*>
-               (fromAttrValue =<< lookup "thrusters" hashMap) <*>
-               (fromAttrValue <$> lookup "armor" hashMap) <*>
-               (fromAttrValue =<< lookup "computer" hashMap) <*>
-               (fromAttrValue =<< lookup "crewQuarters" hashMap) <*>
-               (fromAttrValue <$> lookup "defensiveCountermeasures" hashMap) <*>
-               (fromAttrValue <$> lookup "driftEngine" hashMap) <*>
-               (fromAttrValue =<< lookup "expansionBays" hashMap) <*>
-               (fromAttrValue =<< lookup "sensor" hashMap) <*>
-               (fromAttrValue =<< lookup "arcWeapons" hashMap) <*>
-               (fromAttrValue =<< lookup "turretWeapons" hashMap) <*>
-               (fromAttrValue =<< lookup "shields" hashMap)))) .
-        view avM
+        let v1OrNothing hashMap =
+                lookup "version" hashMap >>=
+                fromAttrValue >>=
+                (\v ->
+                     if v == ("v1" :: Text)
+                         then Just ()
+                         else Nothing)
+            decodeHashMap hashMap =
+                ETagged <$> (fromAttrValue =<< lookup "eTag" hashMap) <*>
+                (OwnedBy <$> (fromAttrValue =<< lookup "HASH1" hashMap) <*>
+                 (Build <$> (fromAttrValue =<< lookup "name" hashMap) <*>
+                  (fromAttrValue =<< lookup "frame" hashMap) <*>
+                  (fromAttrValue =<< lookup "powerCoreUnits" hashMap) <*>
+                  (fromAttrValue =<< lookup "thrusters" hashMap) <*>
+                  (fromAttrValue <$> lookup "armor" hashMap) <*>
+                  (fromAttrValue =<< lookup "computer" hashMap) <*>
+                  (fromAttrValue =<< lookup "crewQuarters" hashMap) <*>
+                  (fromAttrValue <$> lookup "defensiveCountermeasures" hashMap) <*>
+                  (fromAttrValue <$> lookup "driftEngine" hashMap) <*>
+                  (fromAttrValue =<< lookup "expansionBays" hashMap) <*>
+                  (fromAttrValue =<< lookup "sensor" hashMap) <*>
+                  (fromAttrValue =<< lookup "arcWeapons" hashMap) <*>
+                  (fromAttrValue =<< lookup "turretWeapons" hashMap) <*>
+                  (fromAttrValue =<< lookup "shields" hashMap)))
+        in (\hm -> v1OrNothing hm *> decodeHashMap hm) . view avM
