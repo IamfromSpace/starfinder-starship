@@ -38,6 +38,10 @@ instance Foldable Arc where
   foldMap f Arc { forward, aft, portSide, starboard } =
     f forward <> f aft <> f portSide <> f starboard
 
+instance Traversable Arc where
+  traverse f Arc { forward, aft, portSide, starboard } =
+    Arc <$> f forward <*> f aft <*> f portSide <*> f starboard
+
 mapWithAnArc :: (AnArc -> a -> b) -> Arc a -> Arc b
 mapWithAnArc fn Arc { forward, aft, portSide, starboard } =
   Arc

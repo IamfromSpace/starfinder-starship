@@ -21,6 +21,14 @@ instance Arbitrary a => Arbitrary (Togglable a) where
 instance FromJSON a => FromJSON (Togglable a)
 instance ToJSON a => ToJSON (Togglable a)
 
+instance Foldable Togglable where
+  foldMap f Togglable { toggled } =
+    f toggled
+
+instance Traversable Togglable where
+  traverse f Togglable { toggled, isOn } =
+    Togglable isOn <$> f toggled
+
 extract :: Togglable a -> a
 extract = toggled
 

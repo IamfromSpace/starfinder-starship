@@ -2,7 +2,7 @@
 {-# LANGUAGE NamedFieldPuns #-}
 {-# LANGUAGE FlexibleInstances #-}
 {-# LANGUAGE DeriveGeneric #-}
-module Starfinder.Starship.Build (BuildError(..), CrewQuarters(..), DriftEngine(..), Sensor(..), Shields(..), Build(..), areArcMountPointsValid, areTurretMountPointsValid, areTurretWeaponClassesValid, areWeaponClassesValidForFrame, getAllowedClasses, getArmorTargetLockBonus, getMaxHitPoints, getMaxPcuPerPowerCore, getMaxPowerCoreCount, getMountPointLimit, getPowerCoreCount, getTierFromBuildPoints, hasEnoughPowerCoresForPcu, hasSufficientPowerCoreUnits, hasSufficientPowerCoreUnitsForDriftEngine, hasTurretIfHasTurretWeapons, hasValidExpansionBayCount, hasValidPowerCoreCount, isSmallEnoughForDriftEngine, isTrue, isValidSizeForExpansionBays, isValidSpeed, maxiumumSizeForDriftEngine, minimumPowerCoreUnitsForDriftEngine, mountPointCountForGroupIsValid, validateStarship, PowerCoreUnits(..), Armor(..), DefensiveCountermeasures(..), Thrusters(..)) where
+module Starfinder.Starship.Build (BuildError(..), CrewQuarters(..), DriftEngine(..), Sensor(..), Shields(..), Build(..), areArcMountPointsValid, areTurretMountPointsValid, areTurretWeaponClassesValid, areWeaponClassesValidForFrame, getAllowedClasses, getArmorTargetLockBonus, getMaxHitPoints, getMaxPcuPerPowerCore, getMaxPowerCoreCount, getMountPointLimit, getPowerCoreCount, getTierFromBuildPoints, hasEnoughPowerCoresForPcu, hasSufficientPowerCoreUnits, hasSufficientPowerCoreUnitsForDriftEngine, hasTurretIfHasTurretWeapons, hasValidExpansionBayCount, hasValidPowerCoreCount, isSmallEnoughForDriftEngine, isTrue, isValidSizeForExpansionBays, isValidSpeed, maxiumumSizeForDriftEngine, minimumPowerCoreUnitsForDriftEngine, mountPointCountForGroupIsValid, validateStarship, PowerCoreUnits(..), Armor(..), DefensiveCountermeasures(..), Thrusters(..), traverseFrame, traverseWeapon, traverseShields) where
 
 import Data.Set (member, Set, fromList)
 import Data.Text (Text)
@@ -406,6 +406,23 @@ data Build frame weapon shields = Build
     , turretWeapons :: [Togglable weapon]
     , shields :: Togglable shields
     } deriving (Generic, Show, Eq)
+
+-- TODO: Newtype wrapper to enable these
+traverseFrame :: Applicative f => (a -> f b) -> Build a x y -> f (Build b x y)
+traverseFrame fn (Build a frame c d e f g h i j k l m n) =
+  (\b -> Build a b c d e f g h i j k l m n) <$> fn frame
+
+traverseWeapon :: Applicative f => (a -> f b) -> Build x a y -> f (Build x b y)
+traverseWeapon fn (Build a b c d e f g h i j k arcWeapons turretWeapons n) =
+  Build a b c d e f g h i j k <$>
+    traverse (traverse (traverse fn)) arcWeapons <*>
+    traverse (traverse fn) turretWeapons <*>
+    pure n
+
+traverseShields :: Applicative f => (a -> f b) -> Build x y a -> f (Build x y b)
+traverseShields fn (Build a b c d e f g h i j k l m shields) =
+  Build a b c d e f g h i j k l m <$>
+    traverse fn shields
 
 instance (Arbitrary a,Arbitrary b,Arbitrary c) => Arbitrary (Build a b c) where
   arbitrary = Build <$> arbitrary
