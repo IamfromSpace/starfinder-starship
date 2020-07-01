@@ -107,7 +107,7 @@ instance (Monad m, BR.BuildRepo m r) =>
                Left es -> return $ Left es
                Right _ -> mapSaveBuildError <$> BR.saveNewBuild r v
     updateBuild = undefined
-    getBuild = undefined
+    getBuild (DefaultBuildService r) = BR.getBuild r
     getBuildsByOwner = undefined
 
 emptyWithSelfError :: [a] -> Either [a] ()
