@@ -390,6 +390,7 @@ instance DrawsPower Shields where
 --TODO: Security Systems
 
 
+-- TODO: Consider making names case insensitive
 data Build frame weapon shields = Build
     { name :: Text
     , frame :: frame
