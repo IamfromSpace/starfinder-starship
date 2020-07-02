@@ -3,7 +3,18 @@
 # For more information, please see the documentation at:
 #   https://docs.haskellstack.org/en/stable/lock_files
 
-packages: []
+packages:
+- completed:
+    name: hal
+    version: 0.2.0
+    git: https://github.com/Nike-Inc/hal.git
+    pantry-tree:
+      size: 1575
+      sha256: ac01e3bc7a2fa1b0a7d208bbc9b46728e8590bf79b86665557d24a4cb29d1fec
+    commit: 1749a2998a420b178a635a57f6f2851dca07e563
+  original:
+    git: https://github.com/Nike-Inc/hal.git
+    commit: 1749a2998a420b178a635a57f6f2851dca07e563
 snapshots:
 - completed:
     size: 498398

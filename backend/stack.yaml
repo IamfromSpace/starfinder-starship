@@ -38,7 +38,9 @@ packages:
 # Dependency packages to be pulled from upstream that are not in the resolver
 # using the same syntax as the packages field.
 # (e.g., acme-missiles-0.3)
-# extra-deps: []
+extra-deps:
+  - git: https://github.com/Nike-Inc/hal.git
+    commit: 1749a2998a420b178a635a57f6f2851dca07e563
 
 # Override default flag values for local packages and extra-deps
 # flags: {}
