@@ -9,12 +9,13 @@ module BuildController where
 import AWS.Lambda.Events.ApiGateway.ProxyRequest
        (ProxyRequest(..), authorizer)
 import AWS.Lambda.Events.ApiGateway.ProxyResponse
-       (ProxyResponse(..), badRequest400, methodNotAllowed405,
-        notImplemented501, ok200, textPlain, unauthorized401)
+       (ProxyResponse(..), applicationJson, badRequest400,
+        methodNotAllowed405, notImplemented501, ok200, textPlain,
+        unauthorized401, notFound404)
 import BuildService (BuildService(..))
 import Data.Aeson (decode)
 import Data.Text
-import Lib (OwnedBy(..))
+import Lib (ETagged(..), OwnedBy(..))
 import Starfinder.Starship.Build (Build)
 import Starfinder.Starship.ReferencedWeapon (ReferencedWeapon)
 
@@ -58,13 +59,24 @@ httpHandler service ProxyRequest {requestContext, body, httpMethod = "POST"} =
                      mempty
                      mempty
                      (textPlain "Bad Request"))
-httpHandler _ ProxyRequest {httpMethod = "GET"} =
-    return
-        (ProxyResponse
-             notImplemented501
-             mempty
-             mempty
-             (textPlain "Not Yet Implemented"))
+httpHandler service ProxyRequest {requestContext, httpMethod = "GET"} =
+    case authorizer requestContext of
+        Just userId
+            -- TODO: Dynamic Name and userId in path
+         -> do
+            record <- getBuild service userId "Sunrise Maiden"
+            case record of
+                Just (ETagged eTag (OwnedBy _ build)) ->
+                    return (ProxyResponse ok200 mempty mempty (applicationJson build))
+                Nothing ->
+                    return (ProxyResponse notFound404 mempty mempty (textPlain "Not Found"))
+        Nothing ->
+            return
+                (ProxyResponse
+                     unauthorized401
+                     mempty
+                     mempty
+                     (textPlain "Unauthorized"))
 httpHandler _ ProxyRequest {httpMethod = "PUT"} =
     return
         (ProxyResponse
