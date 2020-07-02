@@ -10,6 +10,7 @@ import Starfinder.Starship.Computer (Computer)
 import Starfinder.Starship.ExpansionBay (ExpansionBay)
 import Starfinder.Starship.Togglable (Togglable)
 import Starfinder.Starship.Arc (Arc)
+import Starfinder.Starship.ReferencedWeapon (ReferencedWeapon)
 import Data.Text
 
 main :: IO ()
@@ -50,5 +51,8 @@ main =
                 "should round trip ExpansionBay"
                 (\(x :: ExpansionBay) -> fromAttrValue (toAttrValue x) == Just x)
             prop
+                "should round trip ReferencedWeapon"
+                (\(x :: ReferencedWeapon) -> fromAttrValue (toAttrValue x) == Just x)
+            prop
                 "should round trip Build"
-                (\(x :: ETagged (OwnedBy (Build Text Text Text))) -> fromAttrValue (toAttrValue x) == Just x)
+                (\(x :: ETagged (OwnedBy (Build Text ReferencedWeapon Text))) -> fromAttrValue (toAttrValue x) == Just x)

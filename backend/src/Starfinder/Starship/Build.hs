@@ -444,7 +444,7 @@ instance (FromJSON a, FromJSON b, FromJSON c) => FromJSON (Build a b c)
 instance (ToJSON a, ToJSON b, ToJSON c) => ToJSON (Build a b c)
 
 
-instance DrawsPower (Build Frame Weapon Shields) where
+instance DrawsPower (Build Frame (Weapon Bool) Shields) where
     getPowerDraw Build { frame = Frame { size }, thrusters, computer, defensiveCountermeasures, expansionBays, arcWeapons, turretWeapons, shields } =
       getPowerDraw (fmap (Sized size) thrusters)
         + getPowerDraw computer
@@ -455,7 +455,7 @@ instance DrawsPower (Build Frame Weapon Shields) where
         + getPowerDraw shields
 
 
-instance CostsBuildPoints (Build Frame Weapon Shields) where
+instance CostsBuildPoints (Build Frame (Weapon Bool) Shields) where
     getBuildPoints Build { frame = Frame { size }, powerCoreUnits, thrusters, armor, computer, crewQuarters, defensiveCountermeasures, driftEngine, expansionBays, sensors, arcWeapons, turretWeapons, shields } =
       getBuildPoints powerCoreUnits
         + getBuildPoints (fmap (Sized size) thrusters)
@@ -551,7 +551,7 @@ getTierFromBuildPoints bp =
         20
 
 
-getMaxHitPoints :: (Build Frame Weapon Shields) -> Int
+getMaxHitPoints :: (Build Frame (Weapon Bool) Shields) -> Int
 getMaxHitPoints build@Build { frame = Frame { baseHitPoints, hitPointsIncrement } } =
     let
         increases =
@@ -686,36 +686,36 @@ maxiumumSizeForDriftEngine driftEngine =
             Medium
 
 
-mountPointCountForGroupIsValid :: Size -> [Togglable Weapon] -> Bool
+mountPointCountForGroupIsValid :: Size -> [Togglable (Weapon Bool)] -> Bool
 mountPointCountForGroupIsValid size group =
     length (concatMap (getMountPointsUsed . extract) group) <= getMountPointLimit size
 
 
-areArcMountPointsValid :: Build Frame Weapon a -> Bool
+areArcMountPointsValid :: Build Frame (Weapon Bool) a -> Bool
 areArcMountPointsValid Build { arcWeapons, frame = Frame { size } } =
     all (mountPointCountForGroupIsValid size) arcWeapons
 
 
-areTurretMountPointsValid :: Build Frame Weapon a -> Bool
+areTurretMountPointsValid :: Build Frame (Weapon Bool) a -> Bool
 areTurretMountPointsValid Build { turretWeapons, frame = Frame { size } } =
     mountPointCountForGroupIsValid size turretWeapons
 
 
-areWeaponClassesValidForFrame :: Build Frame Weapon a -> Bool
+areWeaponClassesValidForFrame :: Build Frame (Weapon Bool) a -> Bool
 areWeaponClassesValidForFrame Build { arcWeapons, turretWeapons, frame = Frame { size } } =
     all
         (\a -> member (weaponClass (extract a)) (getAllowedClasses size))
         (concat arcWeapons <> turretWeapons)
 
 
-areTurretWeaponClassesValid :: Build Frame Weapon a -> Bool
+areTurretWeaponClassesValid :: Build Frame (Weapon Bool) a -> Bool
 areTurretWeaponClassesValid Build { turretWeapons, frame } =
     all
         ((/=) Weapon.Capital . weaponClass . extract)
         turretWeapons
 
 
-hasTurretIfHasTurretWeapons :: Build Frame Weapon a -> Bool
+hasTurretIfHasTurretWeapons :: Build Frame (Weapon Bool) a -> Bool
 hasTurretIfHasTurretWeapons Build { turretWeapons, frame = Frame { turretMounts } } =
     length turretWeapons == 0 || length turretMounts > 0
 
@@ -755,7 +755,7 @@ isValidSizeForExpansionBays Build { frame, expansionBays } =
     all (isValidSize (size frame) . extract) expansionBays
 
 
-hasSufficientPowerCoreUnits :: Build Frame Weapon Shields -> Bool
+hasSufficientPowerCoreUnits :: Build Frame (Weapon Bool) Shields -> Bool
 hasSufficientPowerCoreUnits build =
     getUnits (powerCoreUnits build) >= getPowerDraw build
 
@@ -812,7 +812,7 @@ isTrue fn err ( errs, value ) =
         ( err : errs, value )
 
 
-validateStarship :: Build Frame Weapon Shields -> [BuildError]
+validateStarship :: Build Frame (Weapon Bool) Shields -> [BuildError]
 validateStarship =
     fst
         . isTrue areArcMountPointsValid TooManyWeaponMountsOnArc

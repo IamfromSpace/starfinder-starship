@@ -1,6 +1,8 @@
 {-# LANGUAGE DuplicateRecordFields #-}
 {-# LANGUAGE NamedFieldPuns #-}
+{-# LANGUAGE FlexibleInstances #-}
 {-# LANGUAGE DeriveGeneric #-}
+{-# LANGUAGE DeriveFunctor #-}
 module Starfinder.Starship.Weapon (Class(..), Irradiation(..), Range(..), Type(..), Weapon(..), WeaponProperty(..), TurretMountClass(..), ArcMountClass(..), isTrackingWeapon, UsesMountPoints(..)) where
 
 import Starfinder.Starship.CostsBuildPoints (CostsBuildPoints(..))
@@ -39,11 +41,12 @@ data Class
     deriving (Show, Eq, Ord)
 
 
-data Type
+data Type a
       -- Direct fire weapons can be a linked pair (costing two mount points)
-    = DirectFire Bool
+    = DirectFire a
       -- Tracking weapons have a speed of the tracking projectile
     | Tracking Int
+    deriving (Functor)
 
 
 data Irradiation
@@ -68,24 +71,24 @@ data WeaponProperty
     deriving (Show, Eq, Ord)
 
 
-data Weapon = Weapon
+data Weapon a = Weapon
     { name :: Text
     , range :: Range
     , weaponClass :: Class
-    , weaponType :: Type
+    , weaponType :: Type a
     , damage :: Maybe ( Int, Int )
     , powerDraw :: Int
     , buildPoints :: Int
     , specialProperties :: Set WeaponProperty
-    }
+    } deriving (Functor)
 
-instance CostsBuildPoints Weapon where
+instance CostsBuildPoints (Weapon Bool) where
     getBuildPoints Weapon { weaponType, buildPoints } =
       case weaponType of
         DirectFire linked -> (buildPoints * if linked then 5 else 2) `div` 2
         _ -> buildPoints
 
-instance DrawsPower Weapon where
+instance DrawsPower (Weapon Bool) where
     getPowerDraw Weapon { weaponType, powerDraw } =
       case weaponType of
         DirectFire linked -> powerDraw * if linked then 2 else 1
@@ -121,7 +124,7 @@ instance CostsBuildPoints TurretMountClass where
                 100000
 
 
-isTrackingWeapon :: Weapon -> Bool
+isTrackingWeapon :: Weapon a -> Bool
 isTrackingWeapon weapon =
     case weaponType weapon of
         Tracking _ ->
@@ -135,7 +138,7 @@ isTrackingWeapon weapon =
 class UsesMountPoints a where
   getMountPointsUsed :: a -> [Class]
 
-instance UsesMountPoints Weapon where
+instance UsesMountPoints (Weapon Bool) where
   getMountPointsUsed Weapon { weaponType, weaponClass } =
     flip replicate weaponClass $ case weaponType of
       DirectFire linked -> if linked then 2 else 1

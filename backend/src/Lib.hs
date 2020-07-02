@@ -30,6 +30,7 @@ import Starfinder.Starship.DefenseLevel (DefenseLevel)
 import Starfinder.Starship.ExpansionBay (ExpansionBay)
 import Starfinder.Starship.Togglable (Togglable(..))
 import Starfinder.Starship.Weapon (Range)
+import qualified Starfinder.Starship.ReferencedWeapon as RW
 import Test.QuickCheck.Arbitrary (Arbitrary(..))
 import Text.Read (readMaybe)
 
@@ -119,6 +120,12 @@ instance ToDynamoDbAttrValue Sensor where
         fromList
             [("range" :: Text, toAttrValue range), ("bonus", toAttrValue bonus)]
 
+instance ToDynamoDbAttrValue RW.ReferencedWeapon where
+    toAttrValue rw =
+        toAttrValue $
+        fromList
+            [("isLinked" :: Text, toAttrValue (RW.isLinked rw)), ("name", toAttrValue (RW.name rw))]
+
 instance ToDynamoDbAttrValue a => ToDynamoDbAttrValue (Arc a) where
     toAttrValue Arc {forward, aft, portSide, starboard} =
         toAttrValue $
@@ -132,7 +139,7 @@ instance ToDynamoDbAttrValue a => ToDynamoDbAttrValue (Arc a) where
 -- TODO: Improved indexing strategy so composition is always preserved, and then
 -- indexes are always lenses (getters) inside and can be fully typed and
 -- separated.
-instance ToDynamoDbAttrValue (ETagged (OwnedBy (Build Text Text Text))) where
+instance ToDynamoDbAttrValue (ETagged (OwnedBy (Build Text RW.ReferencedWeapon Text))) where
     toAttrValue (ETagged eTag (OwnedBy userId build@Build { frame
                                                           , powerCoreUnits
                                                           , thrusters
@@ -172,7 +179,7 @@ instance ToDynamoDbAttrValue (ETagged (OwnedBy (Build Text Text Text))) where
             ]
 
 ownedReferencedBuildToItem ::
-       ETagged (OwnedBy (Build Text Text Text)) -> HashMap Text AttributeValue
+       ETagged (OwnedBy (Build Text RW.ReferencedWeapon Text)) -> HashMap Text AttributeValue
 ownedReferencedBuildToItem
   -- Since we known that this type is always a HashMap, we're good,
   -- but this does not work across _all_ AttributeValues, because if
@@ -189,6 +196,9 @@ instance FromDynamoDbAttrValue Text where
 
 instance FromDynamoDbAttrValue a => FromDynamoDbAttrValue [a] where
     fromAttrValue = traverse fromAttrValue . view avL
+
+instance FromDynamoDbAttrValue Bool where
+    fromAttrValue = view avBOOL
 
 instance FromDynamoDbAttrValue a => FromDynamoDbAttrValue (Togglable a) where
     fromAttrValue =
@@ -254,7 +264,14 @@ instance FromDynamoDbAttrValue Sensor where
              (fromAttrValue =<< lookup "bonus" hashMap)) .
         view avM
 
-instance FromDynamoDbAttrValue (ETagged (OwnedBy (Build Text Text Text))) where
+instance FromDynamoDbAttrValue RW.ReferencedWeapon where
+    fromAttrValue =
+        (\hashMap ->
+             RW.ReferencedWeapon <$> (fromAttrValue =<< lookup "isLinked" hashMap) <*>
+             (fromAttrValue =<< lookup "name" hashMap)) .
+        view avM
+
+instance FromDynamoDbAttrValue (ETagged (OwnedBy (Build Text RW.ReferencedWeapon Text))) where
     fromAttrValue =
         let v1OrNothing hashMap =
                 lookup "version" hashMap >>=

@@ -35,6 +35,7 @@ import Network.AWS.DynamoDB.PutItem
 import Network.AWS.DynamoDB.Types
        (_ConditionalCheckFailedException)
 import Starfinder.Starship.Build (Build)
+import Starfinder.Starship.ReferencedWeapon (ReferencedWeapon)
 
 data SaveNewError =
     AlreadyExists
@@ -48,17 +49,17 @@ class HasTableName a where
 
 class BuildRepo m a where
     saveNewBuild ::
-           a -> OwnedBy (Build Text Text Text) -> m (Either SaveNewError Text)
+           a -> OwnedBy (Build Text ReferencedWeapon Text) -> m (Either SaveNewError Text)
     updateBuild ::
            a
         -> Text
-        -> OwnedBy (Build Text Text Text)
+        -> OwnedBy (Build Text ReferencedWeapon Text)
         -> m (Either UpdateError Text)
     getBuild ::
            a
         -> Text
         -> Text
-        -> m (Maybe (ETagged (OwnedBy (Build Text Text Text))))
+        -> m (Maybe (ETagged (OwnedBy (Build Text ReferencedWeapon Text))))
     getBuildsByOwner :: a -> Text -> m [Text]
 
 -- TODO: r is a phantom type?  Do we need it?

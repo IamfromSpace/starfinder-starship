@@ -30,10 +30,11 @@ import Data.Text
 import Lib
 import Starfinder.Starship.Assets.Frames (frames)
 import qualified Starfinder.Starship.Assets.Shields as S
-import Starfinder.Starship.Assets.Weapons (weapons)
+import Starfinder.Starship.Assets.Weapons (dereferenceWeapon)
 import Starfinder.Starship.Build
        (Build(..), BuildError, traverseFrame, traverseShields,
         traverseWeapon, validateStarship)
+import Starfinder.Starship.ReferencedWeapon (ReferencedWeapon)
 
 data CreateError
     = AlreadyExists
@@ -61,19 +62,19 @@ class BuildService m u a where
     saveNewBuild ::
            a
         -> u
-        -> OwnedBy (Build Text Text Text)
+        -> OwnedBy (Build Text ReferencedWeapon Text)
         -> m (Either [CreateError] Text)
     updateBuild ::
            a
         -> u
         -> Text
-        -> OwnedBy (Build Text Text Text)
+        -> OwnedBy (Build Text ReferencedWeapon Text)
         -> m (Either [UpdateError] Text)
     getBuild ::
            a
         -> u
         -> Text
-        -> m (Maybe (ETagged (OwnedBy (Build Text Text Text))))
+        -> m (Maybe (ETagged (OwnedBy (Build Text ReferencedWeapon Text))))
     getBuildsByOwner :: u -> a -> Text -> m [Text]
 
 data DefaultBuildService r =
@@ -82,14 +83,15 @@ data DefaultBuildService r =
 instance (Monad m, BR.BuildRepo m r) =>
          BuildService m Text (DefaultBuildService r) where
     saveNewBuild (DefaultBuildService r) principal v@(OwnedBy userId build) =
-        let findOrError e ks = maybe (Left [e]) Right . flip KS.lookup ks
+        let orError e = maybe (Left [e]) Right
+            findOrError e ks = orError e . flip KS.lookup ks
             authorize x =
                 if principal /= userId
                     then Left [NotAllowedC]
                     else Right x
             populateFrame = traverseFrame (findOrError InvalidFrameC frames)
             populateWeapons =
-                traverseWeapon (findOrError InvalidWeaponC weapons)
+                traverseWeapon (orError InvalidShieldsC . dereferenceWeapon)
             populateShields =
                 traverseShields (findOrError InvalidShieldsC S.shields)
             validateBuild =
