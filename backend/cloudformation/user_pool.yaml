@@ -1,0 +1,38 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Resources:
+  UserPool:
+    Type: AWS::Cognito::UserPool
+    Properties:
+      AdminCreateUserConfig:
+        AllowAdminCreateUserOnly: True
+      MfaConfiguration: "OFF" # Note, this _must_ be in quotes for some reason
+      Policies:
+        PasswordPolicy:
+          MinimumLength: 12
+      UsernameAttributes:
+        - email
+      UserPoolName: !Ref AWS::StackName
+  UserPoolClient:
+    Type: AWS::Cognito::UserPoolClient
+    Properties:
+      ExplicitAuthFlows:
+        - USER_PASSWORD_AUTH
+      GenerateSecret: False
+      RefreshTokenValidity: 7
+      UserPoolId: !Ref UserPool
+Outputs:
+  UserPool:
+    Description: The generated id of the userpool (ex. us-east-2_zgaEXAMPLE)
+    Value: !Ref UserPool
+    Export:
+      Name: !Sub "${AWS::StackName}-UserPool"
+  UserPoolArn:
+    Description: The arn of the userpool
+    Value: !GetAtt UserPool.Arn
+    Export:
+      Name: !Sub "${AWS::StackName}-UserPoolArn"
+  UserPoolClientId:
+    Description: The client id of the client (ex. 1h57kf5cpq17m0eml12EXAMPLE)
+    Value: !Ref UserPoolClient
+    Export:
+      Name: !Sub "${AWS::StackName}-UserPoolClient"

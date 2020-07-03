@@ -1,0 +1,91 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Transform: 'AWS::Serverless-2016-10-31'
+Parameters:
+  TableStack:
+    Type: String
+    Description: The name of the stack that exports the table that will be used
+  UserPoolStack:
+    Type: String
+    Description: The name of the stack that exports the user pool that will be used
+  LambdaCodeStack:
+    Type: String
+    Description: The name of the stack that exports the bucket where the lambda code is stored
+  #DomainNameStack:
+  #  Type: String
+  #  Description: The name of the stack that exports the API Gateway Custom Domain
+  CodeVersion:
+    Type: String
+    Description: The version string from the bucket of the code that will be used
+Resources:
+  Application:
+    Type: 'AWS::Serverless::Function'
+    Properties:
+      Handler: NOT_USED
+      Runtime: provided
+      CodeUri:
+        Bucket:
+          Fn::ImportValue: !Ref LambdaCodeStack
+        Key: !Sub '${AWS::StackName}.zip'
+        Version: !Ref CodeVersion
+      Events:
+        ApiInteraction:
+          Type: Api
+          Properties:
+            Path: /todo
+            Method: any
+            RestApiId: !Ref Api
+            Auth:
+              Authorizer: Cognito
+      Environment:
+        Variables:
+          TABLE_NAME:
+            Fn::ImportValue: !Sub "${TableStack}-Table"
+      # TODO: Extract this so CAPABILITY_IAM is not required
+      Policies:
+        - AWSLambdaBasicExecutionRole
+        - Fn::ImportValue: !Sub "${TableStack}-TableDataPlanePolicy"
+        - Version: "2012-10-17"
+          Statement:
+            Sid: AllowSNSPublish
+            Effect: Allow
+            Action: "sns:Publish"
+            # TODO: Restrict this further so it can only publish to the topics it creates
+            Resource: !Sub "arn:aws:sns:${AWS::Region}:${AWS::AccountId}:*"
+      MemorySize: 128
+      Timeout: 7
+  Api:
+    Type: AWS::Serverless::Api
+    Properties:
+      StageName: default
+      EndpointConfiguration: "REGIONAL"
+      Auth:
+        Authorizers:
+          Cognito:
+            UserPoolArn:
+              Fn::ImportValue:
+                # Note: that we need the UserPoolStack to export the arn,
+                # because if we have to use a GetAtt from an subbed and imported
+                # value, it breaks the SAM transformer.
+                Fn::Sub: "${UserPoolStack}-UserPoolArn"
+  #BasePathMapping:
+  #  Type: AWS::ApiGateway::BasePathMapping
+  #  Properties:
+  #    DomainName:
+  #      Fn::ImportValue: !Sub "${DomainNameStack}-CustomDomain"
+  #    RestApiId: !Ref Api
+  #    Stage: default
+  #  # This is a hack to make sure the stage that the Serverless transform creates
+  #  # (and we do not see in the template) is available by the time we add the mapping.
+  #  DependsOn:
+  #    ApidefaultStage
+Outputs:
+  Api:
+    Description: The Rest API Id
+    Value: !Ref Api
+    Export:
+      Name: !Sub "${AWS::StackName}-Api"
+  ApiRootResourceId:
+    Description: The Rest API Root Resource Id
+    Value: !GetAtt Api.RootResourceId
+    Export:
+      Name: !Sub "${AWS::StackName}-ApiRootResourceId"
