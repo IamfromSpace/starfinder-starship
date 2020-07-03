@@ -5,8 +5,7 @@ module Main where
 import AWS.Lambda.Context (HasLambdaContext(..), LambdaContext)
 import AWS.Lambda.Runtime (mRuntimeWithContext)
 import BuildController (httpHandler)
-import BuildRepo (DynamoDbBuildRepo(..), HasTableName(..))
-import BuildService (DefaultBuildService(..))
+import BuildRepo (HasTableName(..), runBuildRepoT)
 import Control.Lens (lens, set)
 import Control.Monad.Reader (runReaderT)
 import Data.Text (Text, pack)
@@ -37,7 +36,5 @@ main = do
     lgr <- newLogger Debug stderr
     awsEnv <- AWS.newEnv Discover
     let env = Env (set AWS.envLogger lgr awsEnv) tableName Nothing
-    let app =
-            mRuntimeWithContext $
-            httpHandler (DefaultBuildService DynamoDbBuildRepo)
-    runResourceT $ runReaderT app env
+    runResourceT $
+        flip runReaderT env $ runBuildRepoT $ mRuntimeWithContext httpHandler

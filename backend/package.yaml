@@ -21,6 +21,7 @@ dependencies:
 - aeson
 - amazonka
 - amazonka-dynamodb
+- exceptions
 - containers
 - hal
 - hashable
@@ -28,6 +29,7 @@ dependencies:
 - mtl
 - QuickCheck
 - quickcheck-text
+- resourcet
 - scientific
 - text
 - unordered-containers

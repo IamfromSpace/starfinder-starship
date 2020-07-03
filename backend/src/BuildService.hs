@@ -61,31 +61,28 @@ data UpdateError
     | IllegalFrameChange
     deriving (Show)
 
-class BuildService m u a where
+class Monad m =>
+      BuildServiceMonad u m where
     saveNewBuild ::
-           a
-        -> u
+           u
         -> OwnedBy (Build Text ReferencedWeapon Text)
         -> m (Either [CreateError] Int)
     updateBuild ::
-           a
-        -> u
+           u
         -> Text
         -> OwnedBy (Build Text ReferencedWeapon Text)
         -> m (Either [UpdateError] Text)
     getBuild ::
-           a
-        -> u
+           u
         -> Text
         -> m (Maybe (ETagged (OwnedBy (Build Text ReferencedWeapon Text))))
-    getBuildsByOwner :: u -> a -> Text -> m [Text]
+    getBuildsByOwner :: u -> Text -> m [Text]
 
-data DefaultBuildService r =
-    DefaultBuildService r
-
-instance (Monad m, BR.BuildRepo m r) =>
-         BuildService m Text (DefaultBuildService r) where
-    saveNewBuild (DefaultBuildService r) principal v@(OwnedBy userId build) =
+-- TODO: I think that in theory this also needs a BuildServiceT to get rid of
+-- some of the warnings around type inference woes, however, that's yet more
+-- boilerplate involved!
+instance BR.BuildRepoMonad m => BuildServiceMonad Text m where
+    saveNewBuild principal v@(OwnedBy userId build) =
         let orError e = maybe (Left [e]) Right
             findOrError e ks = orError e . flip KS.lookup ks
             authorize x =
@@ -110,9 +107,9 @@ instance (Monad m, BR.BuildRepo m r) =>
                           BR.AlreadyExists -> [AlreadyExists]))
         in case authorizePopulateAndValidate build of
                Left es -> return $ Left es
-               Right _ -> mapSaveBuildError <$> BR.saveNewBuild r v
+               Right _ -> mapSaveBuildError <$> BR.saveNewBuild v
     updateBuild = undefined
-    getBuild (DefaultBuildService r) = BR.getBuild r
+    getBuild = BR.getBuild
     getBuildsByOwner = undefined
 
 emptyWithSelfError :: [a] -> Either [a] ()

@@ -1,6 +1,7 @@
 {-# LANGUAGE MultiParamTypeClasses #-}
 {-# LANGUAGE FlexibleInstances #-}
 {-# LANGUAGE OverloadedStrings #-}
+{-# LANGUAGE GeneralizedNewtypeDeriving #-}
 
 {-|
 Module      : BuildRepo
@@ -22,8 +23,12 @@ module BuildRepo where
 
 import Control.Exception.Lens (trying)
 import Control.Lens (set, view)
-import Control.Monad.Reader (MonadReader, ask)
+import Control.Monad.Catch (MonadCatch, MonadThrow(..), catch)
+import Control.Monad.Reader (MonadReader(..))
+import Control.Monad.Trans (MonadIO, MonadTrans, lift, liftIO)
 import Control.Monad.Trans.AWS (AWSConstraint, send)
+import Control.Monad.Trans.Resource
+       (MonadResource, ResourceT, liftResourceT)
 import Data.Bifunctor (bimap)
 import Data.HashMap.Strict (fromList)
 import Data.Hashable (Hashable(..))
@@ -48,30 +53,47 @@ data UpdateError
 class HasTableName a where
     getTableName :: a -> Text
 
-class BuildRepo m a where
+class Monad m =>
+      BuildRepoMonad m where
     saveNewBuild ::
-           a
-        -> OwnedBy (Build Text ReferencedWeapon Text)
+           OwnedBy (Build Text ReferencedWeapon Text)
         -> m (Either SaveNewError Int)
     updateBuild ::
-           a
-        -> Int
+           Int
         -> OwnedBy (Build Text ReferencedWeapon Text)
         -> m (Either UpdateError Text)
     getBuild ::
-           a
-        -> Text
+           Text
         -> Text
         -> m (Maybe (ETagged (OwnedBy (Build Text ReferencedWeapon Text))))
     getBuildsByOwner :: a -> Text -> m [Text]
 
--- TODO: r is a phantom type?  Do we need it?
-data DynamoDbBuildRepo r =
-    DynamoDbBuildRepo
+newtype BuildRepoT r m a = BuildRepoT
+    { runBuildRepoT :: m a
+    } deriving (Functor, Applicative, Monad)
+
+instance MonadTrans (BuildRepoT r) where
+    lift = BuildRepoT
+
+instance (MonadReader r m, Monad m) => MonadReader r (BuildRepoT r m) where
+    ask = lift ask
+    local f ma = lift $ local f (runBuildRepoT ma)
+
+instance (MonadThrow m, Monad m) => MonadThrow (BuildRepoT r m) where
+    throwM = lift . throwM
+
+instance (MonadCatch m, Monad m) => MonadCatch (BuildRepoT r m) where
+    catch ma f = lift $ catch (runBuildRepoT ma) (runBuildRepoT . f)
+
+instance MonadIO m => MonadIO (BuildRepoT r m) where
+    liftIO = lift . liftIO
+
+instance MonadResource m => MonadResource (BuildRepoT r m) where
+    liftResourceT = lift . liftResourceT
 
 instance (AWSConstraint r m, HasTableName r, MonadReader r m) =>
-         BuildRepo m (DynamoDbBuildRepo r) where
-    saveNewBuild _ ownedBuild = do
+         BuildRepoMonad (BuildRepoT r m) where
+    saveNewBuild ownedBuild = do
         tableName <- getTableName <$> ask
         let eTag = hash ownedBuild
         -- TODO: Calculate ETag via Hashable Typeclass
@@ -88,7 +110,7 @@ instance (AWSConstraint r m, HasTableName r, MonadReader r m) =>
         res <- trying _ConditionalCheckFailedException (send item)
         return $ bimap (const AlreadyExists) (const eTag) res
     updateBuild = undefined
-    getBuild _ userId name = do
+    getBuild userId name = do
         tableName <- getTableName <$> ask
         let item
                 -- To keep our typeclass simple, we only support the safe
