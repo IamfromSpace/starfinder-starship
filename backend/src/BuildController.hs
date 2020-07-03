@@ -38,6 +38,8 @@ httpHandler service ProxyRequest {requestContext, body, httpMethod = "POST"} =
                     return
                         (ProxyResponse ok200 mempty mempty (textPlain "Done"))
         -- TODO: Provide the errors
+        -- TODO: AlreadyExists is a 409
+        -- TODO: NotAllowed is a 403
                 Left errors ->
                     return
                         (ProxyResponse
