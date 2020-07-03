@@ -22,7 +22,7 @@ module BuildRepo where
 
 import Control.Exception.Lens (trying)
 import Control.Lens (set, view)
-import Control.Monad.Reader (ask, MonadReader)
+import Control.Monad.Reader (MonadReader, ask)
 import Control.Monad.Trans.AWS (AWSConstraint, send)
 import Data.Bifunctor (bimap)
 import Data.HashMap.Strict (fromList)
@@ -49,7 +49,9 @@ class HasTableName a where
 
 class BuildRepo m a where
     saveNewBuild ::
-           a -> OwnedBy (Build Text ReferencedWeapon Text) -> m (Either SaveNewError Text)
+           a
+        -> OwnedBy (Build Text ReferencedWeapon Text)
+        -> m (Either SaveNewError Text)
     updateBuild ::
            a
         -> Text
