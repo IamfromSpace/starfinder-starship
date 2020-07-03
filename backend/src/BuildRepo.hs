@@ -31,7 +31,7 @@ import Lib
 import Network.AWS.DynamoDB.GetItem
        (GetItem, getItem, giConsistentRead, giKey, girsItem)
 import Network.AWS.DynamoDB.PutItem
-       (PutItem, piConditionExpression, piItem, putItem)
+       (PutItem, piConditionExpression, piExpressionAttributeNames, piItem, putItem)
 import Network.AWS.DynamoDB.Types
        (_ConditionalCheckFailedException)
 import Starfinder.Starship.Build (Build)
@@ -72,7 +72,11 @@ instance (AWSConstraint r m, HasTableName r, MonadReader r m) =>
         tableName <- getTableName <$> ask
         -- TODO: Calculate ETag via Hashable Typeclass
         let item =
-                set piConditionExpression (Just "attribute_not_exists") $
+                set piExpressionAttributeNames (fromList
+                   [ ("#hash", "HASH1")
+                   , ("#range", "RANGE1.1")
+                   ]) $
+                set piConditionExpression (Just "attribute_not_exists(#hash) AND attribute_not_exists(#range)") $
                 set
                     piItem
                     (ownedReferencedBuildToItem (ETagged "\"TODO\"" ownedBuild))
