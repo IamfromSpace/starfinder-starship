@@ -45,14 +45,14 @@ httpHandler service ProxyRequest {requestContext, body, httpMethod = "POST"} =
                              mempty
                              mempty
                              (textPlain "Error"))
-        (Just _, Nothing) ->
+        (_, Nothing) ->
             return
                 (ProxyResponse
                      unauthorized401
                      mempty
                      mempty
                      (textPlain "Unauthorized"))
-        (Nothing, _) ->
+        (Nothing, Just _) ->
             return
                 (ProxyResponse
                      badRequest400
