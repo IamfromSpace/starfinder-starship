@@ -50,6 +50,7 @@ data CreateError
 
 data UpdateError
     = DoesNotExist
+    -- TODO: ETagMismatch (but ideally not _named_ ETag here)
     | InvalidFrameU
     | InvalidWeaponU
     | InvalidShieldU
