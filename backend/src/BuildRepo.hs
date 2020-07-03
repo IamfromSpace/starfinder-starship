@@ -22,12 +22,12 @@ module BuildRepo where
 
 import Control.Exception.Lens (trying)
 import Control.Lens (set, view)
-import Control.Monad.Reader (MonadReader, ask)
+import Control.Monad.Reader (ask, MonadReader)
+import Control.Monad.Trans.AWS (AWSConstraint, send)
 import Data.Bifunctor (bimap)
 import Data.HashMap.Strict (fromList)
 import Data.Text
 import Lib
-import Network.AWS (MonadAWS, send)
 import Network.AWS.DynamoDB.GetItem
        (GetItem, getItem, giConsistentRead, giKey, girsItem)
 import Network.AWS.DynamoDB.PutItem
@@ -66,7 +66,7 @@ class BuildRepo m a where
 data DynamoDbBuildRepo r =
     DynamoDbBuildRepo
 
-instance (MonadAWS m, MonadReader r m, HasTableName r) =>
+instance (AWSConstraint r m, HasTableName r, MonadReader r m) =>
          BuildRepo m (DynamoDbBuildRepo r) where
     saveNewBuild _ ownedBuild = do
         tableName <- getTableName <$> ask
