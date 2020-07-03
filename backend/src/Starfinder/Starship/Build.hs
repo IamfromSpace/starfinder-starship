@@ -802,6 +802,7 @@ data BuildError
     | PowerCoreTooSmallForDriftEngines
     | ShipToLargeForDriftEngine
     | SpeedTooFastForSizeOrLessThan1
+    deriving (Show)
 
 
 isTrue :: (a -> Bool) -> b -> ( [b], a ) -> ( [b], a )

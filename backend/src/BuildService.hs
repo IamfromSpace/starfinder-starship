@@ -46,6 +46,7 @@ data CreateError
     | InvalidWeaponC
     | InvalidShieldsC
     | BuildErrorC [BuildError]
+    deriving (Show)
 
 data UpdateError
     = DoesNotExist
@@ -57,6 +58,7 @@ data UpdateError
     | IllegalState [BuildError]
     | BuildErrorU
     | IllegalFrameChange
+    deriving (Show)
 
 class BuildService m u a where
     saveNewBuild ::

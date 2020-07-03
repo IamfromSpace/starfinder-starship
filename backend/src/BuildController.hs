@@ -44,7 +44,7 @@ httpHandler service ProxyRequest {requestContext, body, httpMethod = "POST"} =
                              badRequest400
                              mempty
                              mempty
-                             (textPlain "Error"))
+                             (textPlain $ pack $ show errors))
         (_, Nothing) ->
             return
                 (ProxyResponse
