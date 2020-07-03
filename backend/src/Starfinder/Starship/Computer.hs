@@ -6,6 +6,7 @@ import Starfinder.Starship.DrawsPower (DrawsPower(..))
 import Starfinder.Starship.CostsBuildPoints (CostsBuildPoints(..))
 import GHC.Generics (Generic)
 import Data.Aeson (FromJSON, ToJSON)
+import Data.Hashable (Hashable)
 import Test.QuickCheck.Arbitrary (Arbitrary(..))
 
 
@@ -13,6 +14,8 @@ data Computer = Computer
     { bonus :: Int
     , nodes :: Int
     } deriving (Generic, Show, Eq)
+
+instance Hashable Computer
 
 instance Arbitrary Computer where
   arbitrary = Computer <$> arbitrary <*> arbitrary

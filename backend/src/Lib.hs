@@ -2,6 +2,7 @@
 {-# LANGUAGE DuplicateRecordFields #-}
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE FlexibleInstances #-}
+{-# LANGUAGE DeriveGeneric #-}
 
 module Lib where
 
@@ -9,6 +10,7 @@ import Control.Lens (Lens', _1, _2, set, view)
 import Control.Lens.At (at)
 import Control.Monad ((>=>))
 import Data.Foldable (toList)
+import Data.Hashable (Hashable)
 import Data.HashMap.Strict (HashMap, fromList, lookup)
 import qualified Data.Map as Map
 import Data.Maybe (fromJust, fromMaybe)
@@ -33,9 +35,10 @@ import Starfinder.Starship.Weapon (Range)
 import qualified Starfinder.Starship.ReferencedWeapon as RW
 import Test.QuickCheck.Arbitrary (Arbitrary(..))
 import Text.Read (readMaybe)
+import GHC.Generics (Generic)
 
 data ETagged a =
-    ETagged Text
+    ETagged Int
             a
     deriving (Show, Eq)
 
@@ -45,7 +48,9 @@ instance Arbitrary a => Arbitrary (ETagged a) where
 data OwnedBy a =
     OwnedBy Text
             a
-    deriving (Show, Eq)
+    deriving (Show, Eq, Generic)
+
+instance Hashable a => Hashable (OwnedBy a) where
 
 instance Arbitrary a => Arbitrary (OwnedBy a) where
     arbitrary = OwnedBy <$> arbitrary <*> arbitrary

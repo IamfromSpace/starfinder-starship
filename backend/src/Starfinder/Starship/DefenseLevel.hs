@@ -5,6 +5,7 @@ module Starfinder.Starship.DefenseLevel
     ) where
 
 import Data.Aeson (FromJSON, ToJSON)
+import Data.Hashable (Hashable)
 import GHC.Generics (Generic)
 import Test.QuickCheck.Arbitrary (Arbitrary(..))
 import Test.QuickCheck.Gen (elements)
@@ -26,6 +27,8 @@ data DefenseLevel
     | Mk14
     | Mk15
     deriving (Show, Read, Generic, Eq)
+
+instance Hashable DefenseLevel
 
 instance Arbitrary DefenseLevel where
     arbitrary =

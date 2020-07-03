@@ -66,7 +66,7 @@ class BuildService m u a where
            a
         -> u
         -> OwnedBy (Build Text ReferencedWeapon Text)
-        -> m (Either [CreateError] Text)
+        -> m (Either [CreateError] Int)
     updateBuild ::
            a
         -> u

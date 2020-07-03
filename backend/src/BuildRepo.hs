@@ -26,6 +26,7 @@ import Control.Monad.Reader (MonadReader, ask)
 import Control.Monad.Trans.AWS (AWSConstraint, send)
 import Data.Bifunctor (bimap)
 import Data.HashMap.Strict (fromList)
+import Data.Hashable (Hashable(..))
 import Data.Text
 import Lib
 import Network.AWS.DynamoDB.GetItem
@@ -51,10 +52,10 @@ class BuildRepo m a where
     saveNewBuild ::
            a
         -> OwnedBy (Build Text ReferencedWeapon Text)
-        -> m (Either SaveNewError Text)
+        -> m (Either SaveNewError Int)
     updateBuild ::
            a
-        -> Text
+        -> Int
         -> OwnedBy (Build Text ReferencedWeapon Text)
         -> m (Either UpdateError Text)
     getBuild ::
@@ -72,6 +73,7 @@ instance (AWSConstraint r m, HasTableName r, MonadReader r m) =>
          BuildRepo m (DynamoDbBuildRepo r) where
     saveNewBuild _ ownedBuild = do
         tableName <- getTableName <$> ask
+        let eTag = hash ownedBuild
         -- TODO: Calculate ETag via Hashable Typeclass
         let item =
                 set piExpressionAttributeNames (fromList
@@ -81,10 +83,10 @@ instance (AWSConstraint r m, HasTableName r, MonadReader r m) =>
                 set piConditionExpression (Just "attribute_not_exists(#hash) AND attribute_not_exists(#range)") $
                 set
                     piItem
-                    (ownedReferencedBuildToItem (ETagged "\"TODO\"" ownedBuild))
+                    (ownedReferencedBuildToItem (ETagged eTag ownedBuild))
                     (putItem tableName)
         res <- trying _ConditionalCheckFailedException (send item)
-        return $ bimap (const AlreadyExists) (const "\"TODO\"") res
+        return $ bimap (const AlreadyExists) (const eTag) res
     updateBuild = undefined
     getBuild _ userId name = do
         tableName <- getTableName <$> ask

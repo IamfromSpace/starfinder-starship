@@ -10,6 +10,7 @@ import Starfinder.Starship.DrawsPower (DrawsPower(..))
 import Starfinder.Starship.Arc (Arc)
 import Starfinder.Starship.Togglable (Togglable, extract)
 import Data.Aeson (FromJSON, ToJSON)
+import Data.Hashable (Hashable)
 import Data.Set (Set)
 import Data.Text (Text)
 import Data.Maybe (fromMaybe)
@@ -22,6 +23,8 @@ data Range
     | Medium
     | Long
     deriving (Show, Eq, Ord, Generic, Read)
+
+instance Hashable Range
 
 instance Arbitrary Range where
   arbitrary = elements

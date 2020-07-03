@@ -2,6 +2,7 @@
 {-# LANGUAGE DeriveGeneric #-}
 module Starfinder.Starship.Arc (AnArc(..), Arc(..), foldWithAnArc, getArc, getDegrees, mapWithAnArc, setArc, updateArc) where
 
+import Data.Hashable (Hashable)
 import Starfinder.Starship.DrawsPower (DrawsPower(..))
 import Starfinder.Starship.CostsBuildPoints (CostsBuildPoints(..))
 import Data.Aeson (FromJSON, ToJSON)
@@ -15,6 +16,8 @@ data Arc a = Arc
     , portSide :: a
     , starboard :: a
     } deriving (Generic, Show, Eq)
+
+instance Hashable a => Hashable (Arc a)
 
 instance Arbitrary a => Arbitrary (Arc a) where
   arbitrary = Arc <$> arbitrary

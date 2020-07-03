@@ -3,6 +3,7 @@
 {-# LANGUAGE NamedFieldPuns #-}
 module Starfinder.Starship.Togglable (Togglable(..), extract) where
 
+import Data.Hashable (Hashable)
 import Data.Aeson (FromJSON, ToJSON)
 import GHC.Generics (Generic)
 import Starfinder.Starship.DrawsPower (DrawsPower(..))
@@ -14,6 +15,8 @@ data Togglable a = Togglable
   , toggled :: a
   }
   deriving (Functor, Generic, Show, Eq)
+
+instance Hashable a => Hashable (Togglable a)
 
 instance Arbitrary a => Arbitrary (Togglable a) where
   arbitrary = Togglable <$> arbitrary <*> arbitrary

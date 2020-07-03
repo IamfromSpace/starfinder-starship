@@ -14,6 +14,7 @@ import AWS.Lambda.Events.ApiGateway.ProxyResponse
         unauthorized401, notFound404)
 import BuildService (BuildService(..))
 import Data.Aeson (decode)
+import Data.HashMap.Strict (fromList)
 import Data.Text
 import Lib (ETagged(..), OwnedBy(..))
 import Starfinder.Starship.Build (Build)
@@ -36,7 +37,7 @@ httpHandler service ProxyRequest {requestContext, body, httpMethod = "POST"} =
                   of
                 Right eTag ->
                     return
-                        (ProxyResponse ok200 mempty mempty (textPlain "Done"))
+                        (ProxyResponse ok200 (fromList [("ETag", hashToETagValue eTag)]) mempty (textPlain "Done"))
         -- TODO: Provide the errors
         -- TODO: AlreadyExists is a 409
         -- TODO: NotAllowed is a 403
@@ -69,7 +70,7 @@ httpHandler service ProxyRequest {requestContext, httpMethod = "GET"} =
             record <- getBuild service userId "Sunrise Maiden"
             case record of
                 Just (ETagged eTag (OwnedBy _ build)) ->
-                    return (ProxyResponse ok200 mempty mempty (applicationJson build))
+                    return (ProxyResponse ok200 (fromList [("ETag", hashToETagValue eTag)]) mempty (applicationJson build))
                 Nothing ->
                     return (ProxyResponse notFound404 mempty mempty (textPlain "Not Found"))
         Nothing ->
@@ -100,3 +101,6 @@ httpHandler _ _ =
              mempty
              mempty
              (textPlain "Method Not Allowed"))
+
+hashToETagValue :: Int -> Text
+hashToETagValue = pack . show . show

@@ -4,6 +4,7 @@
 {-# LANGUAGE DeriveGeneric #-}
 module Starfinder.Starship.Build (BuildError(..), CrewQuarters(..), DriftEngine(..), Sensor(..), Shields(..), Build(..), areArcMountPointsValid, areTurretMountPointsValid, areTurretWeaponClassesValid, areWeaponClassesValidForFrame, getAllowedClasses, getArmorTargetLockBonus, getMaxHitPoints, getMaxPcuPerPowerCore, getMaxPowerCoreCount, getMountPointLimit, getPowerCoreCount, getTierFromBuildPoints, hasEnoughPowerCoresForPcu, hasSufficientPowerCoreUnits, hasSufficientPowerCoreUnitsForDriftEngine, hasTurretIfHasTurretWeapons, hasValidExpansionBayCount, hasValidPowerCoreCount, isSmallEnoughForDriftEngine, isTrue, isValidSizeForExpansionBays, isValidSpeed, maxiumumSizeForDriftEngine, minimumPowerCoreUnitsForDriftEngine, mountPointCountForGroupIsValid, validateStarship, PowerCoreUnits(..), Armor(..), DefensiveCountermeasures(..), Thrusters(..), traverseFrame, traverseWeapon, traverseShields) where
 
+import Data.Hashable (Hashable)
 import Data.Set (member, Set, fromList)
 import Data.Text (Text)
 import Data.Text.Arbitrary
@@ -24,7 +25,9 @@ import Test.QuickCheck.Arbitrary (Arbitrary(..))
 import Test.QuickCheck.Gen (elements)
 
 
-newtype Thrusters = Thrusters { getSpeed :: Int } deriving (Show, Eq)
+newtype Thrusters = Thrusters { getSpeed :: Int } deriving (Show, Eq, Generic)
+
+instance Hashable Thrusters where
 
 instance Arbitrary Thrusters where
   arbitrary = Thrusters <$> arbitrary
@@ -82,7 +85,9 @@ instance CostsBuildPoints (Sized Thrusters) where
             _ ->
                 speed `div` 2
 
-newtype Armor = Armor { getDefenseLevelA :: DefenseLevel } deriving (Show, Eq)
+newtype Armor = Armor { getDefenseLevelA :: DefenseLevel } deriving (Show, Eq, Generic)
+
+instance Hashable Armor where
 
 instance Arbitrary Armor where
   arbitrary = Armor <$> arbitrary
@@ -201,6 +206,8 @@ data CrewQuarters
     | Luxurious
     deriving (Generic, Show, Read, Eq)
 
+instance Hashable CrewQuarters
+
 instance Arbitrary CrewQuarters where
   arbitrary = elements
     [ Common
@@ -224,7 +231,9 @@ instance CostsBuildPoints CrewQuarters where
             Luxurious ->
                 5
 
-newtype DefensiveCountermeasures = DefensiveCountermeasures { getDefenseLevel :: DefenseLevel } deriving (Show, Eq)
+newtype DefensiveCountermeasures = DefensiveCountermeasures { getDefenseLevel :: DefenseLevel } deriving (Show, Eq, Generic)
+
+instance Hashable DefensiveCountermeasures where
 
 instance Arbitrary DefensiveCountermeasures where
   arbitrary = DefensiveCountermeasures <$> arbitrary
@@ -288,7 +297,9 @@ instance CostsBuildPoints DefensiveCountermeasures where
             Mk15 ->
                 90
 
-newtype PowerCoreUnits = PowerCoreUnits { getUnits :: Int } deriving (Show, Eq)
+newtype PowerCoreUnits = PowerCoreUnits { getUnits :: Int } deriving (Show, Eq, Generic)
+
+instance Hashable PowerCoreUnits where
 
 instance Arbitrary PowerCoreUnits where
   arbitrary = PowerCoreUnits <$> arbitrary
@@ -312,6 +323,8 @@ data DriftEngine
     | Superior
     | Ultra
     deriving (Generic, Show, Read, Eq)
+
+instance Hashable DriftEngine
 
 instance Arbitrary DriftEngine where
   arbitrary = elements
@@ -351,6 +364,8 @@ data Sensor = Sensor
     { range :: Weapon.Range
     , bonus :: Int
     } deriving (Generic, Show, Eq)
+
+instance Hashable Sensor
 
 instance Arbitrary Sensor where
   arbitrary = Sensor <$> arbitrary <*> arbitrary
@@ -424,6 +439,8 @@ traverseShields :: Applicative f => (a -> f b) -> Build x y a -> f (Build x y b)
 traverseShields fn (Build a b c d e f g h i j k l m shields) =
   Build a b c d e f g h i j k l m <$>
     traverse fn shields
+
+instance (Hashable a, Hashable b, Hashable c) => Hashable (Build a b c) where
 
 instance (Arbitrary a,Arbitrary b,Arbitrary c) => Arbitrary (Build a b c) where
   arbitrary = Build <$> arbitrary

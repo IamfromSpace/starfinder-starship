@@ -5,6 +5,7 @@ module Starfinder.Starship.ReferencedWeapon
     ) where
 
 import Data.Aeson (FromJSON, ToJSON)
+import Data.Hashable (Hashable)
 import Data.Text (Text)
 import Data.Text.Arbitrary
 import GHC.Generics (Generic)
@@ -14,6 +15,8 @@ data ReferencedWeapon = ReferencedWeapon
     { isLinked :: Bool
     , name :: Text
     } deriving (Generic, Show, Read, Eq)
+
+instance Hashable ReferencedWeapon
 
 instance Arbitrary ReferencedWeapon where
     arbitrary = ReferencedWeapon <$> arbitrary <*> arbitrary
