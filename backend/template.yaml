@@ -10,9 +10,9 @@ Parameters:
   LambdaCodeStack:
     Type: String
     Description: The name of the stack that exports the bucket where the lambda code is stored
-  #DomainNameStack:
-  #  Type: String
-  #  Description: The name of the stack that exports the API Gateway Custom Domain
+  DomainNameStack:
+    Type: String
+    Description: The name of the stack that exports the API Gateway Custom Domain
   CodeVersion:
     Type: String
     Description: The version string from the bucket of the code that will be used
@@ -31,7 +31,7 @@ Resources:
         ApiInteraction:
           Type: Api
           Properties:
-            Path: /todo
+            Path: /resources/{proxy+}
             Method: any
             RestApiId: !Ref Api
             Auth:
@@ -60,17 +60,17 @@ Resources:
                 # because if we have to use a GetAtt from an subbed and imported
                 # value, it breaks the SAM transformer.
                 Fn::Sub: "${UserPoolStack}-UserPoolArn"
-  #BasePathMapping:
-  #  Type: AWS::ApiGateway::BasePathMapping
-  #  Properties:
-  #    DomainName:
-  #      Fn::ImportValue: !Sub "${DomainNameStack}-CustomDomain"
-  #    RestApiId: !Ref Api
-  #    Stage: default
-  #  # This is a hack to make sure the stage that the Serverless transform creates
-  #  # (and we do not see in the template) is available by the time we add the mapping.
-  #  DependsOn:
-  #    ApidefaultStage
+  BasePathMapping:
+    Type: AWS::ApiGateway::BasePathMapping
+    Properties:
+      DomainName:
+        Fn::ImportValue: !Sub "${DomainNameStack}-CustomDomain"
+      RestApiId: !Ref Api
+      Stage: default
+    # This is a hack to make sure the stage that the Serverless transform creates
+    # (and we do not see in the template) is available by the time we add the mapping.
+    DependsOn:
+      ApidefaultStage
 Outputs:
   Api:
     Description: The Rest API Id

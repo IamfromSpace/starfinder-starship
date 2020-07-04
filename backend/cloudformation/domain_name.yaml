@@ -1,0 +1,35 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Parameters:
+  DomainName:
+    Type: String
+    Description: Name of the custom domain for API Gateway
+Resources:
+  Cert:
+    Type: AWS::CertificateManager::Certificate
+    Properties:
+      DomainName: !Ref DomainName
+      ValidationMethod: DNS
+  CustomDomain:
+    Type: AWS::ApiGateway::DomainName
+    Properties:
+      DomainName: !Ref DomainName
+      RegionalCertificateArn: !Ref Cert
+      EndpointConfiguration:
+        Types:
+          - "REGIONAL"
+Outputs:
+  DomainName:
+    Description: The domain name of the certified API Gateway
+    Value: !Ref DomainName
+    Export:
+      Name: !Sub "${AWS::StackName}-DomainName"
+  CustomDomain:
+    Description: The API Gateway CustomDomain
+    Value: !Ref CustomDomain
+    Export:
+      Name: !Sub "${AWS::StackName}-CustomDomain"
+  RegionalDomainName:
+    Description: This is should be used as the target of the DNS record for the specified domain
+    Value: !GetAtt CustomDomain.RegionalDomainName
+    Export:
+      Name: !Sub "${AWS::StackName}-RegionalDomainName"
