@@ -94,7 +94,9 @@ httpHandler ProxyRequest {requestContext, httpMethod = "GET"} =
                      mempty
                      mempty
                      (textPlain "Unauthorized"))
-httpHandler ProxyRequest {requestContext, body, httpMethod = "PUT", headers} =
+httpHandler ProxyRequest {requestContext, body, httpMethod = "PUT", headers}
+    -- TODO: Invalid format and not supplied are essentially different errors
+ =
     let mExpectedETag = lookup (mk "If-Match") headers >>= eTagValueToHash
     in case (decode body, mExpectedETag, authorizer requestContext) of
            (Just (build :: Build Text ReferencedWeapon Text), Just expectedETag, Just userId)
