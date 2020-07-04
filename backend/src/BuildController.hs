@@ -209,15 +209,13 @@ data ValidPath
     -- /resources/users/${Text}/builds/${Text}
     | UserBuild Text
                 Text
+    deriving (Show)
 
 parseApiGatweayPath :: Text -> Maybe (ValidPath)
 parseApiGatweayPath =
     let parseSegments =
             \case
-                ["resources", "users", u] -> Just $ UserBuilds u
-                ["resources", "users", u, ""] -> Just $ UserBuilds u
+                ["resources", "users", u, "builds"] -> Just $ UserBuilds u
                 ["resources", "users", u, "builds", b] -> Just $ UserBuild u b
-                ["resources", "users", u, "builds", b, ""] ->
-                    Just $ UserBuild u b
                 _ -> Nothing
     in parseSegments . filter (/= "") . decodePathSegments . encodeUtf8
