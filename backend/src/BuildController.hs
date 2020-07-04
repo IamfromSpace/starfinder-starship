@@ -1,5 +1,6 @@
 {-# LANGUAGE DuplicateRecordFields #-}
 {-# LANGUAGE NamedFieldPuns #-}
+{-# LANGUAGE LambdaCase #-}
 {-# LANGUAGE ScopedTypeVariables #-}
 {-# LANGUAGE FlexibleContexts #-}
 {-# LANGUAGE OverloadedStrings #-}
@@ -21,194 +22,198 @@ import Control.Monad ((>=>))
 import Data.Aeson (decode)
 import Data.CaseInsensitive (mk)
 import Data.HashMap.Strict (fromList, lookup)
-import Data.Text
+import Data.Text (Text, pack, unpack)
+import Data.Text.Encoding (encodeUtf8)
 import Lib (ETagged(..), OwnedBy(..))
+import Network.HTTP.Types.URI (decodePathSegments)
 import Prelude hiding (lookup)
 import Starfinder.Starship.Build (Build)
 import Starfinder.Starship.ReferencedWeapon (ReferencedWeapon)
 import Text.Read (readMaybe)
 
-httpHandler :: BuildServiceMonad Text m => ProxyRequest Text -> m ProxyResponse
-httpHandler ProxyRequest {requestContext, body, httpMethod = "POST"} =
-    case (decode body, authorizer requestContext) of
-        (Just (build :: Build Text ReferencedWeapon Text), Just userId)
-        -- TODO: Get the (target) userId from the url (and the build name with
-        -- only PUT?)
-         -> do
-            errorOrETag <- saveNewBuild userId $ OwnedBy userId build
-            case errorOrETag of
-                Right eTag ->
-                    return
-                        (ProxyResponse
-                             ok200
-                             (fromList [("ETag", hashToETagValue eTag)])
-                             mempty
-                             (textPlain "Done"))
-                Left NotAllowedC ->
-                    return
-                        (ProxyResponse
-                             forbidden403
-                             mempty
-                             mempty
-                             (textPlain "Forbidden"))
-                Left AlreadyExists ->
-                    return
-                        (ProxyResponse
-                             conflict409
-                             mempty
-                             mempty
-                             (textPlain
-                                  "User already has a ship with that name."))
-                Left (StaticValidationErrorC errors) ->
-                    return
-                        (ProxyResponse
-                             badRequest400
-                             mempty
-                             mempty
-                             -- TODO: Ideally these are formatted so they're
-                             -- more actionable (both Create and Update)
-                             (textPlain $ pack $ show errors))
-        (_, Nothing) ->
+-- TODO: These all seem to form a pattern where it's really just transforming
+-- the Service result into ProxyResponse.  I'm still not totally convinced
+-- that's the abstraction though.
+handlePost ::
+       BuildServiceMonad Text m
+    => Text
+    -> Text
+    -> Build Text ReferencedWeapon Text
+    -> m ProxyResponse
+handlePost principal userId build = do
+    errorOrETag <- saveNewBuild principal $ OwnedBy userId build
+    case errorOrETag of
+        Right eTag ->
             return
                 (ProxyResponse
-                     unauthorized401
+                     ok200
+                     (fromList [("ETag", hashToETagValue eTag)])
+                     mempty
+                     (textPlain "Done"))
+        Left NotAllowedC -> return forbidden
+        Left AlreadyExists ->
+            return
+                (ProxyResponse
+                     conflict409
                      mempty
                      mempty
-                     (textPlain "Unauthorized"))
-        (Nothing, Just _) ->
+                     (textPlain "User already has a ship with that name."))
+        Left (StaticValidationErrorC errors) ->
             return
                 (ProxyResponse
                      badRequest400
                      mempty
                      mempty
-                     (textPlain "Bad Request"))
-httpHandler ProxyRequest {requestContext, httpMethod = "GET"} =
-    case authorizer requestContext of
-        Just userId
-            -- TODO: Dynamic Name and userId in path
-         -> do
-            record <- getBuild userId userId "Sunrise Maiden"
-            case record of
-                Right (ETagged eTag (OwnedBy _ build)) ->
-                    return
-                        (ProxyResponse
-                             ok200
-                             (fromList [("ETag", hashToETagValue eTag)])
-                             mempty
-                             (applicationJson build))
-                Left DoesNotExistG ->
-                    return
-                        (ProxyResponse
-                             notFound404
-                             mempty
-                             mempty
-                             (textPlain "Not Found"))
-                Left NotAllowedG ->
-                    return
-                        (ProxyResponse
-                             forbidden403
-                             mempty
-                             mempty
-                             (textPlain "Forbidden"))
-        Nothing ->
+                     -- TODO: Ideally these are formatted so they're
+                     -- more actionable (both Create and Update)
+                     (textPlain $ pack $ show errors))
+
+handleGet :: BuildServiceMonad Text m => Text -> Text -> Text -> m ProxyResponse
+handleGet principal userId name = do
+    record <- getBuild principal userId name
+    case record of
+        Right (ETagged eTag (OwnedBy _ build)) ->
             return
                 (ProxyResponse
-                     unauthorized401
+                     ok200
+                     (fromList [("ETag", hashToETagValue eTag)])
+                     mempty
+                     (applicationJson build))
+        Left DoesNotExistG -> return notFound
+        Left NotAllowedG -> return forbidden
+
+handlePut ::
+       BuildServiceMonad Text m
+    => Text
+    -> Text
+    -> Text
+    -> Int
+    -> Build Text ReferencedWeapon Text
+    -> m ProxyResponse
+handlePut principal userId name expectedETag build = do
+    res <-
+        updateBuild
+            principal
+            userId
+            name
+            expectedETag
+            (const $ pure $ OwnedBy userId build)
+    case res of
+        Right eTag ->
+            return
+                (ProxyResponse
+                     ok200
+                     (fromList [("ETag", hashToETagValue eTag)])
+                     mempty
+                     (textPlain "Done"))
+        Left DoesNotExistU -> return notFound
+        Left (StaticValidationErrorU x) ->
+            return
+                (ProxyResponse
+                     badRequest400
                      mempty
                      mempty
-                     (textPlain "Unauthorized"))
-httpHandler ProxyRequest {requestContext, body, httpMethod = "PUT", headers}
-    -- TODO: Invalid format and not supplied are essentially different errors
- =
-    let mExpectedETag = lookup (mk "If-Match") headers >>= eTagValueToHash
-    in case (decode body, mExpectedETag, authorizer requestContext) of
-           (Just (build :: Build Text ReferencedWeapon Text), Just expectedETag, Just userId)
-            -- TODO: Dynamic Name and userId in path
-            -> do
-               res <-
-                   updateBuild
-                       userId
-                       userId
-                       "Sunrise Maiden"
-                       expectedETag
-                       (const $ pure $ OwnedBy userId build)
-               case res of
-                   Right eTag ->
-                       return
-                           (ProxyResponse
-                                ok200
-                                (fromList [("ETag", hashToETagValue eTag)])
-                                mempty
-                                (textPlain "Done"))
-                   Left DoesNotExistU ->
-                       return
-                           (ProxyResponse
-                                notFound404
-                                mempty
-                                mempty
-                                (textPlain "Not Found"))
-                   Left (StaticValidationErrorU x) ->
-                       return
-                           (ProxyResponse
-                                badRequest400
-                                mempty
-                                mempty
-                                (textPlain (pack $ show x)))
-                   Left (ETagMismatch (ETagged eTag (OwnedBy _ build))) ->
-                       return
-                           (ProxyResponse
-                                preconditionFailed412
-                                (fromList [("ETag", hashToETagValue eTag)])
-                                mempty
-                                (applicationJson build))
-                   Left NotAllowedU ->
-                       return
-                           (ProxyResponse
-                                forbidden403
-                                mempty
-                                mempty
-                                (textPlain "Forbidden"))
-                   Left (IllegalChange x) ->
-                       return
-                           (ProxyResponse
-                                conflict409
-                                mempty
-                                mempty
-                                (textPlain $ pack $ show x))
-                   Left TransformError
-                -- impossible
-                    -> undefined
-           (_, _, Nothing) ->
-               return
-                   (ProxyResponse
-                        unauthorized401
-                        mempty
-                        mempty
-                        (textPlain "Unauthorized"))
-           (_, _, Just _) ->
-               return
-                   (ProxyResponse
-                        badRequest400
-                        mempty
-                        mempty
-                        (textPlain "Bad Request"))
-httpHandler ProxyRequest {httpMethod = "PATCH"} =
-    return
-        (ProxyResponse
-             notImplemented501
-             mempty
-             mempty
-             (textPlain "Not Yet Implemented"))
-httpHandler _ =
-    return
-        (ProxyResponse
-             methodNotAllowed405
-             mempty
-             mempty
-             (textPlain "Method Not Allowed"))
+                     (textPlain (pack $ show x)))
+        Left (ETagMismatch (ETagged eTag (OwnedBy _ build))) ->
+            return
+                (ProxyResponse
+                     preconditionFailed412
+                     (fromList [("ETag", hashToETagValue eTag)])
+                     mempty
+                     (applicationJson build))
+        Left NotAllowedU -> return forbidden
+        Left (IllegalChange x) ->
+            return
+                (ProxyResponse
+                     conflict409
+                     mempty
+                     mempty
+                     (textPlain $ pack $ show x))
+        Left TransformError -> undefined -- impossible
+
+httpHandler :: BuildServiceMonad Text m => ProxyRequest Text -> m ProxyResponse
+httpHandler pr@(ProxyRequest {path, requestContext, body, httpMethod, headers}) =
+    case (parseApiGatweayPath path, authorizer requestContext) of
+        (_, Nothing) -> return unauthorized
+        (Just (UserBuilds userId), Just principal) ->
+            case httpMethod of
+                "POST" ->
+                    case decode body of
+                        Just (build :: Build Text ReferencedWeapon Text) ->
+                            handlePost principal userId build
+                        Nothing -> return badRequest
+                _ -> return methodNotAllowed
+        (Just (UserBuild userId name), Just principal) ->
+            case httpMethod of
+                "GET" -> handleGet principal userId name
+                "PUT" ->
+                    case ( decode body
+                         -- TODO: There is a differente between a missing ETag
+                         -- (create-by-PUT) and an invalid value (instant
+                         -- mismatch).
+                         , lookup (mk "If-Match") headers >>= eTagValueToHash) of
+                        (Just (build :: Build Text ReferencedWeapon Text), Just expectedETag) ->
+                            handlePut principal userId name expectedETag build
+                        (_, Nothing) -> return missingETag -- TODO: this is (almost) a create-by-PUT
+                        (Nothing, Just _) -> return badRequest
+                "PATCH" -> return notImplemented
+                _ -> return methodNotAllowed
+        (_, Just _) -> return notFound
+
+unauthorized :: ProxyResponse
+unauthorized =
+    ProxyResponse unauthorized401 mempty mempty (textPlain "Unauthorized")
+
+badRequest :: ProxyResponse
+badRequest = ProxyResponse badRequest400 mempty mempty (textPlain "Bad Request")
+
+missingETag :: ProxyResponse
+missingETag =
+    ProxyResponse badRequest400 mempty mempty (textPlain "Missing ETag")
+
+notImplemented :: ProxyResponse
+notImplemented =
+    ProxyResponse
+        notImplemented501
+        mempty
+        mempty
+        (textPlain "Not Yet Implemented")
+
+notFound :: ProxyResponse
+notFound = ProxyResponse notFound404 mempty mempty (textPlain "Not Found")
+
+methodNotAllowed :: ProxyResponse
+methodNotAllowed =
+    ProxyResponse
+        methodNotAllowed405
+        mempty
+        mempty
+        (textPlain "Method Not Allowed")
+
+forbidden :: ProxyResponse
+forbidden = ProxyResponse forbidden403 mempty mempty (textPlain "Forbidden")
 
 hashToETagValue :: Int -> Text
 hashToETagValue = pack . show . show
 
 eTagValueToHash :: Text -> Maybe Int
 eTagValueToHash = readMaybe . unpack >=> readMaybe
+
+data ValidPath
+    -- /resources/users/${Text}
+    = UserBuilds Text
+    -- /resources/users/${Text}/builds/${Text}
+    | UserBuild Text
+                Text
+
+parseApiGatweayPath :: Text -> Maybe (ValidPath)
+parseApiGatweayPath =
+    let parseSegments =
+            \case
+                ["resources", "users", u] -> Just $ UserBuilds u
+                ["resources", "users", u, ""] -> Just $ UserBuilds u
+                ["resources", "users", u, "builds", b] -> Just $ UserBuild u b
+                ["resources", "users", u, "builds", b, ""] ->
+                    Just $ UserBuild u b
+                _ -> Nothing
+    in parseSegments . filter (/= "") . decodePathSegments . encodeUtf8

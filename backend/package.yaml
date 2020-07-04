@@ -26,6 +26,7 @@ dependencies:
 - containers
 - hal
 - hashable
+- http-types
 - lens
 - mtl
 - QuickCheck
