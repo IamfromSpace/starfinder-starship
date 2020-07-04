@@ -53,8 +53,6 @@ data ChangeValidationError
 data CreateError
     = AlreadyExists
     -- TODO: figure out how to do duplicate names better
-    -- This could maybe break into a couple subcategories:
-    -- Permisions Errors and Static State errors
     | NotAllowedC
     | StaticValidationErrorC [StaticValidationError]
     deriving (Show)
