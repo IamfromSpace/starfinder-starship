@@ -26,6 +26,7 @@ import Data.Bifunctor (bimap)
 import Data.Bifunctor (first)
 import Data.HashMap.Strict (fromList)
 import qualified Data.KeyedSet as KS
+import Data.Maybe (catMaybes)
 import Data.Text
 import Lib
 import Starfinder.Starship.Assets.Frames (frames)
@@ -36,29 +37,34 @@ import Starfinder.Starship.Build
         traverseWeapon, validateStarship)
 import Starfinder.Starship.ReferencedWeapon (ReferencedWeapon)
 
+data StaticValidationError
+    = InvalidFrame
+    | InvalidWeapon
+    | InvalidShields
+    | BuildError [BuildError]
+    deriving (Show)
+
 data CreateError
     = AlreadyExists
     -- TODO: figure out how to do duplicate names better
     -- This could maybe break into a couple subcategories:
     -- Permisions Errors and Static State errors
     | NotAllowedC
-    | InvalidFrameC
-    | InvalidWeaponC
-    | InvalidShieldsC
-    | BuildErrorC [BuildError]
+    | StaticValidationErrorC StaticValidationError
     deriving (Show)
 
 data UpdateError
     = DoesNotExist
-    -- TODO: ETagMismatch (but ideally not _named_ ETag here)
-    | InvalidFrameU
-    | InvalidWeaponU
-    | InvalidShieldU
-    | ETagMismatch
+    | StaticValidationErrorU StaticValidationError
+    -- TODO: We don't really want this to be an ETag in any context except the
+    -- controller context
+    | ETagMismatch (ETagged (OwnedBy (Build Text ReferencedWeapon Text)))
     | NotAllowedU
-    | IllegalState [BuildError]
-    | BuildErrorU
+    | IllegalUserChange
+    | IllegalNameChange
     | IllegalFrameChange
+    -- TODO: Ideally this is paramaterized
+    | TransformError
     deriving (Show)
 
 class Monad m =>
@@ -70,8 +76,12 @@ class Monad m =>
     updateBuild ::
            u
         -> Text
-        -> OwnedBy (Build Text ReferencedWeapon Text)
-        -> m (Either [UpdateError] Text)
+        -> Text
+        -> Int
+        -- TODO: Ideally this could fail with a specific error or even happen in
+        -- its own monad!
+        -> (OwnedBy (Build Text ReferencedWeapon Text) -> Maybe (OwnedBy (Build Text ReferencedWeapon Text)))
+        -> m (Either [UpdateError] Int)
     getBuild ::
            u
         -> Text
@@ -83,24 +93,13 @@ class Monad m =>
 -- boilerplate involved!
 instance BR.BuildRepoMonad m => BuildServiceMonad Text m where
     saveNewBuild principal v@(OwnedBy userId build) =
-        let orError e = maybe (Left [e]) Right
-            findOrError e ks = orError e . flip KS.lookup ks
-            authorize x =
+        let authorize x =
                 if principal /= userId
                     then Left [NotAllowedC]
                     else Right x
-            populateFrame = traverseFrame (findOrError InvalidFrameC frames)
-            populateWeapons =
-                traverseWeapon (orError InvalidShieldsC . dereferenceWeapon)
-            populateShields =
-                traverseShields (findOrError InvalidShieldsC S.shields)
-            validateBuild =
-                first (pure . BuildErrorC) .
-                emptyWithSelfError . validateStarship
             authorizePopulateAndValidate =
                 authorize >=>
-                populateFrame >=>
-                populateWeapons >=> populateShields >=> validateBuild
+                ((first (fmap StaticValidationErrorC)) . populateAndValidate)
             mapSaveBuildError =
                 (first
                      (\case
@@ -108,9 +107,69 @@ instance BR.BuildRepoMonad m => BuildServiceMonad Text m where
         in case authorizePopulateAndValidate build of
                Left es -> return $ Left es
                Right _ -> mapSaveBuildError <$> BR.saveNewBuild v
-    updateBuild = undefined
+    updateBuild principal userId name expectedETag f =
+        if principal /= userId
+            then return $ Left [NotAllowedU]
+            else do
+                getRes <- getBuild userId name
+                let eNewOwnedBuild = do
+                        (ceob@(ETagged currentETag currentOwnedBuild)) <-
+                            case getRes of
+                                Nothing -> Left [DoesNotExist]
+                                Just x -> Right x
+                        if currentETag /= expectedETag
+                            then Left [ETagMismatch ceob]
+                            else Right ()
+                        (newOwnedBuild@(OwnedBy _ newBuild)) <-
+                            case f currentOwnedBuild of
+                                Nothing -> Left [TransformError]
+                                Just x -> Right x
+                        first (fmap StaticValidationErrorU) $
+                            populateAndValidate newBuild
+                        case validateChange currentOwnedBuild newOwnedBuild of
+                            [] -> return newOwnedBuild
+                            es -> Left es
+                let mapBuildRepoError =
+                        \case
+                            BR.DoesNotExist -> DoesNotExist
+                            BR.ETagMismatch x -> ETagMismatch x
+                let withNewOwnedBuild newOwnedBuild =
+                        let putRes = BR.updateBuild expectedETag newOwnedBuild
+                        in first (pure . mapBuildRepoError) <$> putRes
+                either (return . Left) withNewOwnedBuild eNewOwnedBuild
     getBuild = BR.getBuild
     getBuildsByOwner = undefined
+
+validateChange ::
+       OwnedBy (Build Text a b) -> OwnedBy (Build Text a b) -> [UpdateError]
+validateChange a b =
+    let OwnedBy userIdA Build {frame = frameA, name = nameA} = a
+        OwnedBy userIdB Build {frame = frameB, name = nameB} = b
+    in catMaybes
+           [ if userIdA /= userIdB
+                 then Just IllegalUserChange
+                 else Nothing
+           , if nameA /= nameB
+                 then Just IllegalNameChange
+                 else Nothing
+           , if frameA /= frameB
+                 then Just IllegalFrameChange
+                 else Nothing
+           ]
+
+populateAndValidate ::
+       Build Text ReferencedWeapon Text -> Either [StaticValidationError] ()
+populateAndValidate =
+    let orError e = maybe (Left [e]) Right
+        findOrError e ks = orError e . flip KS.lookup ks
+        populateFrame = traverseFrame (findOrError InvalidFrame frames)
+        populateWeapons =
+            traverseWeapon (orError InvalidShields . dereferenceWeapon)
+        populateShields = traverseShields (findOrError InvalidShields S.shields)
+        validateBuild =
+            first (pure . BuildError) . emptyWithSelfError . validateStarship
+    in populateFrame >=>
+       populateWeapons >=> populateShields >=> validateBuild >=> const (pure ())
 
 emptyWithSelfError :: [a] -> Either [a] ()
 emptyWithSelfError [] = Right ()
