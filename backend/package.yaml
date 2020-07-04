@@ -22,6 +22,7 @@ dependencies:
 - amazonka
 - amazonka-dynamodb
 - exceptions
+- case-insensitive
 - containers
 - hal
 - hashable
