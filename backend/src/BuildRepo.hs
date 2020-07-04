@@ -98,7 +98,6 @@ instance (AWSConstraint r m, HasTableName r, MonadReader r m) =>
     saveNewBuild ownedBuild = do
         tableName <- getTableName <$> ask
         let eTag = hash ownedBuild
-        -- TODO: Calculate ETag via Hashable Typeclass
         let item =
                 set piExpressionAttributeNames (fromList
                    [ ("#hash", "HASH1")
