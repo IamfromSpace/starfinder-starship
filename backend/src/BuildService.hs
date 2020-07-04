@@ -44,6 +44,12 @@ data StaticValidationError
     | BuildError [BuildError]
     deriving (Show)
 
+data ChangeValidationError
+    = UserChanged
+    | NameChanged
+    | FrameChanged
+    deriving (Show)
+
 data CreateError
     = AlreadyExists
     -- TODO: figure out how to do duplicate names better
@@ -55,14 +61,12 @@ data CreateError
 
 data UpdateError
     = DoesNotExist
-    | StaticValidationErrorU StaticValidationError
+    | StaticValidationErrorU [StaticValidationError]
     -- TODO: We don't really want this to be an ETag in any context except the
     -- controller context
     | ETagMismatch (ETagged (OwnedBy (Build Text ReferencedWeapon Text)))
     | NotAllowedU
-    | IllegalUserChange
-    | IllegalNameChange
-    | IllegalFrameChange
+    | IllegalChange [ChangeValidationError]
     -- TODO: Ideally this is paramaterized
     | TransformError
     deriving (Show)
@@ -81,7 +85,7 @@ class Monad m =>
         -- TODO: Ideally this could fail with a specific error or even happen in
         -- its own monad!
         -> (OwnedBy (Build Text ReferencedWeapon Text) -> Maybe (OwnedBy (Build Text ReferencedWeapon Text)))
-        -> m (Either [UpdateError] Int)
+        -> m (Either UpdateError Int)
     getBuild ::
            u
         -> Text
@@ -109,51 +113,51 @@ instance BR.BuildRepoMonad m => BuildServiceMonad Text m where
                Right _ -> mapSaveBuildError <$> BR.saveNewBuild v
     updateBuild principal userId name expectedETag f =
         if principal /= userId
-            then return $ Left [NotAllowedU]
+            then return $ Left NotAllowedU
             else do
                 getRes <- getBuild userId name
                 let eNewOwnedBuild = do
                         (ceob@(ETagged currentETag currentOwnedBuild)) <-
                             case getRes of
-                                Nothing -> Left [DoesNotExist]
+                                Nothing -> Left DoesNotExist
                                 Just x -> Right x
                         if currentETag /= expectedETag
-                            then Left [ETagMismatch ceob]
+                            then Left $ ETagMismatch ceob
                             else Right ()
                         (newOwnedBuild@(OwnedBy _ newBuild)) <-
                             case f currentOwnedBuild of
-                                Nothing -> Left [TransformError]
+                                Nothing -> Left TransformError
                                 Just x -> Right x
-                        first (fmap StaticValidationErrorU) $
+                        first StaticValidationErrorU $
                             populateAndValidate newBuild
                         case validateChange currentOwnedBuild newOwnedBuild of
                             [] -> return newOwnedBuild
-                            es -> Left es
+                            es -> Left $ IllegalChange es
                 let mapBuildRepoError =
                         \case
                             BR.DoesNotExist -> DoesNotExist
                             BR.ETagMismatch x -> ETagMismatch x
                 let withNewOwnedBuild newOwnedBuild =
                         let putRes = BR.updateBuild expectedETag newOwnedBuild
-                        in first (pure . mapBuildRepoError) <$> putRes
+                        in first mapBuildRepoError <$> putRes
                 either (return . Left) withNewOwnedBuild eNewOwnedBuild
     getBuild = BR.getBuild
     getBuildsByOwner = undefined
 
 validateChange ::
-       OwnedBy (Build Text a b) -> OwnedBy (Build Text a b) -> [UpdateError]
+       OwnedBy (Build Text a b) -> OwnedBy (Build Text a b) -> [ChangeValidationError]
 validateChange a b =
     let OwnedBy userIdA Build {frame = frameA, name = nameA} = a
         OwnedBy userIdB Build {frame = frameB, name = nameB} = b
     in catMaybes
            [ if userIdA /= userIdB
-                 then Just IllegalUserChange
+                 then Just UserChanged
                  else Nothing
            , if nameA /= nameB
-                 then Just IllegalNameChange
+                 then Just NameChanged
                  else Nothing
            , if frameA /= frameB
-                 then Just IllegalFrameChange
+                 then Just FrameChanged
                  else Nothing
            ]
 
