@@ -14,7 +14,9 @@ import AWS.Lambda.Events.ApiGateway.ProxyResponse
        (ProxyResponse(..), applicationJson, badRequest400, conflict409,
         forbidden403, methodNotAllowed405, notFound404, notImplemented501,
         ok200, preconditionFailed412, textPlain, unauthorized401)
-import BuildService (BuildServiceMonad(..), UpdateError(..), GetError(..))
+import BuildService
+       (BuildServiceMonad(..), CreateError(..), GetError(..),
+        UpdateError(..))
 import Control.Monad ((>=>))
 import Data.Aeson (decode)
 import Data.CaseInsensitive (mk)
@@ -42,15 +44,29 @@ httpHandler ProxyRequest {requestContext, body, httpMethod = "POST"} =
                              (fromList [("ETag", hashToETagValue eTag)])
                              mempty
                              (textPlain "Done"))
-        -- TODO: Provide the errors
-        -- TODO: AlreadyExists is a 409
-        -- TODO: NotAllowed is a 403
-                Left errors ->
+                Left NotAllowedC ->
+                    return
+                        (ProxyResponse
+                             forbidden403
+                             mempty
+                             mempty
+                             (textPlain "Forbidden"))
+                Left AlreadyExists ->
+                    return
+                        (ProxyResponse
+                             conflict409
+                             mempty
+                             mempty
+                             (textPlain
+                                  "User already has a ship with that name."))
+                Left (StaticValidationErrorC errors) ->
                     return
                         (ProxyResponse
                              badRequest400
                              mempty
                              mempty
+                             -- TODO: Ideally these are formatted so they're
+                             -- more actionable (both Create and Update)
                              (textPlain $ pack $ show errors))
         (_, Nothing) ->
             return
