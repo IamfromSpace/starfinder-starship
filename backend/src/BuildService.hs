@@ -60,7 +60,7 @@ data CreateError
     deriving (Show)
 
 data UpdateError
-    = DoesNotExist
+    = DoesNotExistU
     | StaticValidationErrorU [StaticValidationError]
     -- TODO: We don't really want this to be an ETag in any context except the
     -- controller context
@@ -69,6 +69,11 @@ data UpdateError
     | IllegalChange [ChangeValidationError]
     -- TODO: Ideally this is paramaterized
     | TransformError
+    deriving (Show)
+
+data GetError
+    = NotAllowedG
+    | DoesNotExistG
     deriving (Show)
 
 class Monad m =>
@@ -89,7 +94,8 @@ class Monad m =>
     getBuild ::
            u
         -> Text
-        -> m (Maybe (ETagged (OwnedBy (Build Text ReferencedWeapon Text))))
+        -> Text
+        -> m (Either GetError (ETagged (OwnedBy (Build Text ReferencedWeapon Text))))
     getBuildsByOwner :: u -> Text -> m [Text]
 
 -- TODO: I think that in theory this also needs a BuildServiceT to get rid of
@@ -115,12 +121,14 @@ instance BR.BuildRepoMonad m => BuildServiceMonad Text m where
         if principal /= userId
             then return $ Left NotAllowedU
             else do
-                getRes <- getBuild userId name
+                getRes <- getBuild principal userId name
+                let mapGetError =
+                        \case
+                            NotAllowedG -> NotAllowedU
+                            DoesNotExistG -> DoesNotExistU
                 let eNewOwnedBuild = do
                         (ceob@(ETagged currentETag currentOwnedBuild)) <-
-                            case getRes of
-                                Nothing -> Left DoesNotExist
-                                Just x -> Right x
+                            first mapGetError getRes
                         if currentETag /= expectedETag
                             then Left $ ETagMismatch ceob
                             else Right ()
@@ -135,13 +143,16 @@ instance BR.BuildRepoMonad m => BuildServiceMonad Text m where
                             es -> Left $ IllegalChange es
                 let mapBuildRepoError =
                         \case
-                            BR.DoesNotExist -> DoesNotExist
+                            BR.DoesNotExist -> DoesNotExistU
                             BR.ETagMismatch x -> ETagMismatch x
                 let withNewOwnedBuild newOwnedBuild =
                         let putRes = BR.updateBuild expectedETag newOwnedBuild
                         in first mapBuildRepoError <$> putRes
                 either (return . Left) withNewOwnedBuild eNewOwnedBuild
-    getBuild = BR.getBuild -- TODO: Auth!
+    getBuild principal userId name =
+        if principal /= userId
+            then return $ Left NotAllowedG
+            else maybe (Left DoesNotExistG) Right <$> BR.getBuild userId name
     getBuildsByOwner = undefined
 
 validateChange ::

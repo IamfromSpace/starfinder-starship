@@ -14,7 +14,7 @@ import AWS.Lambda.Events.ApiGateway.ProxyResponse
        (ProxyResponse(..), applicationJson, badRequest400, conflict409,
         forbidden403, methodNotAllowed405, notFound404, notImplemented501,
         ok200, preconditionFailed412, textPlain, unauthorized401)
-import BuildService (BuildServiceMonad(..), UpdateError(..))
+import BuildService (BuildServiceMonad(..), UpdateError(..), GetError(..))
 import Control.Monad ((>=>))
 import Data.Aeson (decode)
 import Data.CaseInsensitive (mk)
@@ -71,22 +71,29 @@ httpHandler ProxyRequest {requestContext, httpMethod = "GET"} =
         Just userId
             -- TODO: Dynamic Name and userId in path
          -> do
-            record <- getBuild userId "Sunrise Maiden"
+            record <- getBuild userId userId "Sunrise Maiden"
             case record of
-                Just (ETagged eTag (OwnedBy _ build)) ->
+                Right (ETagged eTag (OwnedBy _ build)) ->
                     return
                         (ProxyResponse
                              ok200
                              (fromList [("ETag", hashToETagValue eTag)])
                              mempty
                              (applicationJson build))
-                Nothing ->
+                Left DoesNotExistG ->
                     return
                         (ProxyResponse
                              notFound404
                              mempty
                              mempty
                              (textPlain "Not Found"))
+                Left NotAllowedG ->
+                    return
+                        (ProxyResponse
+                             forbidden403
+                             mempty
+                             mempty
+                             (textPlain "Forbidden"))
         Nothing ->
             return
                 (ProxyResponse
@@ -117,7 +124,7 @@ httpHandler ProxyRequest {requestContext, body, httpMethod = "PUT", headers}
                                 (fromList [("ETag", hashToETagValue eTag)])
                                 mempty
                                 (textPlain "Done"))
-                   Left DoesNotExist ->
+                   Left DoesNotExistU ->
                        return
                            (ProxyResponse
                                 notFound404
