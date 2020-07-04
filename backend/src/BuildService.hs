@@ -56,7 +56,7 @@ data CreateError
     -- This could maybe break into a couple subcategories:
     -- Permisions Errors and Static State errors
     | NotAllowedC
-    | StaticValidationErrorC StaticValidationError
+    | StaticValidationErrorC [StaticValidationError]
     deriving (Show)
 
 data UpdateError
@@ -76,7 +76,7 @@ class Monad m =>
     saveNewBuild ::
            u
         -> OwnedBy (Build Text ReferencedWeapon Text)
-        -> m (Either [CreateError] Int)
+        -> m (Either CreateError Int)
     updateBuild ::
            u
         -> Text
@@ -99,15 +99,15 @@ instance BR.BuildRepoMonad m => BuildServiceMonad Text m where
     saveNewBuild principal v@(OwnedBy userId build) =
         let authorize x =
                 if principal /= userId
-                    then Left [NotAllowedC]
+                    then Left NotAllowedC
                     else Right x
             authorizePopulateAndValidate =
                 authorize >=>
-                ((first (fmap StaticValidationErrorC)) . populateAndValidate)
+                ((first StaticValidationErrorC) . populateAndValidate)
             mapSaveBuildError =
                 (first
                      (\case
-                          BR.AlreadyExists -> [AlreadyExists]))
+                          BR.AlreadyExists -> AlreadyExists))
         in case authorizePopulateAndValidate build of
                Left es -> return $ Left es
                Right _ -> mapSaveBuildError <$> BR.saveNewBuild v
