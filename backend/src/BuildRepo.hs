@@ -99,11 +99,13 @@ instance (AWSConstraint r m, HasTableName r, MonadReader r m) =>
         tableName <- getTableName <$> ask
         let eTag = hash ownedBuild
         let item =
-                set piExpressionAttributeNames (fromList
-                   [ ("#hash", "HASH1")
-                   , ("#range", "RANGE1.1")
-                   ]) $
-                set piConditionExpression (Just "attribute_not_exists(#hash) AND attribute_not_exists(#range)") $
+                set
+                    piExpressionAttributeNames
+                    (fromList [("#hash", "HASH1"), ("#range", "RANGE1.1")]) $
+                set
+                    piConditionExpression
+                    (Just
+                         "attribute_not_exists(#hash) AND attribute_not_exists(#range)") $
                 set
                     piItem
                     (ownedReferencedBuildToItem (ETagged eTag ownedBuild))

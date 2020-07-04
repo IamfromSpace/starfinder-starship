@@ -145,7 +145,9 @@ instance BR.BuildRepoMonad m => BuildServiceMonad Text m where
     getBuildsByOwner = undefined
 
 validateChange ::
-       OwnedBy (Build Text a b) -> OwnedBy (Build Text a b) -> [ChangeValidationError]
+       OwnedBy (Build Text a b)
+    -> OwnedBy (Build Text a b)
+    -> [ChangeValidationError]
 validateChange a b =
     let OwnedBy userIdA Build {frame = frameA, name = nameA} = a
         OwnedBy userIdB Build {frame = frameB, name = nameB} = b
