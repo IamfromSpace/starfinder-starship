@@ -141,7 +141,7 @@ instance BR.BuildRepoMonad m => BuildServiceMonad Text m where
                         let putRes = BR.updateBuild expectedETag newOwnedBuild
                         in first mapBuildRepoError <$> putRes
                 either (return . Left) withNewOwnedBuild eNewOwnedBuild
-    getBuild = BR.getBuild
+    getBuild = BR.getBuild -- TODO: Auth!
     getBuildsByOwner = undefined
 
 validateChange ::
