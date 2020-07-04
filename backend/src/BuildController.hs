@@ -20,8 +20,8 @@ import BuildService
         UpdateError(..))
 import Control.Monad ((>=>))
 import Data.Aeson (decode)
-import Data.CaseInsensitive (mk)
-import Data.HashMap.Strict (fromList, lookup)
+import Data.CaseInsensitive (CI, mk)
+import Data.HashMap.Strict (HashMap, fromList, lookup)
 import Data.Text (Text, pack, unpack)
 import Data.Text.Encoding (encodeUtf8)
 import Lib (ETagged(..), OwnedBy(..))
@@ -34,13 +34,13 @@ import Text.Read (readMaybe)
 -- TODO: These all seem to form a pattern where it's really just transforming
 -- the Service result into ProxyResponse.  I'm still not totally convinced
 -- that's the abstraction though.
-handlePost ::
+handleCreate ::
        BuildServiceMonad Text m
     => Text
     -> Text
     -> Build Text ReferencedWeapon Text
     -> m ProxyResponse
-handlePost principal userId build = do
+handleCreate principal userId build = do
     errorOrETag <- saveNewBuild principal $ OwnedBy userId build
     case errorOrETag of
         Right eTag ->
@@ -140,22 +140,20 @@ httpHandler pr@(ProxyRequest {path, requestContext, body, httpMethod, headers}) 
                 "POST" ->
                     case decode body of
                         Just (build :: Build Text ReferencedWeapon Text) ->
-                            handlePost principal userId build
+                            handleCreate principal userId build
                         Nothing -> return badRequest
                 _ -> return methodNotAllowed
         (Just (UserBuild userId name), Just principal) ->
             case httpMethod of
                 "GET" -> handleGet principal userId name
                 "PUT" ->
-                    case ( decode body
-                         -- TODO: There is a differente between a missing ETag
-                         -- (create-by-PUT) and an invalid value (instant
-                         -- mismatch).
-                         , lookup (mk "If-Match") headers >>= eTagValueToHash) of
-                        (Just (build :: Build Text ReferencedWeapon Text), Just expectedETag) ->
+                    case (decode body, getAndParseETag headers) of
+                        (Just (build :: Build Text ReferencedWeapon Text), Right expectedETag) ->
                             handlePut principal userId name expectedETag build
-                        (_, Nothing) -> return missingETag -- TODO: this is (almost) a create-by-PUT
-                        (Nothing, Just _) -> return badRequest
+                        (Just (build :: Build Text ReferencedWeapon Text), Left NotPresent) ->
+                            handleCreate principal userId build
+                        (_, Left Invalid) ->
+                            return badRequest -- clearly didn't get this from us, so they're doing something wrong.
                 "PATCH" -> return notImplemented
                 _ -> return methodNotAllowed
         (_, Just _) -> return notFound
@@ -166,10 +164,6 @@ unauthorized =
 
 badRequest :: ProxyResponse
 badRequest = ProxyResponse badRequest400 mempty mempty (textPlain "Bad Request")
-
-missingETag :: ProxyResponse
-missingETag =
-    ProxyResponse badRequest400 mempty mempty (textPlain "Missing ETag")
 
 notImplemented :: ProxyResponse
 notImplemented =
@@ -198,6 +192,16 @@ hashToETagValue = pack . show . show
 
 eTagValueToHash :: Text -> Maybe Int
 eTagValueToHash = readMaybe . unpack >=> readMaybe
+
+data ETagValidity
+    = NotPresent
+    | Invalid
+
+getAndParseETag :: HashMap (CI Text) Text -> Either ETagValidity Int
+getAndParseETag =
+    let getETag = maybe (Left NotPresent) Right . lookup (mk "If-Match")
+        parseETag = maybe (Left Invalid) Right . eTagValueToHash
+    in getETag >=> parseETag
 
 data ValidPath
     -- /resources/users/${Text}
