@@ -34,9 +34,7 @@ httpHandler ProxyRequest {requestContext, body, httpMethod = "POST"} =
         -- only PUT?)
          -> do
             errorOrETag <- saveNewBuild userId $ OwnedBy userId build
-            case errorOrETag
-        -- TODO: Provide the ETag
-                  of
+            case errorOrETag of
                 Right eTag ->
                     return
                         (ProxyResponse
