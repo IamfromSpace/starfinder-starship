@@ -1,6 +1,7 @@
 {-# LANGUAGE MultiParamTypeClasses #-}
 {-# LANGUAGE FlexibleInstances #-}
 {-# LANGUAGE OverloadedStrings #-}
+{-# LANGUAGE NamedFieldPuns #-}
 {-# LANGUAGE GeneralizedNewtypeDeriving #-}
 
 {-|
@@ -37,10 +38,11 @@ import Lib
 import Network.AWS.DynamoDB.GetItem
        (GetItem, getItem, giConsistentRead, giKey, girsItem)
 import Network.AWS.DynamoDB.PutItem
-       (PutItem, piConditionExpression, piExpressionAttributeNames, piItem, putItem)
+       (PutItem, piConditionExpression, piExpressionAttributeNames,
+        piExpressionAttributeValues, piItem, putItem)
 import Network.AWS.DynamoDB.Types
        (_ConditionalCheckFailedException)
-import Starfinder.Starship.Build (Build)
+import Starfinder.Starship.Build (Build(Build, name))
 import Starfinder.Starship.ReferencedWeapon (ReferencedWeapon)
 
 data SaveNewError =
@@ -48,7 +50,7 @@ data SaveNewError =
 
 data UpdateError
     = DoesNotExist
-    | ETagMismatch
+    | ETagMismatch (ETagged (OwnedBy (Build Text ReferencedWeapon Text)))
 
 class HasTableName a where
     getTableName :: a -> Text
@@ -61,7 +63,7 @@ class Monad m =>
     updateBuild ::
            Int
         -> OwnedBy (Build Text ReferencedWeapon Text)
-        -> m (Either UpdateError Text)
+        -> m (Either UpdateError Int)
     getBuild ::
            Text
         -> Text
@@ -109,7 +111,41 @@ instance (AWSConstraint r m, HasTableName r, MonadReader r m) =>
                     (putItem tableName)
         res <- trying _ConditionalCheckFailedException (send item)
         return $ bimap (const AlreadyExists) (const eTag) res
-    updateBuild = undefined
+    updateBuild expectedETag ownedBuild@(OwnedBy userId (Build {name})) = do
+        tableName <- getTableName <$> ask
+        let newETag = hash ownedBuild
+        let item =
+                set
+                    piExpressionAttributeValues
+                    (fromList [(":eTag", toAttrValue expectedETag)]) $
+                set
+                    piExpressionAttributeNames
+                    (fromList
+                         [ ("#eTag", "eTag")
+                         , ("#hash", "HASH1")
+                         , ("#range", "RANGE1.1")
+                         ]) $
+                set
+                    piConditionExpression
+                    (Just
+                         "#eTag = :eTag AND attribute_exists(#hash) AND attribute_exists(#range)") $
+                set
+                    piItem
+                    (ownedReferencedBuildToItem (ETagged newETag ownedBuild))
+                    (putItem tableName)
+        res <- trying _ConditionalCheckFailedException (send item)
+        case res of
+            Left _
+              -- Since get is a consistent read, and ETags should be
+              -- unguessable, there should be no chance that the ETag _now_
+              -- matches if it didn't on write.  I think.
+              -- TODO: A hashed salt helps with unguessability (but seems
+              -- overkill).
+             ->
+                fmap
+                    (Left . maybe DoesNotExist ETagMismatch)
+                    (getBuild userId name)
+            Right _ -> return $ Right newETag
     getBuild userId name = do
         tableName <- getTableName <$> ask
         let item
