@@ -41,7 +41,7 @@ data StaticValidationError
     = InvalidFrame
     | InvalidWeapon
     | InvalidShields
-    | BuildError [BuildError]
+    | BuildError BuildError
     deriving (Show)
 
 data ChangeValidationError
@@ -171,7 +171,7 @@ populateAndValidate =
             traverseWeapon (orError InvalidShields . dereferenceWeapon)
         populateShields = traverseShields (findOrError InvalidShields S.shields)
         validateBuild =
-            first (pure . BuildError) . emptyWithSelfError . validateStarship
+            first (fmap BuildError) . emptyWithSelfError . validateStarship
     in populateFrame >=>
        populateWeapons >=> populateShields >=> validateBuild >=> const (pure ())
 
