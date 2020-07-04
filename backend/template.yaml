@@ -44,13 +44,6 @@ Resources:
       Policies:
         - AWSLambdaBasicExecutionRole
         - Fn::ImportValue: !Sub "${TableStack}-TableDataPlanePolicy"
-        - Version: "2012-10-17"
-          Statement:
-            Sid: AllowSNSPublish
-            Effect: Allow
-            Action: "sns:Publish"
-            # TODO: Restrict this further so it can only publish to the topics it creates
-            Resource: !Sub "arn:aws:sns:${AWS::Region}:${AWS::AccountId}:*"
       MemorySize: 128
       Timeout: 7
   Api:
