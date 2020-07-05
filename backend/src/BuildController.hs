@@ -19,7 +19,7 @@ import BuildService
        (BuildServiceMonad(..), CreateError(..), GetError(..),
         UpdateError(..))
 import Control.Monad ((>=>))
-import Data.Aeson (decode)
+import Data.Aeson (FromJSON(..), Value(..), (.:), decode)
 import Data.CaseInsensitive (CI, mk)
 import Data.HashMap.Strict (HashMap, fromList, lookup)
 import Data.Text (Text, pack, unpack)
@@ -30,6 +30,14 @@ import Prelude hiding (lookup)
 import Starfinder.Starship.Build (Build)
 import Starfinder.Starship.ReferencedWeapon (ReferencedWeapon)
 import Text.Read (readMaybe)
+
+data UserId =
+    UserId Text
+    deriving (Show)
+
+instance FromJSON UserId where
+    parseJSON (Object v) =
+        UserId <$> (v .: "claims" >>= (\(Object v2) -> v2 .: "sub"))
 
 -- TODO: These all seem to form a pattern where it's really just transforming
 -- the Service result into ProxyResponse.  I'm still not totally convinced
@@ -131,11 +139,12 @@ handlePut principal userId name expectedETag build = do
                      (textPlain $ pack $ show x))
         Left TransformError -> undefined -- impossible
 
-httpHandler :: BuildServiceMonad Text m => ProxyRequest Text -> m ProxyResponse
+httpHandler ::
+       BuildServiceMonad Text m => ProxyRequest UserId -> m ProxyResponse
 httpHandler pr@(ProxyRequest {path, requestContext, body, httpMethod, headers}) =
     case (parseApiGatweayPath path, authorizer requestContext) of
         (_, Nothing) -> return unauthorized
-        (Just (UserBuilds userId), Just principal) ->
+        (Just (UserBuilds userId), Just (UserId principal)) ->
             case httpMethod of
                 "POST" ->
                     case decode body of
@@ -143,7 +152,7 @@ httpHandler pr@(ProxyRequest {path, requestContext, body, httpMethod, headers}) 
                             handleCreate principal userId build
                         Nothing -> return badRequest
                 _ -> return methodNotAllowed
-        (Just (UserBuild userId name), Just principal) ->
+        (Just (UserBuild userId name), Just (UserId principal)) ->
             case httpMethod of
                 "GET" -> handleGet principal userId name
                 "PUT" ->
