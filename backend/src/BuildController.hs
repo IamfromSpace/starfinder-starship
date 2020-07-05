@@ -160,6 +160,12 @@ httpHandler pr@(ProxyRequest {path, requestContext, body, httpMethod, headers}) 
                     case (decode body, getAndParseETag headers) of
                         (Just (build :: Build Text ReferencedWeapon Text), Right expectedETag) ->
                             if B.name build == name
+                            -- TODO: Just in general this speaks to the oddity
+                            -- of names.  While we need to know the name on
+                            -- POST, there are many contexts where we don't,
+                            -- for example, why would a Starship with status
+                            -- name its build?  The starship is already named.
+                            -- Perhaps `Named Text a` is a type.
                                 then handlePut
                                          principal
                                          userId
