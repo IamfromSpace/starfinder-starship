@@ -154,6 +154,7 @@ httpHandler pr@(ProxyRequest {path, requestContext, body, httpMethod, headers}) 
                             handleCreate principal userId build
                         (_, Left Invalid) ->
                             return badRequest -- clearly didn't get this from us, so they're doing something wrong.
+                        (Nothing, _) -> return badRequest
                 "PATCH" -> return notImplemented
                 _ -> return methodNotAllowed
         (_, Just _) -> return notFound
