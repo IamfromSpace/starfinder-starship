@@ -28,6 +28,7 @@ import Lib (ETagged(..), OwnedBy(..))
 import Network.HTTP.Types.URI (decodePathSegments)
 import Prelude hiding (lookup)
 import Starfinder.Starship.Build (Build)
+import qualified Starfinder.Starship.Build as B (Build(name))
 import Starfinder.Starship.ReferencedWeapon (ReferencedWeapon)
 import Text.Read (readMaybe)
 
@@ -158,9 +159,18 @@ httpHandler pr@(ProxyRequest {path, requestContext, body, httpMethod, headers}) 
                 "PUT" ->
                     case (decode body, getAndParseETag headers) of
                         (Just (build :: Build Text ReferencedWeapon Text), Right expectedETag) ->
-                            handlePut principal userId name expectedETag build
+                            if B.name build == name
+                                then handlePut
+                                         principal
+                                         userId
+                                         name
+                                         expectedETag
+                                         build
+                                else return badRequest
                         (Just (build :: Build Text ReferencedWeapon Text), Left NotPresent) ->
-                            handleCreate principal userId build
+                            if B.name build == name
+                                then handleCreate principal userId build
+                                else return badRequest
                         (_, Left Invalid) ->
                             return badRequest -- clearly didn't get this from us, so they're doing something wrong.
                         (Nothing, _) -> return badRequest
