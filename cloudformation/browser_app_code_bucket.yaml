@@ -1,0 +1,35 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Resources:
+  Bucket:
+    Type: AWS::S3::Bucket
+    Properties:
+      BucketEncryption:
+        ServerSideEncryptionConfiguration:
+          - ServerSideEncryptionByDefault:
+              SSEAlgorithm: AES256
+      VersioningConfiguration:
+        Status: Enabled
+  DataReadPolicy:
+    Type: AWS::IAM::ManagedPolicy
+    Properties:
+      PolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Effect: Allow
+            Action:
+              - 's3:GetObject'
+            Resource:
+              Fn::Sub:
+                - "${Arn}/index.html"
+                - Arn: !GetAtt Bucket.Arn
+Outputs:
+  Bucket:
+    Description: The bucket for storing lambda code
+    Value: !Ref Bucket
+    Export:
+      Name: !Sub "${AWS::StackName}-Bucket"
+  AppReadPolicy:
+    Description: The arn of the managed policy that allows an application to read the index.html file.
+    Value: !Ref DataReadPolicy
+    Export:
+      Name: !Sub "${AWS::StackName}-DataReadPolicy"

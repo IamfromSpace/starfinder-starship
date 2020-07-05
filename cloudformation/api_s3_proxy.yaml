@@ -1,0 +1,61 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Description: Lambda for recording reaction time test results.
+Parameters:
+  ApiStack:
+    Type: String
+    Description: The REST API that supports the backend
+  AppCodeBucketStack:
+    Type: String
+    Description: The bucket that holds the application code
+Resources:
+  GetAppCodeRole:
+    Type: "AWS::IAM::Role"
+    Properties:
+      AssumeRolePolicyDocument:
+        Version: "2012-10-17"
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service:
+                - "apigateway.amazonaws.com"
+            Action:
+              - "sts:AssumeRole"
+      ManagedPolicyArns:
+        - Fn::ImportValue: !Sub "${AppCodeBucketStack}-DataReadPolicy"
+  UselessModel:
+    Type: "AWS::ApiGateway::Model"
+    Properties:
+      ContentType: "text/html"
+      RestApiId:
+        Fn::ImportValue: !Sub "${ApiStack}-Api"
+      Schema:
+        "$schema": "http://json-schema.org/draft-04/schema#"
+        title: "Useless schema because the API Gateway interface is really annoying."
+        type: object
+  #TODO: This always requires a re-deployment!!!
+  GetAppMethod:
+    Type: "AWS::ApiGateway::Method"
+    Properties:
+      AuthorizationType: NONE
+      HttpMethod: GET
+      Integration:
+        Credentials: !GetAtt GetAppCodeRole.Arn
+        IntegrationHttpMethod: GET
+        IntegrationResponses:
+          - StatusCode: 200
+        Type: AWS
+        Uri:
+          Fn::Sub:
+            - "arn:aws:apigateway:${AWS::Region}:s3:path/${Bucket}/index.html"
+            - Bucket:
+                Fn::ImportValue: !Sub "${AppCodeBucketStack}-Bucket"
+      MethodResponses:
+        - StatusCode: 200
+          ResponseModels:
+            "text/html": !Ref UselessModel
+      ResourceId:
+        Fn::ImportValue: !Sub "${ApiStack}-ApiRootResourceId"
+      RestApiId:
+        Fn::ImportValue: !Sub "${ApiStack}-Api"
+    DependsOn:
+      - UselessModel
