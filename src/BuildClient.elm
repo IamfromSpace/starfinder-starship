@@ -5,7 +5,7 @@ import DefenseLevel
 import Dict
 import ExpansionBay
 import Http exposing (Expect, Response(..), expectStringResponse, header, request, stringBody)
-import Json.Encode exposing (Value, bool, encode, float, int, list, null, object, string)
+import Json.Encode as E exposing (Value, encode)
 import Link exposing (Link(..))
 import LinkAndTogglable exposing (LinkAndTogglable(..))
 import Starship exposing (BuildError, Starship)
@@ -116,68 +116,68 @@ responseToCreateBuildClientResult e =
 
 buildToXStarfinderStarshipBuildValue : Starship -> Value
 buildToXStarfinderStarshipBuildValue sb =
-    object
-        [ ( "name", string sb.name )
-        , ( "frame", string sb.frame.name )
-        , ( "powerCoreUnits", int sb.powerCoreUnits )
+    E.object
+        [ ( "name", E.string sb.name )
+        , ( "frame", E.string sb.frame.name )
+        , ( "powerCoreUnits", E.int sb.powerCoreUnits )
         , ( "thrusters"
-          , object
-                [ ( "isOn", bool (Togglable.meta sb.thrusters == On) )
-                , ( "toggled", int (Togglable.extract sb.thrusters) )
+          , E.object
+                [ ( "isOn", E.bool (Togglable.meta sb.thrusters == On) )
+                , ( "toggled", E.int (Togglable.extract sb.thrusters) )
                 ]
           )
         , ( "armor"
           , case sb.armor of
                 Just x ->
-                    string (DefenseLevel.toString x)
+                    E.string (DefenseLevel.toString x)
 
                 Nothing ->
-                    null
+                    E.null
           )
         , ( "computer"
-          , object
-                [ ( "isOn", bool (Togglable.meta sb.computer == On) )
+          , E.object
+                [ ( "isOn", E.bool (Togglable.meta sb.computer == On) )
                 , ( "toggled"
                   , let
                         { nodes, bonus } =
                             Togglable.extract sb.computer
                     in
-                    object
-                        [ ( "nodes", int nodes )
-                        , ( "bonus", int bonus )
+                    E.object
+                        [ ( "nodes", E.int nodes )
+                        , ( "bonus", E.int bonus )
                         ]
                   )
                 ]
           )
         , ( "crewQuarters"
-          , string (Starship.crewQuartersToString sb.crewQuarters)
+          , E.string (Starship.crewQuartersToString sb.crewQuarters)
           )
         , ( "defensiveCountermeasures"
           , case sb.defensiveCountermeasures of
                 Just x ->
-                    object
-                        [ ( "isOn", bool (Togglable.meta x == On) )
-                        , ( "toggled", string (DefenseLevel.toString (Togglable.extract x)) )
+                    E.object
+                        [ ( "isOn", E.bool (Togglable.meta x == On) )
+                        , ( "toggled", E.string (DefenseLevel.toString (Togglable.extract x)) )
                         ]
 
                 Nothing ->
-                    null
+                    E.null
           )
         , ( "driftEngine"
           , case sb.driftEngine of
                 Just x ->
-                    string (Starship.driftEngineToString x)
+                    E.string (Starship.driftEngineToString x)
 
                 Nothing ->
-                    null
+                    E.null
           )
         , ( "expansionBays"
-          , list (togglableToValue (ExpansionBay.toString >> string)) sb.expansionBays
+          , E.list (togglableToValue (ExpansionBay.toString >> E.string)) sb.expansionBays
           )
         , ( "sensors"
-          , object
+          , E.object
                 [ ( "range"
-                  , string
+                  , E.string
                         (case sb.sensors.range of
                             Short ->
                                 "Short"
@@ -189,22 +189,22 @@ buildToXStarfinderStarshipBuildValue sb =
                                 "Long"
                         )
                   )
-                , ( "bonus", int sb.sensors.bonus )
+                , ( "bonus", E.int sb.sensors.bonus )
                 ]
           )
         , ( "arcWeapons"
-          , arcToValue (list linkAndTogglableWeaponToValue) sb.arcWeapons
+          , arcToValue (E.list linkAndTogglableWeaponToValue) sb.arcWeapons
           )
         , ( "turretWeapons"
-          , list linkAndTogglableWeaponToValue sb.turretWeapons
+          , E.list linkAndTogglableWeaponToValue sb.turretWeapons
           )
-        , ( "shields", togglableToValue (.name >> string) sb.shields )
+        , ( "shields", togglableToValue (.name >> E.string) sb.shields )
         ]
 
 
 arcToValue : (a -> Value) -> Arc a -> Value
 arcToValue f x =
-    object
+    E.object
         [ ( "forward", f x.forward )
         , ( "aft", f x.aft )
         , ( "portSide", f x.portSide )
@@ -214,8 +214,8 @@ arcToValue f x =
 
 togglableToValue : (a -> Value) -> Togglable a -> Value
 togglableToValue f x =
-    object
-        [ ( "isOn", bool (Togglable.meta x == On) )
+    E.object
+        [ ( "isOn", E.bool (Togglable.meta x == On) )
         , ( "toggled", f (Togglable.extract x) )
         ]
 
@@ -235,10 +235,10 @@ linkAndTogglableWeaponToValue x =
         weapon =
             LinkAndTogglable.extract x
     in
-    object
-        [ ( "isOn", bool isOn )
+    E.object
+        [ ( "isOn", E.bool isOn )
         , ( "toggled"
-          , object [ ( "isLinked", bool isLinked ), ( "name", string weapon.name ) ]
+          , E.object [ ( "isLinked", E.bool isLinked ), ( "name", E.string weapon.name ) ]
           )
         ]
 
