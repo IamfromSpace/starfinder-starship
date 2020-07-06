@@ -1,4 +1,4 @@
-module BuildClient exposing (CreateStarshipBuild, CreateStarshipBuildError(..), createStarshipBuild, createStarshipBuildErrorToString)
+module BuildClient exposing (CreateStarshipBuild, CreateStarshipBuildError(..), HttpClientError, createStarshipBuild, createStarshipBuildErrorToString, httpClientErrorToString)
 
 import Arc exposing (Arc)
 import DefenseLevel
@@ -15,18 +15,16 @@ import Togglable exposing (Togglable(..))
 import Weapon exposing (Range(..), Weapon)
 
 
-type CreateStarshipBuildError
+type HttpClientError expected
     = Timeout
     | NetworkError
     | UnexpectedResponse
     | BadUrl String
-    | AlreadyExists
-    | Forbidden
-    | BuildError (List BuildError)
+    | ExpectedError expected
 
 
-createStarshipBuildErrorToString : CreateStarshipBuildError -> String
-createStarshipBuildErrorToString e =
+httpClientErrorToString : (expected -> String) -> HttpClientError expected -> String
+httpClientErrorToString f e =
     case e of
         Timeout ->
             "Timeout"
@@ -40,6 +38,19 @@ createStarshipBuildErrorToString e =
         BadUrl s ->
             "BadUrl " ++ s
 
+        ExpectedError ee ->
+            "ExpectedError " ++ f ee
+
+
+type CreateStarshipBuildError
+    = AlreadyExists
+    | Forbidden
+    | BuildError (List BuildError)
+
+
+createStarshipBuildErrorToString : CreateStarshipBuildError -> String
+createStarshipBuildErrorToString e =
+    case e of
         AlreadyExists ->
             "AlreadyExists"
 
@@ -68,29 +79,8 @@ listToString_ list =
             "," ++ listToString_ xs
 
 
-
--- TODO: Would be nice to have a CI type
-
-
-lowerCaseCommaJoin : Dict.Dict String String -> Dict.Dict String String
-lowerCaseCommaJoin =
-    Dict.foldl
-        (\key nextValue ->
-            Dict.update key
-                (\currentValue ->
-                    case currentValue of
-                        Just cv ->
-                            Just (cv ++ "," ++ nextValue)
-
-                        Nothing ->
-                            Just nextValue
-                )
-        )
-        Dict.empty
-
-
-responseToBuildClientResult : Response String -> Result CreateStarshipBuildError String
-responseToBuildClientResult e =
+responseToCreateBuildClientResult : Response String -> Result (HttpClientError CreateStarshipBuildError) String
+responseToCreateBuildClientResult e =
     case e of
         GoodStatus_ { headers } _ ->
             case Dict.get "etag" (lowerCaseCommaJoin headers) of
@@ -114,10 +104,10 @@ responseToBuildClientResult e =
                 Err UnexpectedResponse
 
             else if statusCode == 403 then
-                Err Forbidden
+                Err (ExpectedError Forbidden)
 
             else if statusCode == 409 then
-                Err AlreadyExists
+                Err (ExpectedError AlreadyExists)
                 -- TODO: Correctly Identify and parse BuildError
 
             else
@@ -254,7 +244,7 @@ linkAndTogglableWeaponToValue x =
 
 
 type alias CreateStarshipBuild =
-    String -> String -> String -> Starship -> Cmd (Result CreateStarshipBuildError String)
+    String -> String -> String -> Starship -> Cmd (Result (HttpClientError CreateStarshipBuildError) String)
 
 
 createStarshipBuild : CreateStarshipBuild
@@ -271,7 +261,7 @@ createStarshipBuild hostname userId token starshipBuild =
                 |> buildToXStarfinderStarshipBuildValue
                 |> encode 0
                 |> stringBody "application/x.starfinder-starship-build+json"
-        , expect = expectResponse responseToBuildClientResult
+        , expect = expectResponse responseToCreateBuildClientResult
         , timeout = Just 5000
         , tracker = Nothing
         }
@@ -280,3 +270,24 @@ createStarshipBuild hostname userId token starshipBuild =
 expectResponse : (Response String -> Result x a) -> Expect (Result x a)
 expectResponse =
     expectStringResponse identity
+
+
+
+-- TODO: Would be nice to have a CI type
+
+
+lowerCaseCommaJoin : Dict.Dict String String -> Dict.Dict String String
+lowerCaseCommaJoin =
+    Dict.foldl
+        (\key nextValue ->
+            Dict.update key
+                (\currentValue ->
+                    case currentValue of
+                        Just cv ->
+                            Just (cv ++ "," ++ nextValue)
+
+                        Nothing ->
+                            Just nextValue
+                )
+        )
+        Dict.empty

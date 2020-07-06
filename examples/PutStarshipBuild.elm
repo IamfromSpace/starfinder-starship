@@ -2,7 +2,7 @@ module Main exposing (Model, Msg(..), initialModel, update, view)
 
 import Arc
 import Browser exposing (element)
-import BuildClient exposing (CreateStarshipBuildError, createStarshipBuild, createStarshipBuildErrorToString)
+import BuildClient exposing (CreateStarshipBuildError, HttpClientError, createStarshipBuild, createStarshipBuildErrorToString, httpClientErrorToString)
 import CognitoClient
 import Html exposing (Html, button, div, input, label, text)
 import Html.Attributes exposing (disabled, value)
@@ -26,7 +26,7 @@ initialModel =
 
 
 type alias Model =
-    { result : Maybe (Result CreateStarshipBuildError String)
+    { result : Maybe (Result (HttpClientError CreateStarshipBuildError) String)
     , idToken : String
     , hostName : String
     , userId : String
@@ -34,7 +34,7 @@ type alias Model =
 
 
 type Msg
-    = CreateStarshipBuildResult (Result CreateStarshipBuildError String)
+    = CreateStarshipBuildResult (Result (HttpClientError CreateStarshipBuildError) String)
     | SendRequest
     | SetIdToken String
     | SetHostName String
@@ -93,7 +93,7 @@ view ({ result, idToken, hostName, userId } as s) =
                 ]
 
             Just (Err e) ->
-                [ text ("ERROR: " ++ createStarshipBuildErrorToString e)
+                [ text ("ERROR: " ++ httpClientErrorToString createStarshipBuildErrorToString e)
                 , button [ onClick Back ] [ text "BACK" ]
                 ]
 
