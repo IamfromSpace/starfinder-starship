@@ -2,7 +2,7 @@ module Main exposing (Model, Msg(..), initialModel, update, view)
 
 import Arc
 import Browser exposing (element)
-import BuildClient exposing (CreateStarshipBuildError, GetStarshipBuildError, HttpClientError, createStarshipBuild, createStarshipBuildErrorToString, getStarshipBuild, getStarshipBuildErrorToString, httpClientErrorToString)
+import BuildClient exposing (CreateStarshipBuildError, GetStarshipBuildError, HttpClientError, UpdateStarshipBuildError, createStarshipBuild, createStarshipBuildErrorToString, getStarshipBuild, getStarshipBuildErrorToString, httpClientErrorToString, updateStarshipBuild, updateStarshipBuildErrorToString)
 import CognitoClient
 import Html exposing (Html, button, div, input, label, text)
 import Html.Attributes exposing (disabled, value)
@@ -21,6 +21,7 @@ initialModel : Model
 initialModel =
     { putResult = Nothing
     , getResult = Nothing
+    , updateResult = Nothing
     , idToken = ""
     , hostName = ""
     , userId = ""
@@ -30,6 +31,11 @@ initialModel =
 type alias Model =
     { putResult : Maybe (Result (HttpClientError CreateStarshipBuildError) String)
     , getResult : Maybe (Result (HttpClientError GetStarshipBuildError) ( String, Starship ))
+
+    -- Nothing -> Not Updating
+    -- Just Nothing -> Updating
+    -- Just (Just error) -> Update failed
+    , updateResult : Maybe (Maybe (HttpClientError UpdateStarshipBuildError))
     , idToken : String
     , hostName : String
     , userId : String
@@ -39,11 +45,14 @@ type alias Model =
 type Msg
     = CreateStarshipBuildResult (Result (HttpClientError CreateStarshipBuildError) String)
     | GetStarshipBuildResult (Result (HttpClientError GetStarshipBuildError) ( String, Starship ))
+    | UpdateStarshipBuildResult (Result (HttpClientError UpdateStarshipBuildError) String)
     | SendPutRequest
     | SendGetRequest
+    | SendUpdateRequest
     | SetIdToken String
     | SetHostName String
     | SetUserId String
+    | StarshipUpdate StarshipEditor.Msg
     | Back
 
 
@@ -66,7 +75,7 @@ ship =
 
 
 update : Msg -> Model -> ( Model, Cmd Msg )
-update msg ({ getResult, putResult, idToken, hostName, userId } as s) =
+update msg ({ getResult, putResult, updateResult, idToken, hostName, userId } as s) =
     case msg of
         SendPutRequest ->
             ( s, Cmd.map CreateStarshipBuildResult (createStarshipBuild hostName userId idToken ship) )
@@ -74,11 +83,37 @@ update msg ({ getResult, putResult, idToken, hostName, userId } as s) =
         SendGetRequest ->
             ( s, Cmd.map GetStarshipBuildResult (getStarshipBuild hostName userId idToken "THE NAME") )
 
+        SendUpdateRequest ->
+            case getResult of
+                Just (Ok ( eTag, starship )) ->
+                    ( { s | updateResult = Just Nothing }, Cmd.map UpdateStarshipBuildResult (updateStarshipBuild hostName userId idToken eTag starship) )
+
+                _ ->
+                    ( s, Cmd.none )
+
         CreateStarshipBuildResult r ->
             ( { s | putResult = Just r }, Cmd.none )
 
         GetStarshipBuildResult r ->
             ( { s | getResult = Just r }, Cmd.none )
+
+        UpdateStarshipBuildResult r ->
+            case r of
+                Err x ->
+                    ( { s | updateResult = Just (Just x) }, Cmd.none )
+
+                Ok eTag ->
+                    case getResult of
+                        Just (Ok ( _, starship )) ->
+                            ( { s
+                                | updateResult = Nothing
+                                , getResult = Just (Ok ( eTag, starship ))
+                              }
+                            , Cmd.none
+                            )
+
+                        _ ->
+                            ( s, Cmd.none )
 
         SetIdToken t ->
             ( { s | idToken = t }, Cmd.none )
@@ -89,39 +124,59 @@ update msg ({ getResult, putResult, idToken, hostName, userId } as s) =
         SetUserId ui ->
             ( { s | userId = ui }, Cmd.none )
 
+        StarshipUpdate sMsg ->
+            case getResult of
+                Just (Ok ( eTag, sModel )) ->
+                    ( { s | getResult = Just (Ok ( eTag, StarshipEditor.update sMsg sModel )) }, Cmd.none )
+
+                _ ->
+                    ( s, Cmd.none )
+
         Back ->
-            ( { s | putResult = Nothing, getResult = Nothing }, Cmd.none )
+            case updateResult of
+                Just (Just _) ->
+                    ( { s | updateResult = Nothing }, Cmd.none )
+
+                _ ->
+                    ( { s | putResult = Nothing, getResult = Nothing, updateResult = Nothing }, Cmd.none )
 
 
 view : Model -> Html Msg
-view ({ getResult, putResult, idToken, hostName, userId } as s) =
+view ({ getResult, putResult, updateResult, idToken, hostName, userId } as s) =
     div
         []
-        (case ( putResult, getResult ) of
-            ( Just (Ok eTag), _ ) ->
+        (case ( putResult, getResult, updateResult ) of
+            ( _, _, Just (Just e) ) ->
+                [ text ("ERROR: " ++ httpClientErrorToString updateStarshipBuildErrorToString e)
+                , button [ onClick Back ] [ text "BACK" ]
+                ]
+
+            ( _, _, Just Nothing ) ->
+                [ text "UPDATING" ]
+
+            ( Just (Ok eTag), _, _ ) ->
                 [ text ("DONE: " ++ eTag)
                 , button [ onClick Back ] [ text "BACK" ]
                 ]
 
-            ( Just (Err e), _ ) ->
+            ( Just (Err e), _, _ ) ->
                 [ text ("ERROR: " ++ httpClientErrorToString createStarshipBuildErrorToString e)
                 , button [ onClick Back ] [ text "BACK" ]
                 ]
 
-            ( _, Just (Ok ( eTag, starship )) ) ->
+            ( _, Just (Ok ( eTag, starship )), _ ) ->
                 [ text ("eTag: " ++ eTag)
-
-                -- TODO: No point in edits at the moment, they can't be saved
-                , Html.map (always Back) <| StarshipEditor.view starship
+                , Html.map StarshipUpdate <| StarshipEditor.view starship
+                , button [ onClick SendUpdateRequest ] [ text "UPDATE" ]
                 , button [ onClick Back ] [ text "BACK" ]
                 ]
 
-            ( _, Just (Err e) ) ->
+            ( _, Just (Err e), _ ) ->
                 [ text ("ERROR: " ++ httpClientErrorToString getStarshipBuildErrorToString e)
                 , button [ onClick Back ] [ text "BACK" ]
                 ]
 
-            ( Nothing, Nothing ) ->
+            ( Nothing, Nothing, Nothing ) ->
                 [ div []
                     [ label [] [ text "Host Name:" ]
                     , input [ onInput SetHostName, value hostName ] []
