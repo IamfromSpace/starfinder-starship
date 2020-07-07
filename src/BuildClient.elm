@@ -683,7 +683,7 @@ lowerCaseCommaJoin : Dict.Dict String String -> Dict.Dict String String
 lowerCaseCommaJoin =
     Dict.foldl
         (\key nextValue ->
-            Dict.update key
+            Dict.update (String.toLower key)
                 (\currentValue ->
                     case currentValue of
                         Just cv ->
