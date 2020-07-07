@@ -6,11 +6,13 @@ import Starfinder.Starship.DrawsPower (DrawsPower(..))
 import Starfinder.Starship.CostsBuildPoints (CostsBuildPoints(..))
 import Data.Set (Set, member, fromList)
 import Data.Maybe (fromMaybe)
+import Data.Text (pack, unpack)
 import GHC.Generics (Generic)
-import Data.Aeson (FromJSON, ToJSON)
+import Data.Aeson (FromJSON(..), ToJSON(..), Value(..))
 import Data.Hashable (Hashable)
 import Test.QuickCheck.Arbitrary (Arbitrary(..))
 import Test.QuickCheck.Gen (elements, oneof)
+import Text.Read (readMaybe)
 
 
 data ExpansionBay
@@ -62,9 +64,15 @@ instance Arbitrary ExpansionBay where
     , TechWorkshop
     ]]
 
+instance FromJSON ExpansionBay where
+    parseJSON (String s) =
+        case readMaybe (unpack s) of
+            Just x -> pure x
+            Nothing -> fail "ExpansionBay string invalid."
+    parseJSON _ = fail "ExpansionBay must be a string."
 
-instance FromJSON ExpansionBay
-instance ToJSON ExpansionBay
+instance ToJSON ExpansionBay where
+  toJSON = String . pack . show
 
 data ExpansionBayCost = ExpansionBayCost
     { powerDraw :: Int
