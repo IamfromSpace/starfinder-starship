@@ -1,4 +1,4 @@
-module Togglable exposing (Togglable, extract, map, meta, pure, toggle)
+module Togglable exposing (Togglable(..), extract, map, meta, pure, toggle)
 
 import Switch exposing (..)
 
