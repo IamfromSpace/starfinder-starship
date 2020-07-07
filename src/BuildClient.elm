@@ -1,4 +1,4 @@
-module BuildClient exposing (CreateStarshipBuild, CreateStarshipBuildError(..), GetStarshipBuild, GetStarshipBuildError(..), HttpClientError, createStarshipBuild, createStarshipBuildErrorToString, getStarshipBuild, getStarshipBuildErrorToString, httpClientErrorToString)
+module BuildClient exposing (CreateStarshipBuild, CreateStarshipBuildError(..), GetStarshipBuild, GetStarshipBuildError(..), HttpClientError, UpdateStarshipBuild, UpdateStarshipBuildError(..), createStarshipBuild, createStarshipBuildErrorToString, getStarshipBuild, getStarshipBuildErrorToString, httpClientErrorToString, updateStarshipBuild, updateStarshipBuildErrorToString)
 
 import Arc exposing (Arc)
 import Computer exposing (Computer)
@@ -49,7 +49,7 @@ httpClientErrorToString f e =
 type CreateStarshipBuildError
     = AlreadyExists
     | ForbiddenC
-    | BuildError (List BuildError)
+    | BuildErrorC (List BuildError)
 
 
 createStarshipBuildErrorToString : CreateStarshipBuildError -> String
@@ -61,7 +61,7 @@ createStarshipBuildErrorToString e =
         ForbiddenC ->
             "Forbidden"
 
-        BuildError es ->
+        BuildErrorC es ->
             "BuildError " ++ listToString (List.map Starship.buildErrorToString es)
 
 
@@ -273,7 +273,7 @@ createStarshipBuild hostname userId token starshipBuild =
 
 type GetStarshipBuildError
     = ForbiddenG
-    | DoesNotExist
+    | DoesNotExistG
 
 
 getStarshipBuildErrorToString : GetStarshipBuildError -> String
@@ -282,7 +282,7 @@ getStarshipBuildErrorToString x =
         ForbiddenG ->
             "Forbidden"
 
-        DoesNotExist ->
+        DoesNotExistG ->
             "DoesNotExist"
 
 
@@ -647,7 +647,7 @@ responseToGetBuildClientResult r =
                 Err (ExpectedError ForbiddenG)
 
             else if statusCode == 404 then
-                Err (ExpectedError DoesNotExist)
+                Err (ExpectedError DoesNotExistG)
 
             else
                 Err (UnexpectedResponse "Unexpected (non-5XX) status code")
@@ -668,6 +668,109 @@ getStarshipBuild hostname userId token name =
         , url = "https://" ++ hostname ++ "/resources/users/" ++ userId ++ "/builds/" ++ name
         , body = emptyBody
         , expect = expectResponse responseToGetBuildClientResult
+        , timeout = Just 5000
+        , tracker = Nothing
+        }
+
+
+type UpdateStarshipBuildError
+    = ForbiddenU
+    | DoesNotExistU
+    | ETagMismatch ( String, Starship )
+      -- TODO: There are a couple types that can be decoded
+    | IllegalChange
+    | BuildErrorU (List BuildError)
+
+
+updateStarshipBuildErrorToString : UpdateStarshipBuildError -> String
+updateStarshipBuildErrorToString x =
+    case x of
+        ForbiddenU ->
+            "Forbidden"
+
+        DoesNotExistU ->
+            "DoesNotExist"
+
+        ETagMismatch ( eTag, _ ) ->
+            "ETagMismatch " ++ eTag
+
+        IllegalChange ->
+            "IllegalChange"
+
+        BuildErrorU es ->
+            "BuildError " ++ listToString (List.map Starship.buildErrorToString es)
+
+
+responseToUpdateBuildClientResult : Response String -> Result (HttpClientError UpdateStarshipBuildError) String
+responseToUpdateBuildClientResult r =
+    case r of
+        GoodStatus_ { headers } _ ->
+            case Dict.get "etag" (lowerCaseCommaJoin headers) of
+                Just eTag ->
+                    Ok eTag
+
+                Nothing ->
+                    Err (UnexpectedResponse "Missing ETag")
+
+        Timeout_ ->
+            Err Timeout
+
+        NetworkError_ ->
+            Err NetworkError
+
+        BadUrl_ x ->
+            Err (BadUrl x)
+
+        BadStatus_ { statusCode, headers } body ->
+            if statusCode >= 500 then
+                Err (UnexpectedResponse "5XX Status Code")
+
+            else if statusCode == 403 then
+                Err (ExpectedError ForbiddenU)
+
+            else if statusCode == 404 then
+                Err (ExpectedError DoesNotExistU)
+
+            else if statusCode == 409 then
+                Err (ExpectedError IllegalChange)
+                -- TODO: Correctly Identify and parse BuildError
+
+            else if statusCode == 412 then
+                case ( Dict.get "etag" (lowerCaseCommaJoin headers), decodeString xStarfinderStarshipBuildToBuildDecoder body ) of
+                    ( Just eTag, Ok starship ) ->
+                        Err (ExpectedError (ETagMismatch ( eTag, starship )))
+
+                    ( _, Err e ) ->
+                        Err (UnexpectedResponse ("412 had invalid body :" ++ D.errorToString e))
+
+                    ( Nothing, _ ) ->
+                        Err (UnexpectedResponse "412 did not include ETag")
+
+            else
+                Err (UnexpectedResponse "Unexpected (non-5XX) status code")
+
+
+type alias UpdateStarshipBuild =
+    String -> String -> String -> String -> Starship -> Cmd (Result (HttpClientError UpdateStarshipBuildError) String)
+
+
+updateStarshipBuild : UpdateStarshipBuild
+updateStarshipBuild hostname userId token eTag starshipBuild =
+    request
+        { method = "PUT"
+        , headers =
+            [ header "Authorization" ("Bearer " ++ token)
+            , header "If-Match" eTag
+            ]
+
+        -- TODO: Want to limit need for URL construction for clients
+        , url = "https://" ++ hostname ++ "/resources/users/" ++ userId ++ "/builds/" ++ starshipBuild.name
+        , body =
+            starshipBuild
+                |> buildToXStarfinderStarshipBuildValue
+                |> encode 0
+                |> stringBody "application/x.starfinder-starship-build+json"
+        , expect = expectResponse responseToUpdateBuildClientResult
         , timeout = Just 5000
         , tracker = Nothing
         }
