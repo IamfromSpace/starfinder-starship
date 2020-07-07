@@ -22,7 +22,7 @@ import Weapon exposing (Range(..), Weapon)
 type HttpClientError expected
     = Timeout
     | NetworkError
-    | UnexpectedResponse
+    | UnexpectedResponse String
     | BadUrl String
     | ExpectedError expected
 
@@ -36,8 +36,8 @@ httpClientErrorToString f e =
         NetworkError ->
             "NetworkError"
 
-        UnexpectedResponse ->
-            "UnexpectedResponse"
+        UnexpectedResponse s ->
+            "UnexpectedResponse " ++ s
 
         BadUrl s ->
             "BadUrl " ++ s
@@ -92,7 +92,7 @@ responseToCreateBuildClientResult e =
                     Ok eTag
 
                 Nothing ->
-                    Err UnexpectedResponse
+                    Err (UnexpectedResponse "Missing ETag")
 
         Timeout_ ->
             Err Timeout
@@ -105,7 +105,7 @@ responseToCreateBuildClientResult e =
 
         BadStatus_ { statusCode } _ ->
             if statusCode >= 500 then
-                Err UnexpectedResponse
+                Err (UnexpectedResponse "5XX Status code")
 
             else if statusCode == 403 then
                 Err (ExpectedError ForbiddenC)
@@ -115,7 +115,7 @@ responseToCreateBuildClientResult e =
                 -- TODO: Correctly Identify and parse BuildError
 
             else
-                Err UnexpectedResponse
+                Err (UnexpectedResponse "Unexpected (non-500) status code")
 
 
 buildToXStarfinderStarshipBuildValue : Starship -> Value
@@ -624,8 +624,11 @@ responseToGetBuildClientResult r =
                 ( Just eTag, Ok starship ) ->
                     Ok ( eTag, starship )
 
-                _ ->
-                    Err UnexpectedResponse
+                ( _, Err e ) ->
+                    Err (UnexpectedResponse ("Could not decode body :" ++ D.errorToString e))
+
+                ( Nothing, _ ) ->
+                    Err (UnexpectedResponse "Missing ETag")
 
         Timeout_ ->
             Err Timeout
@@ -638,7 +641,7 @@ responseToGetBuildClientResult r =
 
         BadStatus_ { statusCode } _ ->
             if statusCode >= 500 then
-                Err UnexpectedResponse
+                Err (UnexpectedResponse "5XX Status Code")
 
             else if statusCode == 403 then
                 Err (ExpectedError ForbiddenG)
@@ -647,7 +650,7 @@ responseToGetBuildClientResult r =
                 Err (ExpectedError DoesNotExist)
 
             else
-                Err UnexpectedResponse
+                Err (UnexpectedResponse "Unexpected (non-5XX) status code")
 
 
 type alias GetStarshipBuild =
