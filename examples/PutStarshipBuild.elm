@@ -2,7 +2,7 @@ module Main exposing (Model, Msg(..), initialModel, update, view)
 
 import Arc
 import Browser exposing (element)
-import BuildClient exposing (CreateStarshipBuildError, HttpClientError, createStarshipBuild, createStarshipBuildErrorToString, httpClientErrorToString)
+import BuildClient exposing (CreateStarshipBuildError, GetStarshipBuildError, HttpClientError, createStarshipBuild, createStarshipBuildErrorToString, getStarshipBuild, getStarshipBuildErrorToString, httpClientErrorToString)
 import CognitoClient
 import Html exposing (Html, button, div, input, label, text)
 import Html.Attributes exposing (disabled, value)
@@ -11,14 +11,16 @@ import Login
 import Platform.Cmd exposing (Cmd)
 import Platform.Sub exposing (Sub)
 import ShipAssets
-import Starship
+import Starship exposing (Starship)
+import StarshipEditor
 import Togglable
 import Weapon
 
 
 initialModel : Model
 initialModel =
-    { result = Nothing
+    { putResult = Nothing
+    , getResult = Nothing
     , idToken = ""
     , hostName = ""
     , userId = ""
@@ -26,7 +28,8 @@ initialModel =
 
 
 type alias Model =
-    { result : Maybe (Result (HttpClientError CreateStarshipBuildError) String)
+    { putResult : Maybe (Result (HttpClientError CreateStarshipBuildError) String)
+    , getResult : Maybe (Result (HttpClientError GetStarshipBuildError) ( String, Starship ))
     , idToken : String
     , hostName : String
     , userId : String
@@ -35,7 +38,9 @@ type alias Model =
 
 type Msg
     = CreateStarshipBuildResult (Result (HttpClientError CreateStarshipBuildError) String)
-    | SendRequest
+    | GetStarshipBuildResult (Result (HttpClientError GetStarshipBuildError) ( String, Starship ))
+    | SendPutRequest
+    | SendGetRequest
     | SetIdToken String
     | SetHostName String
     | SetUserId String
@@ -61,13 +66,19 @@ ship =
 
 
 update : Msg -> Model -> ( Model, Cmd Msg )
-update msg ({ result, idToken, hostName, userId } as s) =
+update msg ({ getResult, putResult, idToken, hostName, userId } as s) =
     case msg of
-        SendRequest ->
+        SendPutRequest ->
             ( s, Cmd.map CreateStarshipBuildResult (createStarshipBuild hostName userId idToken ship) )
 
+        SendGetRequest ->
+            ( s, Cmd.map GetStarshipBuildResult (getStarshipBuild hostName userId idToken "THE NAME") )
+
         CreateStarshipBuildResult r ->
-            ( { s | result = Just r }, Cmd.none )
+            ( { s | putResult = Just r }, Cmd.none )
+
+        GetStarshipBuildResult r ->
+            ( { s | getResult = Just r }, Cmd.none )
 
         SetIdToken t ->
             ( { s | idToken = t }, Cmd.none )
@@ -79,25 +90,38 @@ update msg ({ result, idToken, hostName, userId } as s) =
             ( { s | userId = ui }, Cmd.none )
 
         Back ->
-            ( { s | result = Nothing }, Cmd.none )
+            ( { s | putResult = Nothing, getResult = Nothing }, Cmd.none )
 
 
 view : Model -> Html Msg
-view ({ result, idToken, hostName, userId } as s) =
+view ({ getResult, putResult, idToken, hostName, userId } as s) =
     div
         []
-        (case result of
-            Just (Ok eTag) ->
+        (case ( putResult, getResult ) of
+            ( Just (Ok eTag), _ ) ->
                 [ text ("DONE: " ++ eTag)
                 , button [ onClick Back ] [ text "BACK" ]
                 ]
 
-            Just (Err e) ->
+            ( Just (Err e), _ ) ->
                 [ text ("ERROR: " ++ httpClientErrorToString createStarshipBuildErrorToString e)
                 , button [ onClick Back ] [ text "BACK" ]
                 ]
 
-            Nothing ->
+            ( _, Just (Ok ( eTag, starship )) ) ->
+                [ text ("eTag: " ++ eTag)
+
+                -- TODO: No point in edits at the moment, they can't be saved
+                , Html.map (always Back) <| StarshipEditor.view starship
+                , button [ onClick Back ] [ text "BACK" ]
+                ]
+
+            ( _, Just (Err e) ) ->
+                [ text ("ERROR: " ++ httpClientErrorToString getStarshipBuildErrorToString e)
+                , button [ onClick Back ] [ text "BACK" ]
+                ]
+
+            ( Nothing, Nothing ) ->
                 [ div []
                     [ label [] [ text "Host Name:" ]
                     , input [ onInput SetHostName, value hostName ] []
@@ -110,7 +134,8 @@ view ({ result, idToken, hostName, userId } as s) =
                     [ label [] [ text "Id Token:" ]
                     , input [ onInput SetIdToken, value idToken ] []
                     ]
-                , button [ onClick SendRequest ] [ text "PUT" ]
+                , button [ onClick SendPutRequest ] [ text "PUT" ]
+                , button [ onClick SendGetRequest ] [ text "GET" ]
                 ]
         )
 
