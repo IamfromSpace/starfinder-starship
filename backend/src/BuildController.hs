@@ -19,7 +19,7 @@ import BuildService
        (BuildServiceMonad(..), CreateError(..), GetError(..),
         UpdateError(..))
 import Control.Monad ((>=>))
-import Data.Aeson (FromJSON(..), Value(..), (.:), decode)
+import Data.Aeson (FromJSON(..), Value(..), (.:), eitherDecode')
 import Data.CaseInsensitive (CI, mk)
 import Data.HashMap.Strict (HashMap, fromList, lookup)
 import Data.Text (Text, pack, unpack)
@@ -148,17 +148,17 @@ httpHandler pr@(ProxyRequest {path, requestContext, body, httpMethod, headers}) 
         (Just (UserBuilds userId), Just (UserId principal)) ->
             case httpMethod of
                 "POST" ->
-                    case decode body of
-                        Just (build :: Build Text ReferencedWeapon Text) ->
+                    case eitherDecode' body of
+                        Right (build :: Build Text ReferencedWeapon Text) ->
                             handleCreate principal userId build
-                        Nothing -> return badRequest
+                        Left err -> return (invalidJson err)
                 _ -> return methodNotAllowed
         (Just (UserBuild userId name), Just (UserId principal)) ->
             case httpMethod of
                 "GET" -> handleGet principal userId name
                 "PUT" ->
-                    case (decode body, getAndParseETag headers) of
-                        (Just (build :: Build Text ReferencedWeapon Text), Right expectedETag) ->
+                    case (eitherDecode' body, getAndParseETag headers) of
+                        (Right (build :: Build Text ReferencedWeapon Text), Right expectedETag) ->
                             if B.name build == name
                             -- TODO: Just in general this speaks to the oddity
                             -- of names.  While we need to know the name on
@@ -173,16 +173,19 @@ httpHandler pr@(ProxyRequest {path, requestContext, body, httpMethod, headers}) 
                                          expectedETag
                                          build
                                 else return badRequest
-                        (Just (build :: Build Text ReferencedWeapon Text), Left NotPresent) ->
+                        (Right (build :: Build Text ReferencedWeapon Text), Left NotPresent) ->
                             if B.name build == name
                                 then handleCreate principal userId build
                                 else return badRequest
                         (_, Left Invalid) ->
                             return badRequest -- clearly didn't get this from us, so they're doing something wrong.
-                        (Nothing, _) -> return badRequest
+                        (Left err, _) -> return (invalidJson err)
                 "PATCH" -> return notImplemented
                 _ -> return methodNotAllowed
         (_, Just _) -> return notFound
+
+invalidJson :: String -> ProxyResponse
+invalidJson err = ProxyResponse badRequest400 mempty mempty (textPlain (pack err))
 
 unauthorized :: ProxyResponse
 unauthorized =
