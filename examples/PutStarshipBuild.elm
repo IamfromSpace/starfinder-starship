@@ -4,9 +4,11 @@ import Arc
 import Browser exposing (element)
 import BuildClient exposing (CreateStarshipBuildError, GetStarshipBuildError, HttpClientError, UpdateStarshipBuildError, createStarshipBuild, createStarshipBuildErrorToString, getStarshipBuild, getStarshipBuildErrorToString, httpClientErrorToString, updateStarshipBuild, updateStarshipBuildErrorToString)
 import CognitoClient
+import Dict
 import Html exposing (Html, button, div, input, label, text)
 import Html.Attributes exposing (disabled, value)
 import Html.Events exposing (onClick, onInput)
+import InputConfigured as IC
 import Login
 import Platform.Cmd exposing (Cmd)
 import Platform.Sub exposing (Sub)
@@ -51,10 +53,7 @@ type Msg
     | SendPutRequest
     | SendGetRequest
     | SendUpdateRequest
-    | SetIdToken String
     | SetShipName String
-    | SetHostName String
-    | SetUserId String
     | StarshipUpdate StarshipEditor.Msg
     | Back
 
@@ -77,8 +76,8 @@ ship name =
     }
 
 
-update : Msg -> Model -> ( Model, Cmd Msg )
-update msg ({ getResult, putResult, updateResult, idToken, hostName, userId, shipName } as s) =
+update : { a | idToken : String, hostName : String, userId : String } -> Msg -> Model -> ( Model, Cmd Msg )
+update { idToken, hostName, userId } msg ({ getResult, putResult, updateResult, shipName } as s) =
     case msg of
         SendPutRequest ->
             ( s, Cmd.map CreateStarshipBuildResult (createStarshipBuild hostName userId idToken (ship shipName)) )
@@ -118,15 +117,6 @@ update msg ({ getResult, putResult, updateResult, idToken, hostName, userId, shi
                         _ ->
                             ( s, Cmd.none )
 
-        SetIdToken t ->
-            ( { s | idToken = t }, Cmd.none )
-
-        SetHostName hn ->
-            ( { s | hostName = hn }, Cmd.none )
-
-        SetUserId ui ->
-            ( { s | userId = ui }, Cmd.none )
-
         SetShipName sn ->
             ( { s | shipName = sn }, Cmd.none )
 
@@ -148,7 +138,7 @@ update msg ({ getResult, putResult, updateResult, idToken, hostName, userId, shi
 
 
 view : Model -> Html Msg
-view ({ getResult, putResult, updateResult, idToken, hostName, userId, shipName } as s) =
+view ({ getResult, putResult, updateResult, shipName } as s) =
     div
         []
         (case ( putResult, getResult, updateResult ) of
@@ -184,18 +174,6 @@ view ({ getResult, putResult, updateResult, idToken, hostName, userId, shipName 
 
             ( Nothing, Nothing, Nothing ) ->
                 [ div []
-                    [ label [] [ text "Host Name:" ]
-                    , input [ onInput SetHostName, value hostName ] []
-                    ]
-                , div []
-                    [ label [] [ text "User Id:" ]
-                    , input [ onInput SetUserId, value userId ] []
-                    ]
-                , div []
-                    [ label [] [ text "Id Token:" ]
-                    , input [ onInput SetIdToken, value idToken ] []
-                    ]
-                , div []
                     [ label [] [ text "Starship Build Name:" ]
                     , input [ onInput SetShipName, value shipName ] []
                     ]
@@ -205,13 +183,29 @@ view ({ getResult, putResult, updateResult, idToken, hostName, userId, shipName 
         )
 
 
-main : Program () Model Msg
+main : Program () (IC.Model Model) (IC.Msg Msg)
 main =
     element
         { init =
-            \_ -> ( initialModel, Cmd.none )
-        , update = update
+            IC.initialModel
+                (Dict.fromList
+                    [ ( "hostName", "" )
+                    , ( "userId", "" )
+                    , ( "idToken", "" )
+                    ]
+                )
+                (\_ -> ( initialModel, Cmd.none ))
+        , update =
+            IC.update
+                (\c ->
+                    { hostName = Maybe.withDefault "Not Configured" <| Dict.get "hostName" c
+                    , idToken = Maybe.withDefault "Not Configured" <| Dict.get "idToken" c
+                    , userId = Maybe.withDefault "Not Configured" <| Dict.get "userId" c
+                    }
+                )
+                update
         , view =
-            view
-        , subscriptions = \_ -> Sub.none
+            IC.view always (\_ -> view)
+        , subscriptions =
+            \_ -> Sub.none
         }
