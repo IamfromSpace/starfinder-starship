@@ -25,6 +25,7 @@ initialModel =
     , idToken = ""
     , hostName = ""
     , userId = ""
+    , shipName = ""
     }
 
 
@@ -39,6 +40,7 @@ type alias Model =
     , idToken : String
     , hostName : String
     , userId : String
+    , shipName : String
     }
 
 
@@ -50,14 +52,15 @@ type Msg
     | SendGetRequest
     | SendUpdateRequest
     | SetIdToken String
+    | SetShipName String
     | SetHostName String
     | SetUserId String
     | StarshipUpdate StarshipEditor.Msg
     | Back
 
 
-ship =
-    { name = "THE NAME"
+ship name =
+    { name = name
     , frame = ShipAssets.mediumTransport
     , powerCoreUnits = 200
     , thrusters = Togglable.pure 8
@@ -75,13 +78,13 @@ ship =
 
 
 update : Msg -> Model -> ( Model, Cmd Msg )
-update msg ({ getResult, putResult, updateResult, idToken, hostName, userId } as s) =
+update msg ({ getResult, putResult, updateResult, idToken, hostName, userId, shipName } as s) =
     case msg of
         SendPutRequest ->
-            ( s, Cmd.map CreateStarshipBuildResult (createStarshipBuild hostName userId idToken ship) )
+            ( s, Cmd.map CreateStarshipBuildResult (createStarshipBuild hostName userId idToken (ship shipName)) )
 
         SendGetRequest ->
-            ( s, Cmd.map GetStarshipBuildResult (getStarshipBuild hostName userId idToken "THE NAME") )
+            ( s, Cmd.map GetStarshipBuildResult (getStarshipBuild hostName userId idToken shipName) )
 
         SendUpdateRequest ->
             case getResult of
@@ -124,6 +127,9 @@ update msg ({ getResult, putResult, updateResult, idToken, hostName, userId } as
         SetUserId ui ->
             ( { s | userId = ui }, Cmd.none )
 
+        SetShipName sn ->
+            ( { s | shipName = sn }, Cmd.none )
+
         StarshipUpdate sMsg ->
             case getResult of
                 Just (Ok ( eTag, sModel )) ->
@@ -142,7 +148,7 @@ update msg ({ getResult, putResult, updateResult, idToken, hostName, userId } as
 
 
 view : Model -> Html Msg
-view ({ getResult, putResult, updateResult, idToken, hostName, userId } as s) =
+view ({ getResult, putResult, updateResult, idToken, hostName, userId, shipName } as s) =
     div
         []
         (case ( putResult, getResult, updateResult ) of
@@ -188,6 +194,10 @@ view ({ getResult, putResult, updateResult, idToken, hostName, userId } as s) =
                 , div []
                     [ label [] [ text "Id Token:" ]
                     , input [ onInput SetIdToken, value idToken ] []
+                    ]
+                , div []
+                    [ label [] [ text "Starship Build Name:" ]
+                    , input [ onInput SetShipName, value shipName ] []
                     ]
                 , button [ onClick SendPutRequest ] [ text "PUT" ]
                 , button [ onClick SendGetRequest ] [ text "GET" ]
