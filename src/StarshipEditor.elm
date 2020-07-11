@@ -381,16 +381,7 @@ selectionView canAdd optionMap x =
 weaponDict : Dict.Dict String (LinkAndTogglable Weapon)
 weaponDict =
     Dict.map (always LT.pure)
-        (namedToDict
-            [ coilgun
-            , persistentParticleBeam
-            , lightPlasmaCannon
-            , heavyEmpCannon
-            , lightLaserCannon
-            , gyrolaser
-            , lightTorpedoLauncher
-            ]
-        )
+        (KS.toDict weapons)
 
 
 view : Model -> Html Msg

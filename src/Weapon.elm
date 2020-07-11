@@ -41,6 +41,7 @@ type Irradiation
 type WeaponProperty
     = Array
     | BroadArc
+    | Burrowing
     | Emp
     | Irradiate Irradiation
     | LimitedFire Int

@@ -12,7 +12,7 @@ import Json.Encode as E exposing (Value, encode)
 import KeyedSet as KS
 import Link exposing (Link(..))
 import LinkAndTogglable exposing (LinkAndTogglable(..))
-import ShipAssets exposing (coilgun, frames, shields)
+import ShipAssets exposing (frames, shields, weapons)
 import Starship exposing (BuildError, CrewQuarters(..), DriftEngine(..), Frame, Sensor, Shields, Starship)
 import Switch exposing (Switch(..))
 import Task
@@ -591,12 +591,12 @@ weaponDecoder =
     D.andThen
         (\x ->
             -- TODO: Want to actually look this up in a Map
-            case x of
-                "Coilgun" ->
-                    D.succeed coilgun
+            case KS.get x weapons of
+                Just weapon ->
+                    D.succeed weapon
 
-                name ->
-                    D.fail (name ++ " is not a valid weapon!")
+                Nothing ->
+                    D.fail (x ++ " is not a valid weapon!")
         )
         D.string
 

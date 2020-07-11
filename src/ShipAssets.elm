@@ -1,4 +1,4 @@
-module ShipAssets exposing (blackwindSepulcher, coilgun, frames, gyrolaser, heavyEmpCannon, lightLaserCannon, lightPlasmaCannon, lightTorpedoLauncher, mediumTransport, norikamaDropship, persistentParticleBeam, shields)
+module ShipAssets exposing (blackwindSepulcher, frames, mediumTransport, norikamaDropship, shields, weapons)
 
 import DefenseLevel exposing (..)
 import ExpansionBay exposing (..)
@@ -169,6 +169,310 @@ lightTorpedoLauncher =
     , buildPoints = 4
     , specialProperties = []
     }
+
+
+weapons : KS.KeyedSet String Weapon
+weapons =
+    KS.fromList
+        .name
+        -- Light Direct
+        [ { name = "Chain Cannon"
+          , range = Short
+          , weaponClass = Light
+          , weaponType = DirectFire
+          , damage = Just ( 6, 4 )
+          , powerDraw = 15
+          , buildPoints = 15
+          , specialProperties = [ Ripper ]
+          }
+        , { name = "Coilgun"
+          , range = Long
+          , weaponClass = Light
+          , weaponType = DirectFire
+          , damage = Just ( 4, 4 )
+          , powerDraw = 10
+          , buildPoints = 6
+          , specialProperties = []
+          }
+        , { name = "Flak Thrower"
+          , range = Short
+          , weaponClass = Light
+          , weaponType = DirectFire
+          , damage = Just ( 3, 4 )
+          , powerDraw = 10
+          , buildPoints = 5
+          , specialProperties = [ Point 8 ]
+          }
+        , { name = "Gyrolaser"
+          , range = Short
+          , weaponClass = Light
+          , weaponType = DirectFire
+          , damage = Just ( 1, 8 )
+          , powerDraw = 10
+          , buildPoints = 3
+          , specialProperties = [ BroadArc ]
+          }
+        , { name = "Laser Net"
+          , range = Short
+          , weaponClass = Light
+          , weaponType = DirectFire
+          , damage = Just ( 2, 5 )
+          , powerDraw = 10
+          , buildPoints = 9
+          , specialProperties = [ Point 10 ]
+          }
+        , { name = "Laser EMP Cannon"
+          , range = Short
+          , weaponClass = Light
+          , weaponType = DirectFire
+          , damage = Nothing
+          , powerDraw = 10
+          , buildPoints = 8
+          , specialProperties = [ Emp ]
+          }
+        , { name = "Light Laser Cannon"
+          , range = Short
+          , weaponClass = Light
+          , weaponType = DirectFire
+          , damage = Just ( 2, 4 )
+          , powerDraw = 5
+          , buildPoints = 2
+          , specialProperties = []
+          }
+        , { name = "Light Particle Beam"
+          , range = Weapon.Medium
+          , weaponClass = Light
+          , weaponType = DirectFire
+          , damage = Just ( 3, 6 )
+          , powerDraw = 10
+          , buildPoints = 10
+          , specialProperties = []
+          }
+        , { name = "Light Plasma Cannon"
+          , range = Short
+          , weaponClass = Light
+          , weaponType = DirectFire
+          , damage = Just ( 2, 12 )
+          , powerDraw = 10
+          , buildPoints = 12
+          , specialProperties = []
+          }
+        , { name = "Mining Laser"
+          , range = Short
+          , weaponClass = Light
+          , weaponType = DirectFire
+          , damage = Just ( 2, 6 )
+          , powerDraw = 10
+          , buildPoints = 5
+          , specialProperties = [ Burrowing ]
+          }
+
+        -- Light Tracking
+        , { name = "High Explosive Missile Launcher"
+          , range = Long
+          , weaponClass = Light
+          , weaponType = Tracking 12
+          , damage = Just ( 4, 8 )
+          , powerDraw = 10
+          , buildPoints = 4
+          , specialProperties = [ LimitedFire 5 ]
+          }
+        , { name = "Light Plasma Torpedo Launcher"
+          , range = Long
+          , weaponClass = Light
+          , weaponType = Tracking 14
+          , damage = Just ( 3, 8 )
+          , powerDraw = 5
+          , buildPoints = 5
+          , specialProperties = [ LimitedFire 5 ]
+          }
+        , { name = "Light Torpedo Launcher"
+          , range = Long
+          , weaponClass = Light
+          , weaponType = Tracking 16
+          , damage = Just ( 2, 8 )
+          , powerDraw = 5
+          , buildPoints = 4
+          , specialProperties = []
+          }
+        , { name = "Micromissile Battery"
+          , range = Long
+          , weaponClass = Light
+          , weaponType = Tracking 10
+          , damage = Just ( 2, 6 )
+          , powerDraw = 10
+          , buildPoints = 3
+          , specialProperties = [ Array, LimitedFire 5 ]
+          }
+        , { name = "Tactical Nuclear Missile Launcher"
+          , range = Long
+          , weaponClass = Light
+          , weaponType = Tracking 10
+          , damage = Just ( 5, 8 )
+          , powerDraw = 10
+          , buildPoints = 5
+          , specialProperties = [ Irradiate Low, LimitedFire 5 ]
+          }
+
+        -- Heavy Direct
+        , { name = "Graser"
+          , range = Short
+          , weaponClass = Heavy
+          , weaponType = DirectFire
+          , damage = Just ( 7, 10 )
+          , powerDraw = 40
+          , buildPoints = 35
+          , specialProperties = [ Irradiate MediumIrradiation ]
+          }
+        , { name = "Gravity Gun"
+          , range = Weapon.Medium
+          , weaponClass = Heavy
+          , weaponType = DirectFire
+          , damage = Just ( 6, 6 )
+          , powerDraw = 40
+          , buildPoints = 30
+          , specialProperties = [ TractorBeam ]
+          }
+        , { name = "Heavy EMP Cannon"
+          , range = Weapon.Medium
+          , weaponClass = Heavy
+          , weaponType = DirectFire
+          , damage = Nothing
+          , powerDraw = 30
+          , buildPoints = 24
+          , specialProperties = [ Emp ]
+          }
+        , { name = "Heavy Laser Array"
+          , range = Short
+          , weaponClass = Heavy
+          , weaponType = DirectFire
+          , damage = Just ( 6, 4 )
+          , powerDraw = 15
+          , buildPoints = 10
+          , specialProperties = [ Array ]
+          }
+        , { name = "Heavy Laser Cannon"
+          , range = Weapon.Medium
+          , weaponClass = Heavy
+          , weaponType = DirectFire
+          , damage = Just ( 4, 8 )
+          , powerDraw = 10
+          , buildPoints = 8
+          , specialProperties = []
+          }
+        , { name = "Heavy Laser Net"
+          , range = Short
+          , weaponClass = Heavy
+          , weaponType = DirectFire
+          , damage = Just ( 5, 6 )
+          , powerDraw = 15
+          , buildPoints = 12
+          , specialProperties = [ Point 12 ]
+          }
+        , { name = "Maser"
+          , range = Long
+          , weaponClass = Heavy
+          , weaponType = DirectFire
+          , damage = Just ( 6, 10 )
+          , powerDraw = 35
+          , buildPoints = 22
+          , specialProperties = []
+          }
+        , { name = "Particle Beam"
+          , range = Long
+          , weaponClass = Heavy
+          , weaponType = DirectFire
+          , damage = Just ( 8, 6 )
+          , powerDraw = 25
+          , buildPoints = 15
+          , specialProperties = []
+          }
+        , { name = "Persistent Particle Beam"
+          , range = Long
+          , weaponClass = Heavy
+          , weaponType = DirectFire
+          , damage = Just ( 10, 6 )
+          , powerDraw = 40
+          , buildPoints = 25
+          , specialProperties = []
+          }
+        , { name = "Plasma Cannon"
+          , range = Weapon.Medium
+          , weaponClass = Heavy
+          , weaponType = DirectFire
+          , damage = Just ( 5, 12 )
+          , powerDraw = 30
+          , buildPoints = 20
+          , specialProperties = []
+          }
+        , { name = "Railgun"
+          , range = Long
+          , weaponClass = Heavy
+          , weaponType = DirectFire
+          , damage = Just ( 8, 4 )
+          , powerDraw = 20
+          , buildPoints = 15
+          , specialProperties = []
+          }
+        , { name = "Twin Laser"
+          , range = Long
+          , weaponClass = Heavy
+          , weaponType = DirectFire
+          , damage = Just ( 5, 8 )
+          , powerDraw = 15
+          , buildPoints = 12
+          , specialProperties = []
+          }
+        , { name = "X-Laser Cannon"
+          , range = Long
+          , weaponClass = Heavy
+          , weaponType = DirectFire
+          , damage = Just ( 8, 6 )
+          , powerDraw = 40
+          , buildPoints = 35
+          , specialProperties = [ Line ]
+          }
+
+        -- Heavy Tracking
+        , { name = "Heavy Antimatter Missile Launcher"
+          , range = Long
+          , weaponClass = Heavy
+          , weaponType = Tracking 8
+          , damage = Just ( 10, 10 )
+          , powerDraw = 15
+          , buildPoints = 12
+          , specialProperties = [ LimitedFire 5 ]
+          }
+        , { name = "Heavy Nuclear Missile Launcher"
+          , range = Long
+          , weaponClass = Heavy
+          , weaponType = Tracking 10
+          , damage = Just ( 10, 8 )
+          , powerDraw = 15
+          , buildPoints = 12
+          , specialProperties = [ Irradiate MediumIrradiation, LimitedFire 5 ]
+          }
+        , { name = "Heavy Plasma Torpedo Launcher"
+          , range = Long
+          , weaponClass = Heavy
+          , weaponType = Tracking 12
+          , damage = Just ( 5, 10 )
+          , powerDraw = 10
+          , buildPoints = 10
+          , specialProperties = [ LimitedFire 5 ]
+          }
+        , { name = "Heavy Torpedo Launcher"
+          , range = Long
+          , weaponClass = Heavy
+          , weaponType = Tracking 14
+          , damage = Just ( 5, 8 )
+          , powerDraw = 10
+          , buildPoints = 8
+          , specialProperties = [ LimitedFire 5 ]
+          }
+
+        --TODO: Capital Weapons
+        ]
 
 
 
