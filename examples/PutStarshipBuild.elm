@@ -24,9 +24,6 @@ initialModel =
     { putResult = Nothing
     , getResult = Nothing
     , updateResult = Nothing
-    , idToken = ""
-    , hostName = ""
-    , userId = ""
     , shipName = ""
     }
 
@@ -39,9 +36,6 @@ type alias Model =
     -- Just Nothing -> Updating
     -- Just (Just error) -> Update failed
     , updateResult : Maybe (Maybe (HttpClientError UpdateStarshipBuildError))
-    , idToken : String
-    , hostName : String
-    , userId : String
     , shipName : String
     }
 
