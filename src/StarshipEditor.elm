@@ -9,6 +9,7 @@ import ExpansionBay exposing (..)
 import Html exposing (..)
 import Html.Attributes exposing (disabled, selected, value)
 import Html.Events exposing (onClick, onInput)
+import KeyedSet as KS
 import Link exposing (..)
 import LinkAndTogglable as LT exposing (LinkAndTogglable)
 import ShipAssets exposing (..)
@@ -396,7 +397,7 @@ view model =
                 [ div [] [ text "Frame:" ]
                 , selectionView
                     (always True)
-                    (namedToDict [ mediumTransport, fighter ])
+                    (KS.toDict frames)
                     model.frame
                 ]
         , div []

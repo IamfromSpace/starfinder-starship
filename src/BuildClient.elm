@@ -9,9 +9,10 @@ import Http exposing (Expect, Response(..), emptyBody, expectStringResponse, hea
 import Json.Decode as D exposing (Decoder, decodeString)
 import Json.Decode.Pipeline exposing (optional, required)
 import Json.Encode as E exposing (Value, encode)
+import KeyedSet as KS
 import Link exposing (Link(..))
 import LinkAndTogglable exposing (LinkAndTogglable(..))
-import ShipAssets exposing (coilgun, lightShields60, mediumTransport)
+import ShipAssets exposing (coilgun, frames, lightShields60)
 import Starship exposing (BuildError, CrewQuarters(..), DriftEngine(..), Frame, Sensor, Shields, Starship)
 import Switch exposing (Switch(..))
 import Task
@@ -309,13 +310,12 @@ frameDecoder : Decoder Frame
 frameDecoder =
     D.andThen
         (\x ->
-            -- TODO: Want to actually look this up in a Map
-            case x of
-                "Medium Transport" ->
-                    D.succeed mediumTransport
+            case KS.get x frames of
+                Just frame ->
+                    D.succeed frame
 
-                name ->
-                    D.fail (name ++ " is not a valid frame!")
+                Nothing ->
+                    D.fail (x ++ " is not a valid frame!")
         )
         D.string
 

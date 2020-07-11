@@ -1,7 +1,8 @@
-module ShipAssets exposing (blackwindSepulcher, coilgun, fighter, gyrolaser, heavyEmpCannon, lightLaserCannon, lightPlasmaCannon, lightShields10, lightShields60, lightShields80, lightTorpedoLauncher, mediumTransport, norikamaDropship, persistentParticleBeam)
+module ShipAssets exposing (blackwindSepulcher, coilgun, frames, gyrolaser, heavyEmpCannon, lightLaserCannon, lightPlasmaCannon, lightShields10, lightShields60, lightShields80, lightTorpedoLauncher, mediumTransport, norikamaDropship, persistentParticleBeam)
 
 import DefenseLevel exposing (..)
 import ExpansionBay exposing (..)
+import KeyedSet as KS exposing (KeyedSet)
 import LinkAndTogglable as LT exposing (LinkAndTogglable)
 import Size exposing (..)
 import Starship exposing (..)
@@ -11,6 +12,7 @@ import Weapon exposing (..)
 
 mediumTransport : Frame
 mediumTransport =
+    -- TODO: Delete this and the full ship definitions
     { name = "Medium Transport"
     , size = Size.Medium
     , maneuverability = Average
@@ -31,26 +33,47 @@ mediumTransport =
     }
 
 
-fighter : Frame
-fighter =
-    { name = "Fighter"
-    , size = Size.Tiny
-    , maneuverability = Good
-    , baseHitPoints = 35
-    , hitPointsIncrement = 5
-    , damageThreshold = 0
-    , arcMounts =
-        { forward = [ Light, Light ]
-        , aft = [ Light ]
-        , portSide = []
-        , starboard = []
-        }
-    , turretMounts = []
-    , expansionBays = 0
-    , minimumCrew = 1
-    , maximumCrew = 2
-    , listedBuildPoints = 8
-    }
+frames : KeyedSet String Frame
+frames =
+    KS.fromList
+        .name
+        [ { name = "Medium Transport"
+          , size = Size.Medium
+          , maneuverability = Average
+          , baseHitPoints = 70
+          , hitPointsIncrement = 15
+          , damageThreshold = 0
+          , arcMounts =
+                { forward = [ Heavy, Light ]
+                , aft = [ Light ]
+                , portSide = []
+                , starboard = []
+                }
+          , turretMounts = [ Light, Light ]
+          , expansionBays = 5
+          , minimumCrew = 1
+          , maximumCrew = 6
+          , listedBuildPoints = 15
+          }
+        , { name = "Medium Explorer"
+          , size = Size.Medium
+          , maneuverability = Good
+          , baseHitPoints = 55
+          , hitPointsIncrement = 10
+          , damageThreshold = 0
+          , arcMounts =
+                { forward = [ Light ]
+                , aft = []
+                , portSide = [ Light ]
+                , starboard = [ Light ]
+                }
+          , turretMounts = [ Light ]
+          , expansionBays = 4
+          , minimumCrew = 1
+          , maximumCrew = 6
+          , listedBuildPoints = 12
+          }
+        ]
 
 
 
