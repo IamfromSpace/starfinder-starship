@@ -51,32 +51,6 @@ type Msg
     | Back
 
 
-ship name =
-    { name = name
-    , frame = ShipAssets.mediumTransport
-    , powerCoreUnits = 200
-    , thrusters = Togglable.pure 8
-    , armor = Nothing
-    , computer = Togglable.pure { bonus = 0, nodes = 0 }
-    , crewQuarters = Starship.Common
-    , defensiveCountermeasures = Nothing
-    , driftEngine = Nothing
-    , expansionBays = []
-    , sensors = { bonus = 0, range = Weapon.Short }
-    , arcWeapons = Arc.pure []
-    , turretWeapons = []
-    , shields =
-        -- TODO: better way than this??
-        Togglable.pure <|
-            case KS.get "Basic Shields 10" ShipAssets.shields of
-                Just s ->
-                    s
-
-                Nothing ->
-                    Debug.todo "Missing Basic Shields 10 definition"
-    }
-
-
 update : { a | idToken : String, hostName : String, userId : String } -> Msg -> Model -> ( Model, Cmd Msg )
 update { idToken, hostName, userId } msg ({ starshipBuild, error, isFetching, shipName } as s) =
     case msg of
@@ -88,7 +62,7 @@ update { idToken, hostName, userId } msg ({ starshipBuild, error, isFetching, sh
             )
 
         CreateShip ->
-            ( { s | starshipBuild = Just ( Nothing, ship shipName ) }, Cmd.none )
+            ( { s | starshipBuild = Just ( Nothing, StarshipEditor.init ) }, Cmd.none )
 
         SaveShip ->
             case starshipBuild of
