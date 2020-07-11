@@ -62,6 +62,7 @@ data Irradiation
 data WeaponProperty
     = Array
     | BroadArc
+    | Burrowing
     | Emp
     | Irradiate Irradiation
     | LimitedFire Int
