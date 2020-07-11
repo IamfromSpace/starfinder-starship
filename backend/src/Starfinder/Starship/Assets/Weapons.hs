@@ -12,10 +12,11 @@ import Starfinder.Starship.Weapon
 
 dereferenceWeapon :: RW.ReferencedWeapon -> Maybe (Weapon Bool)
 dereferenceWeapon rw = do
-  weapon <- KS.lookup (RW.name rw) weapons
-  case weaponType weapon of
-    DirectFire _ -> Just $ fmap (const (RW.isLinked rw)) weapon
-    Tracking _ -> Nothing
+    weapon <- KS.lookup (RW.name rw) weapons
+    case (weaponType weapon, (RW.isLinked rw)) of
+        (Tracking _, True) ->
+          Nothing
+        (_, isLinked) -> Just $ fmap (const isLinked) weapon
 
 weapons :: KS.KeyedSet Text (Weapon ())
 weapons =
