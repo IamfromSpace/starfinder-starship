@@ -9,6 +9,7 @@ import Html exposing (Html, button, div, input, label, text)
 import Html.Attributes exposing (disabled, value)
 import Html.Events exposing (onClick, onInput)
 import InputConfigured as IC
+import KeyedSet as KS
 import Login
 import Platform.Cmd exposing (Cmd)
 import Platform.Sub exposing (Sub)
@@ -64,7 +65,15 @@ ship name =
     , sensors = { bonus = 0, range = Weapon.Short }
     , arcWeapons = Arc.pure []
     , turretWeapons = []
-    , shields = Togglable.pure ShipAssets.lightShields60
+    , shields =
+        -- TODO: better way than this??
+        Togglable.pure <|
+            case KS.get "Basic Shields 10" ShipAssets.shields of
+                Just s ->
+                    s
+
+                Nothing ->
+                    Debug.todo "Missing Basic Shields 10 definition"
     }
 
 

@@ -1,4 +1,4 @@
-module ShipAssets exposing (blackwindSepulcher, coilgun, frames, gyrolaser, heavyEmpCannon, lightLaserCannon, lightPlasmaCannon, lightShields10, lightShields60, lightShields80, lightTorpedoLauncher, mediumTransport, norikamaDropship, persistentParticleBeam)
+module ShipAssets exposing (blackwindSepulcher, coilgun, frames, gyrolaser, heavyEmpCannon, lightLaserCannon, lightPlasmaCannon, lightTorpedoLauncher, mediumTransport, norikamaDropship, persistentParticleBeam, shields)
 
 import DefenseLevel exposing (..)
 import ExpansionBay exposing (..)
@@ -175,34 +175,143 @@ lightTorpedoLauncher =
 --shields
 
 
-lightShields60 : Shields
-lightShields60 =
-    { name = "Light Shields 60"
-    , shieldPoints = 60
-    , regenPerMinute = 2
-    , powerDraw = 20
-    , buildPoints = 10
-    }
-
-
-lightShields80 : Shields
-lightShields80 =
-    { name = "Light Shields 80"
-    , shieldPoints = 80
-    , regenPerMinute = 2
-    , powerDraw = 30
-    , buildPoints = 12
-    }
-
-
-lightShields10 : Shields
-lightShields10 =
-    { name = "Light Shields 10"
-    , shieldPoints = 10
-    , regenPerMinute = 1
-    , powerDraw = 5
-    , buildPoints = 2
-    }
+shields : KS.KeyedSet String Shields
+shields =
+    KS.fromList
+        .name
+        [ { name = "Basic Shields 10"
+          , shieldPoints = 10
+          , regenPerMinute = 1
+          , powerDraw = 5
+          , buildPoints = 2
+          }
+        , { name = "Basic Shields 20"
+          , shieldPoints = 20
+          , regenPerMinute = 1
+          , powerDraw = 10
+          , buildPoints = 3
+          }
+        , { name = "Basic Shields 30"
+          , shieldPoints = 30
+          , regenPerMinute = 1
+          , powerDraw = 15
+          , buildPoints = 4
+          }
+        , { name = "Basic Shields 40"
+          , shieldPoints = 40
+          , regenPerMinute = 1
+          , powerDraw = 15
+          , buildPoints = 5
+          }
+        , { name = "Light Shields 50"
+          , shieldPoints = 50
+          , regenPerMinute = 2
+          , powerDraw = 20
+          , buildPoints = 6
+          }
+        , { name = "Light Shields 60"
+          , shieldPoints = 60
+          , regenPerMinute = 2
+          , powerDraw = 20
+          , buildPoints = 8
+          }
+        , { name = "Light Shields 70"
+          , shieldPoints = 70
+          , regenPerMinute = 2
+          , powerDraw = 25
+          , buildPoints = 10
+          }
+        , { name = "Light Shields 80"
+          , shieldPoints = 80
+          , regenPerMinute = 2
+          , powerDraw = 30
+          , buildPoints = 12
+          }
+        , { name = "Medium Shields 90"
+          , shieldPoints = 90
+          , regenPerMinute = 4
+          , powerDraw = 30
+          , buildPoints = 13
+          }
+        , { name = "Medium Shields 100"
+          , shieldPoints = 100
+          , regenPerMinute = 4
+          , powerDraw = 30
+          , buildPoints = 15
+          }
+        , { name = "Medium Shields 120"
+          , shieldPoints = 120
+          , regenPerMinute = 4
+          , powerDraw = 35
+          , buildPoints = 17
+          }
+        , { name = "Medium Shields 140"
+          , shieldPoints = 140
+          , regenPerMinute = 8
+          , powerDraw = 40
+          , buildPoints = 18
+          }
+        , { name = "Medium Shields 160"
+          , shieldPoints = 160
+          , regenPerMinute = 8
+          , powerDraw = 45
+          , buildPoints = 20
+          }
+        , { name = "Medium Shields 200"
+          , shieldPoints = 200
+          , regenPerMinute = 8
+          , powerDraw = 50
+          , buildPoints = 22
+          }
+        , { name = "Heavy Shields 240"
+          , shieldPoints = 240
+          , regenPerMinute = 16
+          , powerDraw = 55
+          , buildPoints = 23
+          }
+        , { name = "Heavy Shields 280"
+          , shieldPoints = 280
+          , regenPerMinute = 16
+          , powerDraw = 60
+          , buildPoints = 25
+          }
+        , { name = "Heavy Shields 320"
+          , shieldPoints = 320
+          , regenPerMinute = 16
+          , powerDraw = 70
+          , buildPoints = 27
+          }
+        , { name = "Heavy Shields 360"
+          , shieldPoints = 360
+          , regenPerMinute = 32
+          , powerDraw = 80
+          , buildPoints = 28
+          }
+        , { name = "Heavy Shields 420"
+          , shieldPoints = 420
+          , regenPerMinute = 32
+          , powerDraw = 90
+          , buildPoints = 30
+          }
+        , { name = "Heavy Shields 480"
+          , shieldPoints = 480
+          , regenPerMinute = 32
+          , powerDraw = 110
+          , buildPoints = 32
+          }
+        , { name = "Superior Shields 540"
+          , shieldPoints = 540
+          , regenPerMinute = 64
+          , powerDraw = 130
+          , buildPoints = 35
+          }
+        , { name = "Superior Shields 600"
+          , shieldPoints = 600
+          , regenPerMinute = 64
+          , powerDraw = 160
+          , buildPoints = 40
+          }
+        ]
 
 
 norikamaDropship : Starship

@@ -62,7 +62,15 @@ init =
         , starboard = []
         }
     , turretWeapons = []
-    , shields = pure lightShields10
+    , shields =
+        -- TODO: better way than this??
+        pure <|
+            case KS.get "Basic Shields 10" shields of
+                Just s ->
+                    s
+
+                Nothing ->
+                    Debug.todo "Missing Basic Shields 10 definition"
     }
 
 
@@ -721,7 +729,7 @@ view model =
                 , togglableView
                     (selectionView
                         (always True)
-                        (namedToDict [ lightShields60, lightShields10, lightShields80 ])
+                        (KS.toDict shields)
                     )
                     model.shields
                 ]
