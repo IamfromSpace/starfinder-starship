@@ -179,7 +179,7 @@ populateAndValidate =
         findOrError e ks = orError e . flip KS.lookup ks
         populateFrame = traverseFrame (findOrError InvalidFrame frames)
         populateWeapons =
-            traverseWeapon (orError InvalidShields . dereferenceWeapon)
+            traverseWeapon (orError InvalidWeapon . dereferenceWeapon)
         populateShields = traverseShields (findOrError InvalidShields S.shields)
         validateBuild =
             first (fmap BuildError) . emptyWithSelfError . validateStarship
