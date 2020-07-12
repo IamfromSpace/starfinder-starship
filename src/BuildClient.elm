@@ -76,6 +76,7 @@ httpClientErrorToString f e =
 type CreateStarshipBuildError
     = AlreadyExists
     | ForbiddenC
+      -- TODO: Invalid component reference (aka. bad weapon/frame name)
     | BuildErrorC (List BuildError)
 
 
