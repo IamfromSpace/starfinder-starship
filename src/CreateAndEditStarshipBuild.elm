@@ -47,14 +47,14 @@ type Msg
     | Back
 
 
-update : { a | idToken : String, hostName : String, userId : String } -> Msg -> Model -> ( Model, Cmd Msg )
-update { idToken, hostName, userId } msg ({ starshipBuild, error, isFetching, shipName } as s) =
+update : { a | idToken : String, hostName : String } -> Msg -> Model -> ( Model, Cmd Msg )
+update { idToken, hostName } msg ({ starshipBuild, error, isFetching, shipName } as s) =
     case msg of
         GetShip ->
             ( { s | isFetching = True }
             , Cmd.map
                 GetStarshipBuildResult
-                (getStarshipBuild hostName userId idToken shipName)
+                (getStarshipBuild hostName idToken shipName)
             )
 
         CreateShip ->
@@ -66,14 +66,14 @@ update { idToken, hostName, userId } msg ({ starshipBuild, error, isFetching, sh
                     ( { s | isFetching = True }
                     , Cmd.map
                         UpdateStarshipBuildResult
-                        (updateStarshipBuild hostName userId idToken eTag starship)
+                        (updateStarshipBuild hostName idToken eTag starship)
                     )
 
                 Just ( Nothing, starship ) ->
                     ( { s | isFetching = True }
                     , Cmd.map
                         CreateStarshipBuildResult
-                        (createStarshipBuild hostName userId idToken starship)
+                        (createStarshipBuild hostName idToken starship)
                     )
 
                 _ ->

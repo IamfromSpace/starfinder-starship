@@ -9,6 +9,7 @@ import Http exposing (Expect, Response(..), emptyBody, expectStringResponse, hea
 import Json.Decode as D exposing (Decoder, decodeString)
 import Json.Decode.Pipeline exposing (optional, required)
 import Json.Encode as E exposing (Value, encode)
+import Jwt
 import KeyedSet as KS
 import Link exposing (Link(..))
 import LinkAndTogglable exposing (LinkAndTogglable(..))
@@ -18,6 +19,31 @@ import Switch exposing (Switch(..))
 import Task
 import Togglable exposing (Togglable(..))
 import Weapon exposing (Range(..), Weapon)
+
+
+
+-- TODO: Ideally the JWT is totally opaque and not inspected
+
+
+subDecoder : Decoder String
+subDecoder =
+    D.field "sub" D.string
+
+
+
+-- TODO: This feels like a classic case of "compression" rather than a well
+-- thought through and reusable  abstraction
+
+
+withSubFromToken : String -> (String -> Cmd (Result (HttpClientError a) b)) -> Cmd (Result (HttpClientError a) b)
+withSubFromToken token f =
+    case Jwt.decodeToken subDecoder token of
+        Ok sub ->
+            f sub
+
+        Err _ ->
+            Task.perform identity <|
+                Task.succeed (Err (UnexpectedResponse "JWT Token is invalid"))
 
 
 type HttpClientError expected
@@ -249,27 +275,30 @@ linkAndTogglableWeaponToValue x =
 
 
 type alias CreateStarshipBuild =
-    String -> String -> String -> Starship -> Cmd (Result (HttpClientError CreateStarshipBuildError) String)
+    String -> String -> Starship -> Cmd (Result (HttpClientError CreateStarshipBuildError) String)
 
 
 createStarshipBuild : CreateStarshipBuild
-createStarshipBuild hostname userId token starshipBuild =
-    request
-        { method = "PUT"
-        , headers =
-            [ header "Authorization" ("Bearer " ++ token) ]
+createStarshipBuild hostname token starshipBuild =
+    withSubFromToken token
+        (\userId ->
+            request
+                { method = "PUT"
+                , headers =
+                    [ header "Authorization" ("Bearer " ++ token) ]
 
-        -- TODO: Want to limit need for URL construction for clients
-        , url = "https://" ++ hostname ++ "/resources/users/" ++ userId ++ "/builds/" ++ starshipBuild.name
-        , body =
-            starshipBuild
-                |> buildToXStarfinderStarshipBuildValue
-                |> encode 0
-                |> stringBody "application/x.starfinder-starship-build+json"
-        , expect = expectResponse responseToCreateBuildClientResult
-        , timeout = Just 5000
-        , tracker = Nothing
-        }
+                -- TODO: Want to limit need for URL construction for clients
+                , url = "https://" ++ hostname ++ "/resources/users/" ++ userId ++ "/builds/" ++ starshipBuild.name
+                , body =
+                    starshipBuild
+                        |> buildToXStarfinderStarshipBuildValue
+                        |> encode 0
+                        |> stringBody "application/x.starfinder-starship-build+json"
+                , expect = expectResponse responseToCreateBuildClientResult
+                , timeout = Just 5000
+                , tracker = Nothing
+                }
+        )
 
 
 type GetStarshipBuildError
@@ -653,23 +682,26 @@ responseToGetBuildClientResult r =
 
 
 type alias GetStarshipBuild =
-    String -> String -> String -> String -> Cmd (Result (HttpClientError GetStarshipBuildError) ( String, Starship ))
+    String -> String -> String -> Cmd (Result (HttpClientError GetStarshipBuildError) ( String, Starship ))
 
 
 getStarshipBuild : GetStarshipBuild
-getStarshipBuild hostname userId token name =
-    request
-        { method = "GET"
-        , headers =
-            [ header "Authorization" ("Bearer " ++ token) ]
+getStarshipBuild hostname token name =
+    withSubFromToken token
+        (\userId ->
+            request
+                { method = "GET"
+                , headers =
+                    [ header "Authorization" ("Bearer " ++ token) ]
 
-        -- TODO: Want to limit need for URL construction for clients
-        , url = "https://" ++ hostname ++ "/resources/users/" ++ userId ++ "/builds/" ++ name
-        , body = emptyBody
-        , expect = expectResponse responseToGetBuildClientResult
-        , timeout = Just 5000
-        , tracker = Nothing
-        }
+                -- TODO: Want to limit need for URL construction for clients
+                , url = "https://" ++ hostname ++ "/resources/users/" ++ userId ++ "/builds/" ++ name
+                , body = emptyBody
+                , expect = expectResponse responseToGetBuildClientResult
+                , timeout = Just 5000
+                , tracker = Nothing
+                }
+        )
 
 
 type UpdateStarshipBuildError
@@ -750,29 +782,32 @@ responseToUpdateBuildClientResult r =
 
 
 type alias UpdateStarshipBuild =
-    String -> String -> String -> String -> Starship -> Cmd (Result (HttpClientError UpdateStarshipBuildError) String)
+    String -> String -> String -> Starship -> Cmd (Result (HttpClientError UpdateStarshipBuildError) String)
 
 
 updateStarshipBuild : UpdateStarshipBuild
-updateStarshipBuild hostname userId token eTag starshipBuild =
-    request
-        { method = "PUT"
-        , headers =
-            [ header "Authorization" ("Bearer " ++ token)
-            , header "If-Match" eTag
-            ]
+updateStarshipBuild hostname token eTag starshipBuild =
+    withSubFromToken token
+        (\userId ->
+            request
+                { method = "PUT"
+                , headers =
+                    [ header "Authorization" ("Bearer " ++ token)
+                    , header "If-Match" eTag
+                    ]
 
-        -- TODO: Want to limit need for URL construction for clients
-        , url = "https://" ++ hostname ++ "/resources/users/" ++ userId ++ "/builds/" ++ starshipBuild.name
-        , body =
-            starshipBuild
-                |> buildToXStarfinderStarshipBuildValue
-                |> encode 0
-                |> stringBody "application/x.starfinder-starship-build+json"
-        , expect = expectResponse responseToUpdateBuildClientResult
-        , timeout = Just 5000
-        , tracker = Nothing
-        }
+                -- TODO: Want to limit need for URL construction for clients
+                , url = "https://" ++ hostname ++ "/resources/users/" ++ userId ++ "/builds/" ++ starshipBuild.name
+                , body =
+                    starshipBuild
+                        |> buildToXStarfinderStarshipBuildValue
+                        |> encode 0
+                        |> stringBody "application/x.starfinder-starship-build+json"
+                , expect = expectResponse responseToUpdateBuildClientResult
+                , timeout = Just 5000
+                , tracker = Nothing
+                }
+        )
 
 
 expectResponse : (Response String -> Result x a) -> Expect (Result x a)

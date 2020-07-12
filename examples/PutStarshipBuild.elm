@@ -18,7 +18,6 @@ main =
             IC.initialModel
                 (Dict.fromList
                     [ ( "hostName", "" )
-                    , ( "userId", "" )
                     , ( "idToken", "" )
                     ]
                 )
@@ -28,7 +27,6 @@ main =
                 (\c ->
                     { hostName = Maybe.withDefault "Not Configured" <| Dict.get "hostName" c
                     , idToken = Maybe.withDefault "Not Configured" <| Dict.get "idToken" c
-                    , userId = Maybe.withDefault "Not Configured" <| Dict.get "userId" c
                     }
                 )
                 update
