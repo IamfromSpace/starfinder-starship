@@ -5,6 +5,20 @@
 
 packages:
 - completed:
+    hackage: polysemy-plugin-0.2.5.0@sha256:67e30be568a141b852aace1a60e180cb5060fbb2835365a81a3ea779536d6d35,2952
+    pantry-tree:
+      size: 1232
+      sha256: 5c90dac2eba48b4e337b302347c233ecaedb63e333641e094e718a548ac86711
+  original:
+    hackage: polysemy-plugin-0.2.5.0@sha256:67e30be568a141b852aace1a60e180cb5060fbb2835365a81a3ea779536d6d35,2952
+- completed:
+    hackage: ghc-tcplugins-extra-0.3.2@sha256:1bbfd4449c3669a31618ea0ebc5d00d980a53988daad3b6218bab5c8cdff268d,1687
+    pantry-tree:
+      size: 331
+      sha256: 4b16989344380c912e476dc232cc58264837b498e31a8bf16a17092ba6c1cfb9
+  original:
+    hackage: ghc-tcplugins-extra-0.3.2@sha256:1bbfd4449c3669a31618ea0ebc5d00d980a53988daad3b6218bab5c8cdff268d,1687
+- completed:
     name: hal
     version: 0.2.0
     git: https://github.com/Nike-Inc/hal.git
@@ -17,7 +31,7 @@ packages:
     commit: 1749a2998a420b178a635a57f6f2851dca07e563
 snapshots:
 - completed:
-    size: 498398
-    url: https://raw.githubusercontent.com/commercialhaskell/stackage-snapshots/master/lts/13/23.yaml
-    sha256: 63151ca76f39d5cfbd266ce019236459fdda53fbefd2200aedeb33bcc81f808e
-  original: lts-13.23
+    size: 531707
+    url: https://raw.githubusercontent.com/commercialhaskell/stackage-snapshots/master/lts/16/5.yaml
+    sha256: 9751e25e0af5713a53ddcfcc79564b082c71b1b357fadef0d85672a5b5ba3703
+  original: lts-16.5

@@ -1,7 +1,13 @@
-{-# LANGUAGE MultiParamTypeClasses #-}
-{-# LANGUAGE FlexibleInstances #-}
-{-# LANGUAGE OverloadedStrings #-}
+{-# LANGUAGE GADTs #-}
+{-# LANGUAGE TemplateHaskell #-}
+{-# LANGUAGE ScopedTypeVariables #-}
+{-# LANGUAGE FlexibleContexts #-}
+{-# LANGUAGE DataKinds #-}
+{-# LANGUAGE PolyKinds #-}
 {-# LANGUAGE LambdaCase #-}
+{-# LANGUAGE TypeOperators #-}
+{-# LANGUAGE NamedFieldPuns #-}
+{-# LANGUAGE OverloadedStrings #-}
 
 {-|
 Module      : BuildService
@@ -29,6 +35,7 @@ import qualified Data.KeyedSet as KS
 import Data.Maybe (catMaybes)
 import Data.Text
 import Lib
+import Polysemy (Member, Sem, interpret, makeSem)
 import Starfinder.Starship.Assets.Frames (frames)
 import qualified Starfinder.Starship.Assets.Shields as S
 import Starfinder.Starship.Assets.Weapons (dereferenceWeapon)
@@ -74,84 +81,96 @@ data GetError
     | DoesNotExistG
     deriving (Show)
 
-class Monad m =>
-      BuildServiceMonad u m where
-    saveNewBuild ::
-           u
+data BuildService u m a where
+    SaveNewBuild
+        :: u
         -> OwnedBy (Build Text ReferencedWeapon Text)
-        -> m (Either CreateError Int)
-    updateBuild ::
-           u
+        -> BuildService u m (Either CreateError Int)
+    UpdateBuild
+        :: u
         -> Text
         -> Text
         -> Int
         -- TODO: Ideally this could fail with a specific error or even happen in
         -- its own monad!
         -> (OwnedBy (Build Text ReferencedWeapon Text) -> Maybe (OwnedBy (Build Text ReferencedWeapon Text)))
-        -> m (Either UpdateError Int)
-    getBuild ::
-           u
+        -> BuildService u m (Either UpdateError Int)
+    GetBuild
+        :: u
         -> Text
         -> Text
-        -> m (Either GetError (ETagged (OwnedBy (Build Text ReferencedWeapon Text))))
-    getBuildsByOwner :: u -> Text -> m [Text]
+        -> BuildService u m (Either GetError (ETagged (OwnedBy (Build Text ReferencedWeapon Text))))
+    GetBuildsByOwner :: u -> Text -> BuildService u m [Text]
 
--- TODO: I think that in theory this also needs a BuildServiceT to get rid of
--- some of the warnings around type inference woes, however, that's yet more
--- boilerplate involved!
-instance BR.BuildRepoMonad m => BuildServiceMonad Text m where
-    saveNewBuild principal v@(OwnedBy userId build) =
-        let authorize x =
-                if principal /= userId
-                    then Left NotAllowedC
-                    else Right x
-            authorizePopulateAndValidate =
-                authorize >=>
-                ((first StaticValidationErrorC) . populateAndValidate)
-            mapSaveBuildError =
-                (first
-                     (\case
-                          BR.AlreadyExists -> AlreadyExists))
-        in case authorizePopulateAndValidate build of
-               Left es -> return $ Left es
-               Right _ -> mapSaveBuildError <$> BR.saveNewBuild v
-    updateBuild principal userId name expectedETag f =
-        if principal /= userId
-            then return $ Left NotAllowedU
-            else do
-                getRes <- getBuild principal userId name
-                let mapGetError =
-                        \case
-                            NotAllowedG -> NotAllowedU
-                            DoesNotExistG -> DoesNotExistU
-                let eNewOwnedBuild = do
-                        (ceob@(ETagged currentETag currentOwnedBuild)) <-
-                            first mapGetError getRes
-                        if currentETag /= expectedETag
-                            then Left $ ETagMismatch ceob
-                            else Right ()
-                        (newOwnedBuild@(OwnedBy _ newBuild)) <-
-                            case f currentOwnedBuild of
-                                Nothing -> Left TransformError
-                                Just x -> Right x
-                        first StaticValidationErrorU $
-                            populateAndValidate newBuild
-                        case validateChange currentOwnedBuild newOwnedBuild of
-                            [] -> return newOwnedBuild
-                            es -> Left $ IllegalChange es
-                let mapBuildRepoError =
-                        \case
-                            BR.DoesNotExist -> DoesNotExistU
-                            BR.ETagMismatch x -> ETagMismatch x
-                let withNewOwnedBuild newOwnedBuild =
-                        let putRes = BR.updateBuild expectedETag newOwnedBuild
-                        in first mapBuildRepoError <$> putRes
-                either (return . Left) withNewOwnedBuild eNewOwnedBuild
-    getBuild principal userId name =
-        if principal /= userId
-            then return $ Left NotAllowedG
-            else maybe (Left DoesNotExistG) Right <$> BR.getBuild userId name
-    getBuildsByOwner = undefined
+makeSem ''BuildService
+
+buildServiceFromBuildRepo ::
+       Member BR.BuildRepo r
+    => Sem ((BuildService Text) ': r) a
+    -> Sem r a
+buildServiceFromBuildRepo =
+    interpret $ \case
+        SaveNewBuild principal v@(OwnedBy userId build) ->
+            let authorize x =
+                    if principal /= userId
+                        then Left NotAllowedC
+                        else Right x
+                authorizePopulateAndValidate =
+                    authorize >=>
+                    ((first StaticValidationErrorC) . populateAndValidate)
+                mapSaveBuildError =
+                    (first
+                         (\case
+                              BR.AlreadyExists -> AlreadyExists))
+            in case authorizePopulateAndValidate build of
+                   Left es -> return $ Left es
+                   Right _ -> mapSaveBuildError <$> BR.saveNewBuild v
+        UpdateBuild principal userId name expectedETag f ->
+            if principal /= userId
+                then return $ Left NotAllowedU
+                else do
+                    getRes <- getBuild' principal userId name
+                    let mapGetError =
+                            \case
+                                NotAllowedG -> NotAllowedU
+                                DoesNotExistG -> DoesNotExistU
+                    let eNewOwnedBuild = do
+                            (ceob@(ETagged currentETag currentOwnedBuild)) <-
+                                first mapGetError getRes
+                            if currentETag /= expectedETag
+                                then Left $ ETagMismatch ceob
+                                else Right ()
+                            (newOwnedBuild@(OwnedBy _ newBuild)) <-
+                                case f currentOwnedBuild of
+                                    Nothing -> Left TransformError
+                                    Just x -> Right x
+                            first StaticValidationErrorU $
+                                populateAndValidate newBuild
+                            case validateChange currentOwnedBuild newOwnedBuild of
+                                [] -> return newOwnedBuild
+                                es -> Left $ IllegalChange es
+                    let mapBuildRepoError =
+                            \case
+                                BR.DoesNotExist -> DoesNotExistU
+                                BR.ETagMismatch x -> ETagMismatch x
+                    let withNewOwnedBuild newOwnedBuild =
+                            let putRes =
+                                    BR.updateBuild expectedETag newOwnedBuild
+                            in first mapBuildRepoError <$> putRes
+                    either (return . Left) withNewOwnedBuild eNewOwnedBuild
+        GetBuild principal userId name -> getBuild' principal userId name
+        GetBuildsByOwner _ _ -> undefined
+
+getBuild' ::
+       Member BR.BuildRepo r
+    => Text
+    -> Text
+    -> Text
+    -> Sem r (Either GetError (ETagged (OwnedBy (Build Text ReferencedWeapon Text))))
+getBuild' principal userId name =
+    if principal /= userId
+        then return $ Left NotAllowedG
+        else maybe (Left DoesNotExistG) Right <$> BR.getBuild userId name
 
 validateChange ::
        OwnedBy (Build Text a b)

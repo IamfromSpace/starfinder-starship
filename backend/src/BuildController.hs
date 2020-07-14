@@ -3,6 +3,7 @@
 {-# LANGUAGE LambdaCase #-}
 {-# LANGUAGE ScopedTypeVariables #-}
 {-# LANGUAGE FlexibleContexts #-}
+{-# LANGUAGE GADTs #-}
 {-# LANGUAGE OverloadedStrings #-}
 -- TODO: I'm not sure why this gets rid of my warning...
 {-# LANGUAGE MonoLocalBinds #-}
@@ -16,8 +17,9 @@ import AWS.Lambda.Events.ApiGateway.ProxyResponse
         forbidden403, methodNotAllowed405, notFound404, notImplemented501,
         ok200, preconditionFailed412, textPlain, unauthorized401)
 import BuildService
-       (BuildServiceMonad(..), CreateError(..), GetError(..),
+       (BuildService, CreateError(..), GetError(..),
         UpdateError(..))
+import qualified BuildService as BS
 import Control.Monad ((>=>))
 import Data.Aeson (FromJSON(..), Value(..), (.:), eitherDecode')
 import Data.CaseInsensitive (CI, mk)
@@ -26,6 +28,7 @@ import Data.Text (Text, pack, unpack)
 import Data.Text.Encoding (encodeUtf8)
 import Lib (ETagged(..), OwnedBy(..))
 import Network.HTTP.Types.URI (decodePathSegments)
+import Polysemy (Member, Sem)
 import Prelude hiding (lookup)
 import Starfinder.Starship.Build (Build)
 import qualified Starfinder.Starship.Build as B (Build(name))
@@ -44,13 +47,13 @@ instance FromJSON UserId where
 -- the Service result into ProxyResponse.  I'm still not totally convinced
 -- that's the abstraction though.
 handleCreate ::
-       BuildServiceMonad Text m
+       Member (BuildService Text) r
     => Text
     -> Text
     -> Build Text ReferencedWeapon Text
-    -> m ProxyResponse
+    -> Sem r ProxyResponse
 handleCreate principal userId build = do
-    errorOrETag <- saveNewBuild principal $ OwnedBy userId build
+    errorOrETag <- BS.saveNewBuild principal $ OwnedBy userId build
     case errorOrETag of
         Right eTag ->
             return
@@ -77,9 +80,9 @@ handleCreate principal userId build = do
                      -- more actionable (both Create and Update)
                      (textPlain $ pack $ show errors))
 
-handleGet :: BuildServiceMonad Text m => Text -> Text -> Text -> m ProxyResponse
+handleGet :: Member (BuildService Text) r => Text -> Text -> Text -> Sem r ProxyResponse
 handleGet principal userId name = do
-    record <- getBuild principal userId name
+    record <- BS.getBuild principal userId name
     case record of
         Right (ETagged eTag (OwnedBy _ build)) ->
             return
@@ -92,16 +95,16 @@ handleGet principal userId name = do
         Left NotAllowedG -> return forbidden
 
 handlePut ::
-       BuildServiceMonad Text m
+       Member (BuildService Text) r
     => Text
     -> Text
     -> Text
     -> Int
     -> Build Text ReferencedWeapon Text
-    -> m ProxyResponse
+    -> Sem r ProxyResponse
 handlePut principal userId name expectedETag build = do
     res <-
-        updateBuild
+        BS.updateBuild
             principal
             userId
             name
@@ -141,7 +144,7 @@ handlePut principal userId name expectedETag build = do
         Left TransformError -> undefined -- impossible
 
 httpHandler ::
-       BuildServiceMonad Text m => ProxyRequest UserId -> m ProxyResponse
+       Member (BuildService Text) r => ProxyRequest UserId -> Sem r ProxyResponse
 httpHandler pr@(ProxyRequest {path, requestContext, body, httpMethod, headers}) =
     case (parseApiGatweayPath path, authorizer requestContext) of
         (_, Nothing) -> return unauthorized

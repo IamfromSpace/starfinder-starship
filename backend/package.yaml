@@ -29,6 +29,8 @@ dependencies:
 - http-types
 - lens
 - mtl
+- polysemy
+- polysemy-plugin
 - QuickCheck
 - quickcheck-text
 - resourcet
@@ -48,6 +50,7 @@ ghc-options:
   - -fwarn-unused-imports
   - -fwarn-missing-signatures
   - -fwarn-incomplete-patterns
+  - -fplugin=Polysemy.Plugin
 
 library:
   source-dirs: src

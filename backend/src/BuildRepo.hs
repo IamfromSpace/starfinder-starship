@@ -1,8 +1,14 @@
-{-# LANGUAGE MultiParamTypeClasses #-}
-{-# LANGUAGE FlexibleInstances #-}
-{-# LANGUAGE OverloadedStrings #-}
+{-# LANGUAGE GADTs #-}
+{-# LANGUAGE TemplateHaskell #-}
+{-# LANGUAGE ScopedTypeVariables #-}
+{-# LANGUAGE FlexibleContexts #-}
+{-# LANGUAGE DataKinds #-}
+{-# LANGUAGE PolyKinds #-}
+{-# LANGUAGE LambdaCase #-}
+{-# LANGUAGE TypeOperators #-}
+{-# LANGUAGE TypeApplications #-}
 {-# LANGUAGE NamedFieldPuns #-}
-{-# LANGUAGE GeneralizedNewtypeDeriving #-}
+{-# LANGUAGE OverloadedStrings #-}
 
 {-|
 Module      : BuildRepo
@@ -22,14 +28,10 @@ all details beyond the ones of interest to the interface.
 -}
 module BuildRepo where
 
+
 import Control.Exception.Lens (trying)
 import Control.Lens (set, view)
-import Control.Monad.Catch (MonadCatch, MonadThrow(..), catch)
-import Control.Monad.Reader (MonadReader(..))
-import Control.Monad.Trans (MonadIO, MonadTrans, lift, liftIO)
 import Control.Monad.Trans.AWS (AWSConstraint, send)
-import Control.Monad.Trans.Resource
-       (MonadResource, ResourceT, liftResourceT)
 import Data.Bifunctor (bimap)
 import Data.HashMap.Strict (fromList)
 import Data.Hashable (Hashable(..))
@@ -42,6 +44,9 @@ import Network.AWS.DynamoDB.PutItem
         piExpressionAttributeValues, piItem, putItem)
 import Network.AWS.DynamoDB.Types
        (_ConditionalCheckFailedException)
+import Polysemy (makeSem, Sem, Member, Embed, interpret)
+import Polysemy.Embed (embed)
+import Polysemy.Reader (Reader, ask)
 import Starfinder.Starship.Build (Build(Build, name))
 import Starfinder.Starship.ReferencedWeapon (ReferencedWeapon)
 
@@ -52,51 +57,26 @@ data UpdateError
     = DoesNotExist
     | ETagMismatch (ETagged (OwnedBy (Build Text ReferencedWeapon Text)))
 
-class HasTableName a where
-    getTableName :: a -> Text
-
-class Monad m =>
-      BuildRepoMonad m where
-    saveNewBuild ::
-           OwnedBy (Build Text ReferencedWeapon Text)
-        -> m (Either SaveNewError Int)
-    updateBuild ::
-           Int
+data BuildRepo m a where
+    SaveNewBuild
+        :: OwnedBy (Build Text ReferencedWeapon Text)
+        -> BuildRepo m (Either SaveNewError Int)
+    UpdateBuild
+        :: Int
         -> OwnedBy (Build Text ReferencedWeapon Text)
-        -> m (Either UpdateError Int)
-    getBuild ::
-           Text
+        -> BuildRepo m (Either UpdateError Int)
+    GetBuild
+        :: Text
         -> Text
-        -> m (Maybe (ETagged (OwnedBy (Build Text ReferencedWeapon Text))))
-    getBuildsByOwner :: a -> Text -> m [Text]
+        -> BuildRepo m (Maybe (ETagged (OwnedBy (Build Text ReferencedWeapon Text))))
+    GetBuildsByOwner :: a -> Text -> BuildRepo m [Text]
 
-newtype BuildRepoT r m a = BuildRepoT
-    { runBuildRepoT :: m a
-    } deriving (Functor, Applicative, Monad)
+makeSem ''BuildRepo
 
-instance MonadTrans (BuildRepoT r) where
-    lift = BuildRepoT
-
-instance (MonadReader r m, Monad m) => MonadReader r (BuildRepoT r m) where
-    ask = lift ask
-    local f ma = lift $ local f (runBuildRepoT ma)
-
-instance (MonadThrow m, Monad m) => MonadThrow (BuildRepoT r m) where
-    throwM = lift . throwM
-
-instance (MonadCatch m, Monad m) => MonadCatch (BuildRepoT r m) where
-    catch ma f = lift $ catch (runBuildRepoT ma) (runBuildRepoT . f)
-
-instance MonadIO m => MonadIO (BuildRepoT r m) where
-    liftIO = lift . liftIO
-
-instance MonadResource m => MonadResource (BuildRepoT r m) where
-    liftResourceT = lift . liftResourceT
-
-instance (AWSConstraint r m, HasTableName r, MonadReader r m) =>
-         BuildRepoMonad (BuildRepoT r m) where
-    saveNewBuild ownedBuild = do
-        tableName <- getTableName <$> ask
+buildRepoToDynamo :: (AWSConstraint ar m, Member (Reader Text) r, Member (Embed m) r) => Sem (BuildRepo ': r) a -> Sem r a
+buildRepoToDynamo = interpret $ \case
+    SaveNewBuild ownedBuild -> do
+        tableName <- ask
         let eTag = hash ownedBuild
         let item =
                 set
@@ -110,10 +90,10 @@ instance (AWSConstraint r m, HasTableName r, MonadReader r m) =>
                     piItem
                     (ownedReferencedBuildToItem (ETagged eTag ownedBuild))
                     (putItem tableName)
-        res <- trying _ConditionalCheckFailedException (send item)
+        res <- embed $ trying _ConditionalCheckFailedException (send item)
         return $ bimap (const AlreadyExists) (const eTag) res
-    updateBuild expectedETag ownedBuild@(OwnedBy userId (Build {name})) = do
-        tableName <- getTableName <$> ask
+    UpdateBuild expectedETag ownedBuild@(OwnedBy userId (Build {name})) -> do
+        tableName <- ask
         let newETag = hash ownedBuild
         let item =
                 set
@@ -134,7 +114,7 @@ instance (AWSConstraint r m, HasTableName r, MonadReader r m) =>
                     piItem
                     (ownedReferencedBuildToItem (ETagged newETag ownedBuild))
                     (putItem tableName)
-        res <- trying _ConditionalCheckFailedException (send item)
+        res <- embed $ trying _ConditionalCheckFailedException (send item)
         case res of
             Left _
               -- Since get is a consistent read, and ETags should be
@@ -145,23 +125,26 @@ instance (AWSConstraint r m, HasTableName r, MonadReader r m) =>
              ->
                 fmap
                     (Left . maybe DoesNotExist ETagMismatch)
-                    (getBuild userId name)
+                    (getBuild' userId name)
             Right _ -> return $ Right newETag
-    getBuild userId name = do
-        tableName <- getTableName <$> ask
-        let item
-                -- To keep our typeclass simple, we only support the safe
-                -- approach of reading consistently
-             =
-                set giConsistentRead (Just True) $
-                -- TODO: Another place where typed keys would help
-                set
-                    giKey
-                    (fromList
-                         [ ("HASH1", toAttrValue userId)
-                         , ("RANGE1.1", toAttrValue name)
-                         ])
-                    (getItem tableName)
-        res <- send item
-        return $ fromAttrValue $ toAttrValue $ view girsItem res
-    getBuildsByOwner = undefined
+    GetBuild userId name -> getBuild' userId name
+    GetBuildsByOwner _ _ -> undefined
+
+getBuild' :: (AWSConstraint ar m, Member (Reader Text) r, Member (Embed m) r) => Text -> Text -> Sem r (Maybe (ETagged (OwnedBy (Build Text ReferencedWeapon Text))))
+getBuild' userId name = do
+    tableName <- ask
+    let item
+            -- To keep our typeclass simple, we only support the safe
+            -- approach of reading consistently
+         =
+            set giConsistentRead (Just True) $
+            -- TODO: Another place where typed keys would help
+            set
+                giKey
+                (fromList
+                     [ ("HASH1", toAttrValue userId)
+                     , ("RANGE1.1", toAttrValue name)
+                     ])
+                (getItem tableName)
+    res <- embed $ send item
+    return $ fromAttrValue $ toAttrValue $ view girsItem res
