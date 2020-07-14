@@ -14,6 +14,8 @@ import qualified Network.AWS as AWS
 import Network.AWS
        (Credentials(Discover), LogLevel(Debug), newLogger, runResourceT)
 import Polysemy (runM)
+-- This is here to enable optimizations
+import Polysemy.Internal
 import Polysemy.Reader (runReader)
 import System.Environment (getEnv)
 import System.IO (stderr)
