@@ -23,6 +23,7 @@ the change.
 -}
 module BuildService where
 
+import Authorizer (Authorizer, isActionAuthorized)
 import qualified BuildRepo as BR
 import Control.Exception.Lens (trying)
 import Control.Lens (set, view)
@@ -43,6 +44,13 @@ import Starfinder.Starship.Build
        (Build(..), BuildError, traverseFrame, traverseShields,
         traverseWeapon, validateStarship)
 import Starfinder.Starship.ReferencedWeapon (ReferencedWeapon)
+
+data Action
+    = CreateStarshipBuild Text -- userId
+    | UpdateStarshipBuild Text
+                          Text --userId name
+    | GetStarshipBuild Text
+                       Text -- userId name
 
 data StaticValidationError
     = InvalidFrame
@@ -81,96 +89,91 @@ data GetError
     | DoesNotExistG
     deriving (Show)
 
-data BuildService u m a where
+data BuildService m a where
     SaveNewBuild
-        :: u
-        -> OwnedBy (Build Text ReferencedWeapon Text)
-        -> BuildService u m (Either CreateError Int)
+        :: OwnedBy (Build Text ReferencedWeapon Text)
+        -> BuildService m (Either CreateError Int)
     UpdateBuild
-        :: u
-        -> Text
+        :: Text
         -> Text
         -> Int
         -- TODO: Ideally this could fail with a specific error or even happen in
         -- its own monad!
         -> (OwnedBy (Build Text ReferencedWeapon Text) -> Maybe (OwnedBy (Build Text ReferencedWeapon Text)))
-        -> BuildService u m (Either UpdateError Int)
+        -> BuildService m (Either UpdateError Int)
     GetBuild
-        :: u
+        :: Text
         -> Text
-        -> Text
-        -> BuildService u m (Either GetError (ETagged (OwnedBy (Build Text ReferencedWeapon Text))))
-    GetBuildsByOwner :: u -> Text -> BuildService u m [Text]
+        -> BuildService m (Either GetError (ETagged (OwnedBy (Build Text ReferencedWeapon Text))))
+    GetBuildsByOwner :: Text -> BuildService m [Text]
 
 makeSem ''BuildService
 
 buildServiceFromBuildRepo ::
-       Member BR.BuildRepo r
-    => Sem ((BuildService Text) ': r) a
+       (Member BR.BuildRepo r, Member (Authorizer Action) r)
+    => Sem (BuildService ': r) a
     -> Sem r a
 buildServiceFromBuildRepo =
     interpret $ \case
-        SaveNewBuild principal v@(OwnedBy userId build) ->
-            let authorize x =
-                    if principal /= userId
-                        then Left NotAllowedC
-                        else Right x
-                authorizePopulateAndValidate =
-                    authorize >=>
-                    ((first StaticValidationErrorC) . populateAndValidate)
+        SaveNewBuild v@(OwnedBy userId build) ->
+            let validated =
+                    first StaticValidationErrorC $ populateAndValidate build
                 mapSaveBuildError =
                     (first
                          (\case
                               BR.AlreadyExists -> AlreadyExists))
-            in case authorizePopulateAndValidate build of
-                   Left es -> return $ Left es
-                   Right _ -> mapSaveBuildError <$> BR.saveNewBuild v
-        UpdateBuild principal userId name expectedETag f ->
-            if principal /= userId
-                then return $ Left NotAllowedU
-                else do
-                    getRes <- getBuild' principal userId name
-                    let mapGetError =
-                            \case
-                                NotAllowedG -> NotAllowedU
-                                DoesNotExistG -> DoesNotExistU
-                    let eNewOwnedBuild = do
-                            (ceob@(ETagged currentETag currentOwnedBuild)) <-
-                                first mapGetError getRes
-                            if currentETag /= expectedETag
-                                then Left $ ETagMismatch ceob
-                                else Right ()
-                            (newOwnedBuild@(OwnedBy _ newBuild)) <-
-                                case f currentOwnedBuild of
-                                    Nothing -> Left TransformError
-                                    Just x -> Right x
-                            first StaticValidationErrorU $
-                                populateAndValidate newBuild
-                            case validateChange currentOwnedBuild newOwnedBuild of
-                                [] -> return newOwnedBuild
-                                es -> Left $ IllegalChange es
-                    let mapBuildRepoError =
-                            \case
-                                BR.DoesNotExist -> DoesNotExistU
-                                BR.ETagMismatch x -> ETagMismatch x
-                    let withNewOwnedBuild newOwnedBuild =
-                            let putRes =
-                                    BR.updateBuild expectedETag newOwnedBuild
-                            in first mapBuildRepoError <$> putRes
-                    either (return . Left) withNewOwnedBuild eNewOwnedBuild
-        GetBuild principal userId name -> getBuild' principal userId name
-        GetBuildsByOwner _ _ -> undefined
+            in do isAuthorized <-
+                      isActionAuthorized (CreateStarshipBuild userId)
+                  if isAuthorized
+                      then case validated of
+                               Left es -> return $ Left es
+                               Right _ ->
+                                   mapSaveBuildError <$> BR.saveNewBuild v
+                      else return $ Left NotAllowedC
+        UpdateBuild userId name expectedETag f -> do
+            getRes <- getBuild' userId name
+            let mapGetError =
+                    \case
+                        NotAllowedG -> NotAllowedU
+                        DoesNotExistG -> DoesNotExistU
+            let eNewOwnedBuild = do
+                    (ceob@(ETagged currentETag currentOwnedBuild)) <-
+                        first mapGetError getRes
+                    if currentETag /= expectedETag
+                        then Left $ ETagMismatch ceob
+                        else Right ()
+                    (newOwnedBuild@(OwnedBy _ newBuild)) <-
+                        case f currentOwnedBuild of
+                            Nothing -> Left TransformError
+                            Just x -> Right x
+                    first StaticValidationErrorU $ populateAndValidate newBuild
+                    case validateChange currentOwnedBuild newOwnedBuild of
+                        [] -> return newOwnedBuild
+                        es -> Left $ IllegalChange es
+            let mapBuildRepoError =
+                    \case
+                        BR.DoesNotExist -> DoesNotExistU
+                        BR.ETagMismatch x -> ETagMismatch x
+            let withNewOwnedBuild newOwnedBuild =
+                    let putRes = BR.updateBuild expectedETag newOwnedBuild
+                    in first mapBuildRepoError <$> putRes
+            isAuthorized <- isActionAuthorized (UpdateStarshipBuild userId name)
+            if isAuthorized then
+                either (return . Left) withNewOwnedBuild eNewOwnedBuild
+            else return $ Left NotAllowedU
+        GetBuild userId name -> getBuild' userId name
+        GetBuildsByOwner _ -> undefined
 
 getBuild' ::
        Member BR.BuildRepo r
-    => Text
-    -> Text
-    -> Text
-    -> Sem r (Either GetError (ETagged (OwnedBy (Build Text ReferencedWeapon Text))))
-getBuild' principal userId name =
-    if principal /= userId
-        then return $ Left NotAllowedG
-        else maybe (Left DoesNotExistG) Right <$> BR.getBuild userId name
+    => Member (Authorizer Action) r =>
+           Text -> Text -> Sem r (Either GetError (ETagged (OwnedBy (Build Text ReferencedWeapon Text))))
+getBuild' userId name = do
+    isAuthorized <- isActionAuthorized (GetStarshipBuild userId name)
+    if isAuthorized then
+        maybe (Left DoesNotExistG) Right <$> BR.getBuild userId name
+    else
+        return $ Left NotAllowedG
 
 validateChange ::
        OwnedBy (Build Text a b)
