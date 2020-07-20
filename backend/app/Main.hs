@@ -3,23 +3,18 @@
 module Main where
 
 import AWS.Lambda.Context (HasLambdaContext(..), LambdaContext)
-import AWS.Lambda.Events.ApiGateway.ProxyRequest
-       (authorizer, requestContext)
 import AWS.Lambda.Runtime (mRuntimeWithContext)
-import BuildAuthorizer (authorizeUser)
-import BuildController (forbidden, getUserId, httpHandler)
+import BuildController (forbidden, httpAuthorizer, httpHandler)
 import BuildRepo (buildRepoToDynamo)
 import BuildService (buildServiceFromBuildRepo)
 import Control.Lens (lens, set)
 import Control.Monad.Reader (runReaderT)
-import Data.Maybe (fromJust)
 import Data.Text (pack)
 import qualified Network.AWS as AWS
 import Network.AWS
        (Credentials(Discover), LogLevel(Debug), newLogger, runResourceT)
 import Polysemy (runM)
 
-import Polysemy.Error (runError)
 -- This is here to enable optimizations
 import Polysemy.Internal
 import Polysemy.Reader (runReader)
@@ -48,7 +43,6 @@ main = do
         mRuntimeWithContext
             (\e ->
                  runM $
-                 runReader
                  -- TODO: This is the only thing I don't like about this, where
                  -- otherwise abstraction boundaries are fairly cleanly
                  -- enforced.  Each piece only knows about the pieces it needs
@@ -68,9 +62,6 @@ main = do
                  -- the controller can pass in the authorizer as a parameter
                  -- failed pretty badly.  The resulting code is just _really_
                  -- ugly (from what I was able to acheive anyway).
-                     (getUserId (fromJust (authorizer (requestContext e)))) $
-                 fmap (either (const forbidden) id) $
-                 runError $
-                 authorizeUser $
+                 httpAuthorizer e $
                  runReader tableName $
                  buildRepoToDynamo $ buildServiceFromBuildRepo $ httpHandler e)

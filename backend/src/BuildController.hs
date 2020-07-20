@@ -7,6 +7,8 @@
 {-# LANGUAGE OverloadedStrings #-}
 -- TODO: I'm not sure why this gets rid of my warning...
 {-# LANGUAGE MonoLocalBinds #-}
+{-# LANGUAGE TypeOperators #-}
+{-# LANGUAGE DataKinds #-}
 
 module BuildController where
 
@@ -16,18 +18,24 @@ import AWS.Lambda.Events.ApiGateway.ProxyResponse
        (ProxyResponse(..), applicationJson, badRequest400, conflict409,
         forbidden403, methodNotAllowed405, notFound404, notImplemented501,
         ok200, preconditionFailed412, textPlain, unauthorized401)
+import Authorizer (Authorizer)
+import BuildAuthorizer (Forbidden, authorizeUser)
 import BuildService
-       (BuildService, CreateError(..), GetError(..), UpdateError(..))
+       (Action, BuildService, CreateError(..), GetError(..),
+        UpdateError(..))
 import qualified BuildService as BS
 import Control.Monad ((>=>))
 import Data.Aeson (FromJSON(..), Value(..), (.:), eitherDecode')
 import Data.CaseInsensitive (CI, mk)
 import Data.HashMap.Strict (HashMap, fromList, lookup)
+import Data.Maybe (fromJust)
 import Data.Text (Text, pack, unpack)
 import Data.Text.Encoding (encodeUtf8)
 import Lib (ETagged(..), OwnedBy(..))
 import Network.HTTP.Types.URI (decodePathSegments)
 import Polysemy (Member, Sem)
+import Polysemy.Error (Error, runError)
+import Polysemy.Reader (Reader, runReader)
 import Prelude hiding (lookup)
 import Starfinder.Starship.Build (Build)
 import qualified Starfinder.Starship.Build as B (Build(name))
@@ -173,6 +181,14 @@ httpHandler pr@(ProxyRequest {path, requestContext, body, httpMethod, headers}) 
                 "PATCH" -> return notImplemented
                 _ -> return methodNotAllowed
         _ -> return notFound
+
+httpAuthorizer ::
+       ProxyRequest UserId
+    -> Sem ((Authorizer Action) ': (Error Forbidden) ': (Reader Text) ': r) ProxyResponse
+    -> Sem r ProxyResponse
+httpAuthorizer ProxyRequest {requestContext} =
+    runReader (getUserId (fromJust (authorizer requestContext))) .
+    fmap (either (const forbidden) id) . runError . authorizeUser
 
 invalidJson :: String -> ProxyResponse
 invalidJson err = ProxyResponse badRequest400 mempty mempty (textPlain (pack err))
