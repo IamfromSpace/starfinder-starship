@@ -23,7 +23,7 @@ the change.
 -}
 module BuildService where
 
-import Authorizer (Authorizer, isActionAuthorized)
+import Authorizer (Authorizer, checkActionAuthorized)
 import qualified BuildRepo as BR
 import Control.Exception.Lens (trying)
 import Control.Lens (set, view)
@@ -68,7 +68,6 @@ data ChangeValidationError
 data CreateError
     = AlreadyExists
     -- TODO: figure out how to do duplicate names better
-    | NotAllowedC
     | StaticValidationErrorC [StaticValidationError]
     deriving (Show)
 
@@ -78,15 +77,13 @@ data UpdateError
     -- TODO: We don't really want this to be an ETag in any context except the
     -- controller context
     | ETagMismatch (ETagged (OwnedBy (Build Text ReferencedWeapon Text)))
-    | NotAllowedU
     | IllegalChange [ChangeValidationError]
     -- TODO: Ideally this is paramaterized
     | TransformError
     deriving (Show)
 
 data GetError
-    = NotAllowedG
-    | DoesNotExistG
+    = DoesNotExistG
     deriving (Show)
 
 data BuildService m a where
@@ -122,19 +119,14 @@ buildServiceFromBuildRepo =
                     (first
                          (\case
                               BR.AlreadyExists -> AlreadyExists))
-            in do isAuthorized <-
-                      isActionAuthorized (CreateStarshipBuild userId)
-                  if isAuthorized
-                      then case validated of
-                               Left es -> return $ Left es
-                               Right _ ->
-                                   mapSaveBuildError <$> BR.saveNewBuild v
-                      else return $ Left NotAllowedC
+            in do checkActionAuthorized (CreateStarshipBuild userId)
+                  case validated of
+                      Left es -> return $ Left es
+                      Right _ -> mapSaveBuildError <$> BR.saveNewBuild v
         UpdateBuild userId name expectedETag f -> do
             getRes <- getBuild' userId name
             let mapGetError =
                     \case
-                        NotAllowedG -> NotAllowedU
                         DoesNotExistG -> DoesNotExistU
             let eNewOwnedBuild = do
                     (ceob@(ETagged currentETag currentOwnedBuild)) <-
@@ -157,10 +149,8 @@ buildServiceFromBuildRepo =
             let withNewOwnedBuild newOwnedBuild =
                     let putRes = BR.updateBuild expectedETag newOwnedBuild
                     in first mapBuildRepoError <$> putRes
-            isAuthorized <- isActionAuthorized (UpdateStarshipBuild userId name)
-            if isAuthorized then
-                either (return . Left) withNewOwnedBuild eNewOwnedBuild
-            else return $ Left NotAllowedU
+            checkActionAuthorized (UpdateStarshipBuild userId name)
+            either (return . Left) withNewOwnedBuild eNewOwnedBuild
         GetBuild userId name -> getBuild' userId name
         GetBuildsByOwner _ -> undefined
 
@@ -169,11 +159,8 @@ getBuild' ::
     => Member (Authorizer Action) r =>
            Text -> Text -> Sem r (Either GetError (ETagged (OwnedBy (Build Text ReferencedWeapon Text))))
 getBuild' userId name = do
-    isAuthorized <- isActionAuthorized (GetStarshipBuild userId name)
-    if isAuthorized then
-        maybe (Left DoesNotExistG) Right <$> BR.getBuild userId name
-    else
-        return $ Left NotAllowedG
+    checkActionAuthorized (GetStarshipBuild userId name)
+    maybe (Left DoesNotExistG) Right <$> BR.getBuild userId name
 
 validateChange ::
        OwnedBy (Build Text a b)

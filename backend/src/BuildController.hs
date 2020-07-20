@@ -60,7 +60,6 @@ handleCreate userId build = do
                      (fromList [("ETag", hashToETagValue eTag)])
                      mempty
                      (textPlain "Done"))
-        Left NotAllowedC -> return forbidden
         Left AlreadyExists ->
             return
                 (ProxyResponse
@@ -90,7 +89,6 @@ handleGet userId name = do
                      mempty
                      (applicationJson build))
         Left DoesNotExistG -> return notFound
-        Left NotAllowedG -> return forbidden
 
 handlePut ::
        Member BuildService r
@@ -129,7 +127,6 @@ handlePut userId name expectedETag build = do
                      (fromList [("ETag", hashToETagValue eTag)])
                      mempty
                      (applicationJson build))
-        Left NotAllowedU -> return forbidden
         Left (IllegalChange x) ->
             return
                 (ProxyResponse

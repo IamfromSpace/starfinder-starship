@@ -33,17 +33,23 @@ data Forbidden =
     Forbidden
 
 authorizeUser ::
-       Member (Reader Text) r
+       (Member (Reader Text) r, Member (Error Forbidden) r)
     => Sem ((Authorizer Action) ': r) b
     -> Sem r b
 authorizeUser =
     interpret $ \case
-        IsActionAuthorized (CreateStarshipBuild userId') -> do
+        CheckActionAuthorized (CreateStarshipBuild userId') -> do
             userId <- ask
-            return $ userId /= userId'
-        IsActionAuthorized (UpdateStarshipBuild userId' _) -> do
+            if userId /= userId'
+                then throw Forbidden
+                else return ()
+        CheckActionAuthorized (UpdateStarshipBuild userId' _) -> do
             userId <- ask
-            return $ userId /= userId'
-        IsActionAuthorized (GetStarshipBuild userId' _) -> do
+            if userId /= userId'
+                then throw Forbidden
+                else return ()
+        CheckActionAuthorized (GetStarshipBuild userId' _) -> do
             userId <- ask
-            return $ userId /= userId'
+            if userId /= userId'
+                then throw Forbidden
+                else return ()

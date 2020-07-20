@@ -7,7 +7,7 @@ import AWS.Lambda.Events.ApiGateway.ProxyRequest
        (authorizer, requestContext)
 import AWS.Lambda.Runtime (mRuntimeWithContext)
 import BuildAuthorizer (authorizeUser)
-import BuildController (getUserId, httpHandler)
+import BuildController (forbidden, getUserId, httpHandler)
 import BuildRepo (buildRepoToDynamo)
 import BuildService (buildServiceFromBuildRepo)
 import Control.Lens (lens, set)
@@ -19,6 +19,7 @@ import Network.AWS
        (Credentials(Discover), LogLevel(Debug), newLogger, runResourceT)
 import Polysemy (runM)
 
+import Polysemy.Error (runError)
 -- This is here to enable optimizations
 import Polysemy.Internal
 import Polysemy.Reader (runReader)
@@ -62,7 +63,14 @@ main = do
                  -- authorizer is a requirement for a service, but with effects,
                  -- there's nothing that says that it _must_ be interpretted
                  -- with one.
+                 --
+                 -- Some attempts to use make the service higher order so that
+                 -- the controller can pass in the authorizer as a parameter
+                 -- failed pretty badly.  The resulting code is just _really_
+                 -- ugly (from what I was able to acheive anyway).
                      (getUserId (fromJust (authorizer (requestContext e)))) $
+                 fmap (either (const forbidden) id) $
+                 runError $
                  authorizeUser $
                  runReader tableName $
                  buildRepoToDynamo $ buildServiceFromBuildRepo $ httpHandler e)

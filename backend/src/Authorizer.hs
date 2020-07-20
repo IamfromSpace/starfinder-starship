@@ -23,11 +23,11 @@ module Authorizer where
 import Polysemy (Member, Sem, interpret, makeSem)
 
 data Authorizer action m b where
-    IsActionAuthorized :: action -> Authorizer action m Bool
+    CheckActionAuthorized :: action -> Authorizer action m ()
 
 makeSem ''Authorizer
 
 alwaysAuthed :: Sem ((Authorizer a) ': r) b -> Sem r b
 alwaysAuthed =
     interpret $ \case
-        IsActionAuthorized _ -> return True
+        CheckActionAuthorized _ -> return ()
