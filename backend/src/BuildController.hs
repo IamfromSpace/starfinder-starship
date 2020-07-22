@@ -47,55 +47,6 @@ instance FromJSON UserId where
     parseJSON (Object v) =
         UserId <$> (v .: "claims" >>= (\(Object v2) -> v2 .: "sub"))
 
--- TODO: These all seem to form a pattern where it's really just transforming
--- the Service result into ProxyResponse.  I'm still not totally convinced
--- that's the abstraction though.
-handleCreate ::
-       Member (BuildService a) r
-    => Text
-    -> Build Text ReferencedWeapon Text
-    -> Sem r ProxyResponse
-handleCreate userId build = do
-    eTag <- BS.saveNewBuild $ OwnedBy userId build
-    return
-        (ProxyResponse
-             ok200
-             (fromList [("ETag", hashToETagValue eTag)])
-             mempty
-             (textPlain "Done"))
-
-handleGet :: Member (BuildService a) r => Text -> Text -> Sem r ProxyResponse
-handleGet userId name = do
-    (ETagged eTag (OwnedBy _ build)) <- BS.getBuild userId name
-    return
-        (ProxyResponse
-             ok200
-             (fromList [("ETag", hashToETagValue eTag)])
-             mempty
-             (applicationJson build))
-
-handlePut ::
-       Member (BuildService a) r
-    => Text
-    -> Text
-    -> Int
-    -> Build Text ReferencedWeapon Text
-    -> Sem r ProxyResponse
-handlePut userId name expectedETag build = do
-    -- impossible to fail the transform
-    eTag <- fromRight <$>
-        BS.updateBuild
-            userId
-            name
-            expectedETag
-            (const $ pure $ OwnedBy userId build)
-    return
-        (ProxyResponse
-             ok200
-             (fromList [("ETag", hashToETagValue eTag)])
-             mempty
-             (textPlain "Done"))
-
 httpHandler ::
        Member (BuildService a) r => ProxyRequest UserId -> Sem r ProxyResponse
 httpHandler pr@(ProxyRequest {path, requestContext, body, httpMethod, headers}) =
@@ -105,12 +56,12 @@ httpHandler pr@(ProxyRequest {path, requestContext, body, httpMethod, headers}) 
                 "POST" ->
                     case eitherDecode' body of
                         Right (build :: Build Text ReferencedWeapon Text) ->
-                            handleCreate userId build
+                            done <$> (BS.saveNewBuild $ OwnedBy userId build)
                         Left err -> return (invalidJson err)
                 _ -> return methodNotAllowed
         Just (UserBuild userId name) ->
             case httpMethod of
-                "GET" -> handleGet userId name
+                "GET" -> got <$> BS.getBuild userId name
                 "PUT" ->
                     case (eitherDecode' body, getAndParseETag headers) of
                         (Right (build :: Build Text ReferencedWeapon Text), Right expectedETag) ->
@@ -121,11 +72,17 @@ httpHandler pr@(ProxyRequest {path, requestContext, body, httpMethod, headers}) 
                             -- for example, why would a Starship with status
                             -- name its build?  The starship is already named.
                             -- Perhaps `Named Text a` is a type.
-                                then handlePut userId name expectedETag build
+                                then (done . fromRight) <$>
+                                     BS.updateBuild
+                                         userId
+                                         name
+                                         expectedETag
+                                         (const $ pure $ OwnedBy userId build)
                                 else return badRequest
                         (Right (build :: Build Text ReferencedWeapon Text), Left NotPresent) ->
                             if B.name build == name
-                                then handleCreate userId build
+                                then done <$>
+                                     (BS.saveNewBuild $ OwnedBy userId build)
                                 else return badRequest
                         (_, Left Invalid) ->
                             return badRequest -- clearly didn't get this from us, so they're doing something wrong.
@@ -191,6 +148,22 @@ httpBuildServiceErrorHandler =
                         -- TODO: format these so their actionable
                         (textPlain $ pack $ show errors)
     in fmap (either handler id) . runError
+
+done :: Int -> ProxyResponse
+done eTag =
+    ProxyResponse
+        ok200
+        (fromList [("ETag", hashToETagValue eTag)])
+        mempty
+        (textPlain "Done")
+
+got :: ETagged (OwnedBy (Build Text ReferencedWeapon Text)) -> ProxyResponse
+got (ETagged eTag (OwnedBy _ build)) =
+    ProxyResponse
+        ok200
+        (fromList [("ETag", hashToETagValue eTag)])
+        mempty
+        (applicationJson build)
 
 invalidJson :: String -> ProxyResponse
 invalidJson err = ProxyResponse badRequest400 mempty mempty (textPlain (pack err))
