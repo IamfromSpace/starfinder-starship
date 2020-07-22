@@ -4,7 +4,9 @@ module Main where
 
 import AWS.Lambda.Context (HasLambdaContext(..), LambdaContext)
 import AWS.Lambda.Runtime (mRuntimeWithContext)
-import BuildController (forbidden, httpAuthorizer, httpHandler)
+import BuildController
+       (forbidden, httpAuthorizer, httpDynamoBuildRepoErrorHandler,
+        httpHandler)
 import BuildRepo (buildRepoToDynamo)
 import BuildService (buildServiceFromBuildRepo)
 import Control.Lens (lens, set)
@@ -64,4 +66,5 @@ main = do
                  -- ugly (from what I was able to acheive anyway).
                  httpAuthorizer e $
                  runReader tableName $
+                 httpDynamoBuildRepoErrorHandler $
                  buildRepoToDynamo $ buildServiceFromBuildRepo $ httpHandler e)

@@ -18,9 +18,9 @@ import AWS.Lambda.Events.ApiGateway.ProxyResponse
         ok200, preconditionFailed412, textPlain, unauthorized401)
 import Authorizer (Authorizer)
 import BuildAuthorizer (Forbidden, authorizeUser)
+import qualified BuildRepo as BR (DynamoBuildRepoError(..))
 import BuildService
-       (Action, BuildService, CreateError(..), GetError(..),
-        UpdateError(..))
+       (Action, BuildService, CreateError(..), UpdateError(..))
 import qualified BuildService as BS
 import Control.Monad ((>=>))
 import Data.Aeson (FromJSON(..), Value(..), (.:), eitherDecode')
@@ -66,13 +66,6 @@ handleCreate userId build = do
                      (fromList [("ETag", hashToETagValue eTag)])
                      mempty
                      (textPlain "Done"))
-        Left AlreadyExists ->
-            return
-                (ProxyResponse
-                     conflict409
-                     mempty
-                     mempty
-                     (textPlain "User already has a ship with that name."))
         Left (StaticValidationErrorC errors) ->
             return
                 (ProxyResponse
@@ -85,16 +78,13 @@ handleCreate userId build = do
 
 handleGet :: Member BuildService r => Text -> Text -> Sem r ProxyResponse
 handleGet userId name = do
-    record <- BS.getBuild userId name
-    case record of
-        Right (ETagged eTag (OwnedBy _ build)) ->
-            return
-                (ProxyResponse
-                     ok200
-                     (fromList [("ETag", hashToETagValue eTag)])
-                     mempty
-                     (applicationJson build))
-        Left DoesNotExistG -> return notFound
+    (ETagged eTag (OwnedBy _ build)) <- BS.getBuild userId name
+    return
+        (ProxyResponse
+             ok200
+             (fromList [("ETag", hashToETagValue eTag)])
+             mempty
+             (applicationJson build))
 
 handlePut ::
        Member BuildService r
@@ -118,7 +108,6 @@ handlePut userId name expectedETag build = do
                      (fromList [("ETag", hashToETagValue eTag)])
                      mempty
                      (textPlain "Done"))
-        Left DoesNotExistU -> return notFound
         Left (StaticValidationErrorU x) ->
             return
                 (ProxyResponse
@@ -187,6 +176,27 @@ httpAuthorizer ::
 httpAuthorizer ProxyRequest {requestContext} =
     runReader (getUserId (fromJust (authorizer requestContext))) .
     fmap (either (const forbidden) id) . runError . authorizeUser
+
+httpDynamoBuildRepoErrorHandler ::
+       Sem ((Error BR.DynamoBuildRepoError) ': r) ProxyResponse
+    -> Sem r ProxyResponse
+httpDynamoBuildRepoErrorHandler =
+    let handler =
+            \case
+                BR.AlreadyExists ->
+                    ProxyResponse
+                        conflict409
+                        mempty
+                        mempty
+                        (textPlain "User already has a ship with that name.")
+                BR.DoesNotExist -> notFound
+                BR.ETagMismatch (ETagged eTag (OwnedBy _ build)) ->
+                    ProxyResponse
+                        preconditionFailed412
+                        (fromList [("ETag", hashToETagValue eTag)])
+                        mempty
+                        (applicationJson build)
+    in fmap (either handler id) . runError
 
 invalidJson :: String -> ProxyResponse
 invalidJson err = ProxyResponse badRequest400 mempty mempty (textPlain (pack err))

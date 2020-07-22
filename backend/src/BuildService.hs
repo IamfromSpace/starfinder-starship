@@ -66,24 +66,19 @@ data ChangeValidationError
     deriving (Show)
 
 data CreateError
-    = AlreadyExists
     -- TODO: figure out how to do duplicate names better
-    | StaticValidationErrorC [StaticValidationError]
+      =
+    StaticValidationErrorC [StaticValidationError]
     deriving (Show)
 
 data UpdateError
-    = DoesNotExistU
-    | StaticValidationErrorU [StaticValidationError]
+    = StaticValidationErrorU [StaticValidationError]
     -- TODO: We don't really want this to be an ETag in any context except the
     -- controller context
     | ETagMismatch (ETagged (OwnedBy (Build Text ReferencedWeapon Text)))
     | IllegalChange [ChangeValidationError]
     -- TODO: Ideally this is paramaterized
     | TransformError
-    deriving (Show)
-
-data GetError
-    = DoesNotExistG
     deriving (Show)
 
 data BuildService m a where
@@ -101,7 +96,7 @@ data BuildService m a where
     GetBuild
         :: Text
         -> Text
-        -> BuildService m (Either GetError (ETagged (OwnedBy (Build Text ReferencedWeapon Text))))
+        -> BuildService m (ETagged (OwnedBy (Build Text ReferencedWeapon Text)))
     GetBuildsByOwner :: Text -> BuildService m [Text]
 
 makeSem ''BuildService
@@ -115,22 +110,14 @@ buildServiceFromBuildRepo =
         SaveNewBuild v@(OwnedBy userId build) ->
             let validated =
                     first StaticValidationErrorC $ populateAndValidate build
-                mapSaveBuildError =
-                    (first
-                         (\case
-                              BR.AlreadyExists -> AlreadyExists))
             in do checkActionAuthorized (CreateStarshipBuild userId)
                   case validated of
                       Left es -> return $ Left es
-                      Right _ -> mapSaveBuildError <$> BR.saveNewBuild v
+                      Right _ -> Right <$> BR.saveNewBuild v
         UpdateBuild userId name expectedETag f -> do
-            getRes <- getBuild' userId name
-            let mapGetError =
-                    \case
-                        DoesNotExistG -> DoesNotExistU
+            (ceob@(ETagged currentETag currentOwnedBuild)) <-
+                getBuild' userId name
             let eNewOwnedBuild = do
-                    (ceob@(ETagged currentETag currentOwnedBuild)) <-
-                        first mapGetError getRes
                     if currentETag /= expectedETag
                         then Left $ ETagMismatch ceob
                         else Right ()
@@ -142,13 +129,8 @@ buildServiceFromBuildRepo =
                     case validateChange currentOwnedBuild newOwnedBuild of
                         [] -> return newOwnedBuild
                         es -> Left $ IllegalChange es
-            let mapBuildRepoError =
-                    \case
-                        BR.DoesNotExist -> DoesNotExistU
-                        BR.ETagMismatch x -> ETagMismatch x
             let withNewOwnedBuild newOwnedBuild =
-                    let putRes = BR.updateBuild expectedETag newOwnedBuild
-                    in first mapBuildRepoError <$> putRes
+                    Right <$> BR.updateBuild expectedETag newOwnedBuild
             checkActionAuthorized (UpdateStarshipBuild userId name)
             either (return . Left) withNewOwnedBuild eNewOwnedBuild
         GetBuild userId name -> getBuild' userId name
@@ -157,10 +139,10 @@ buildServiceFromBuildRepo =
 getBuild' ::
        Member BR.BuildRepo r
     => Member (Authorizer Action) r =>
-           Text -> Text -> Sem r (Either GetError (ETagged (OwnedBy (Build Text ReferencedWeapon Text))))
+           Text -> Text -> Sem r (ETagged (OwnedBy (Build Text ReferencedWeapon Text)))
 getBuild' userId name = do
     checkActionAuthorized (GetStarshipBuild userId name)
-    maybe (Left DoesNotExistG) Right <$> BR.getBuild userId name
+    BR.getBuild userId name
 
 validateChange ::
        OwnedBy (Build Text a b)

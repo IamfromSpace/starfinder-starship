@@ -46,91 +46,102 @@ import Network.AWS.DynamoDB.Types
        (_ConditionalCheckFailedException)
 import Polysemy (makeSem, Sem, Member, Embed, interpret)
 import Polysemy.Embed (embed)
+import Polysemy.Error (Error, throw)
 import Polysemy.Reader (Reader, ask)
 import Starfinder.Starship.Build (Build(Build, name))
 import Starfinder.Starship.ReferencedWeapon (ReferencedWeapon)
 
-data SaveNewError =
-    AlreadyExists
-
-data UpdateError
-    = DoesNotExist
-    | ETagMismatch (ETagged (OwnedBy (Build Text ReferencedWeapon Text)))
-
 data BuildRepo m a where
     SaveNewBuild
-        :: OwnedBy (Build Text ReferencedWeapon Text)
-        -> BuildRepo m (Either SaveNewError Int)
+        :: OwnedBy (Build Text ReferencedWeapon Text) -> BuildRepo m Int
     UpdateBuild
-        :: Int
-        -> OwnedBy (Build Text ReferencedWeapon Text)
-        -> BuildRepo m (Either UpdateError Int)
+        :: Int -> OwnedBy (Build Text ReferencedWeapon Text) -> BuildRepo m Int
     GetBuild
         :: Text
         -> Text
-        -> BuildRepo m (Maybe (ETagged (OwnedBy (Build Text ReferencedWeapon Text))))
+        -> BuildRepo m (ETagged (OwnedBy (Build Text ReferencedWeapon Text)))
     GetBuildsByOwner :: a -> Text -> BuildRepo m [Text]
 
 makeSem ''BuildRepo
 
-buildRepoToDynamo :: (AWSConstraint ar m, Member (Reader Text) r, Member (Embed m) r) => Sem (BuildRepo ': r) a -> Sem r a
-buildRepoToDynamo = interpret $ \case
-    SaveNewBuild ownedBuild -> do
-        tableName <- ask
-        let eTag = hash ownedBuild
-        let item =
-                set
-                    piExpressionAttributeNames
-                    (fromList [("#hash", "HASH1"), ("#range", "RANGE1.1")]) $
-                set
-                    piConditionExpression
-                    (Just
-                         "attribute_not_exists(#hash) AND attribute_not_exists(#range)") $
-                set
-                    piItem
-                    (ownedReferencedBuildToItem (ETagged eTag ownedBuild))
-                    (putItem tableName)
-        res <- embed $ trying _ConditionalCheckFailedException (send item)
-        return $ bimap (const AlreadyExists) (const eTag) res
-    UpdateBuild expectedETag ownedBuild@(OwnedBy userId (Build {name})) -> do
-        tableName <- ask
-        let newETag = hash ownedBuild
-        let item =
-                set
-                    piExpressionAttributeValues
-                    (fromList [(":eTag", toAttrValue expectedETag)]) $
-                set
-                    piExpressionAttributeNames
-                    (fromList
-                         [ ("#eTag", "eTag")
-                         , ("#hash", "HASH1")
-                         , ("#range", "RANGE1.1")
-                         ]) $
-                set
-                    piConditionExpression
-                    (Just
-                         "#eTag = :eTag AND attribute_exists(#hash) AND attribute_exists(#range)") $
-                set
-                    piItem
-                    (ownedReferencedBuildToItem (ETagged newETag ownedBuild))
-                    (putItem tableName)
-        res <- embed $ trying _ConditionalCheckFailedException (send item)
-        case res of
-            Left _
+data DynamoBuildRepoError
+    = AlreadyExists
+    | DoesNotExist
+    | ETagMismatch (ETagged (OwnedBy (Build Text ReferencedWeapon Text)))
+
+buildRepoToDynamo ::
+       ( AWSConstraint ar m
+       , Member (Reader Text) r
+       , Member (Embed m) r
+       , Member (Error DynamoBuildRepoError) r
+       )
+    => Sem (BuildRepo ': r) a
+    -> Sem r a
+buildRepoToDynamo =
+    interpret $ \case
+        SaveNewBuild ownedBuild -> do
+            tableName <- ask
+            let eTag = hash ownedBuild
+            let item =
+                    set
+                        piExpressionAttributeNames
+                        (fromList [("#hash", "HASH1"), ("#range", "RANGE1.1")]) $
+                    set
+                        piConditionExpression
+                        (Just
+                             "attribute_not_exists(#hash) AND attribute_not_exists(#range)") $
+                    set
+                        piItem
+                        (ownedReferencedBuildToItem (ETagged eTag ownedBuild))
+                        (putItem tableName)
+            res <- embed $ trying _ConditionalCheckFailedException (send item)
+            case res of
+                Left _ -> throw AlreadyExists
+                Right _ -> return eTag
+        UpdateBuild expectedETag ownedBuild@(OwnedBy userId (Build {name})) -> do
+            tableName <- ask
+            let newETag = hash ownedBuild
+            let item =
+                    set
+                        piExpressionAttributeValues
+                        (fromList [(":eTag", toAttrValue expectedETag)]) $
+                    set
+                        piExpressionAttributeNames
+                        (fromList
+                             [ ("#eTag", "eTag")
+                             , ("#hash", "HASH1")
+                             , ("#range", "RANGE1.1")
+                             ]) $
+                    set
+                        piConditionExpression
+                        (Just
+                             "#eTag = :eTag AND attribute_exists(#hash) AND attribute_exists(#range)") $
+                    set
+                        piItem
+                        (ownedReferencedBuildToItem (ETagged newETag ownedBuild))
+                        (putItem tableName)
+            res <- embed $ trying _ConditionalCheckFailedException (send item)
+            case res of
+                Left _
               -- Since get is a consistent read, and ETags should be
               -- unguessable, there should be no chance that the ETag _now_
               -- matches if it didn't on write.  I think.
               -- TODO: A hashed salt helps with unguessability (but seems
               -- overkill).
-             ->
-                fmap
-                    (Left . maybe DoesNotExist ETagMismatch)
-                    (getBuild' userId name)
-            Right _ -> return $ Right newETag
-    GetBuild userId name -> getBuild' userId name
-    GetBuildsByOwner _ _ -> undefined
+                 -> throw =<< ETagMismatch <$> getBuild' userId name
+                Right _ -> return newETag
+        GetBuild userId name -> getBuild' userId name
+        GetBuildsByOwner _ _ -> undefined
 
-getBuild' :: (AWSConstraint ar m, Member (Reader Text) r, Member (Embed m) r) => Text -> Text -> Sem r (Maybe (ETagged (OwnedBy (Build Text ReferencedWeapon Text))))
+getBuild' ::
+       ( AWSConstraint ar m
+       , Member (Reader Text) r
+       , Member (Embed m) r
+       , Member (Error DynamoBuildRepoError) r
+       )
+    => Text
+    -> Text
+    -> Sem r (ETagged (OwnedBy (Build Text ReferencedWeapon Text)))
 getBuild' userId name = do
     tableName <- ask
     let item
@@ -147,4 +158,5 @@ getBuild' userId name = do
                      ])
                 (getItem tableName)
     res <- embed $ send item
-    return $ fromAttrValue $ toAttrValue $ view girsItem res
+    maybe (throw DoesNotExist) return $
+        fromAttrValue $ toAttrValue $ view girsItem res
