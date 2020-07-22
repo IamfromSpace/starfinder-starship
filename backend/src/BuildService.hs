@@ -73,27 +73,24 @@ data BuildServiceError
     -- TODO: This should be pulled out as a common error
     | ETagMismatch (ETagged (OwnedBy (Build Text ReferencedWeapon Text)))
     | IllegalChange [ChangeValidationError]
-    -- TODO: Ideally this is paramaterized
-    -- TODO: This probably should be part of the Effect, just _as_ the parametr
-    | TransformError
     deriving (Show)
 
-data BuildService m a where
+data BuildService x m a where
     SaveNewBuild
-        :: OwnedBy (Build Text ReferencedWeapon Text) -> BuildService m Int
+        :: OwnedBy (Build Text ReferencedWeapon Text) -> BuildService x m Int
     UpdateBuild
         :: Text
         -> Text
         -> Int
         -- TODO: Ideally this could fail with a specific error or even happen in
         -- its own monad!
-        -> (OwnedBy (Build Text ReferencedWeapon Text) -> Maybe (OwnedBy (Build Text ReferencedWeapon Text)))
-        -> BuildService m Int
+        -> (OwnedBy (Build Text ReferencedWeapon Text) -> Either x (OwnedBy (Build Text ReferencedWeapon Text)))
+        -> BuildService x m (Either x Int)
     GetBuild
         :: Text
         -> Text
-        -> BuildService m (ETagged (OwnedBy (Build Text ReferencedWeapon Text)))
-    GetBuildsByOwner :: Text -> BuildService m [Text]
+        -> BuildService x m (ETagged (OwnedBy (Build Text ReferencedWeapon Text)))
+    GetBuildsByOwner :: Text -> BuildService x m [Text]
 
 makeSem ''BuildService
 
@@ -102,7 +99,7 @@ buildServiceFromBuildRepo ::
        , Member (Authorizer Action) r
        , Member (Error BuildServiceError) r
        )
-    => Sem (BuildService ': r) a
+    => Sem (BuildService x ': r) a
     -> Sem r a
 buildServiceFromBuildRepo =
     interpret $ \case
@@ -114,15 +111,16 @@ buildServiceFromBuildRepo =
             (ceob@(ETagged currentETag currentOwnedBuild)) <-
                 getBuild' userId name
             when (currentETag /= expectedETag) $ throw $ ETagMismatch ceob
-            (newOwnedBuild@(OwnedBy _ newBuild)) <-
-                maybe (throw TransformError) return $ f currentOwnedBuild
-            fromEither $
-                first (StaticValidationError) $ populateAndValidate newBuild
-            case validateChange currentOwnedBuild newOwnedBuild of
-                [] -> return newOwnedBuild
-                es -> throw $ IllegalChange es
-            checkActionAuthorized (UpdateStarshipBuild userId name)
-            BR.updateBuild expectedETag newOwnedBuild
+            let withNew (newOwnedBuild@(OwnedBy _ newBuild)) = do
+                    fromEither $
+                        first (StaticValidationError) $
+                        populateAndValidate newBuild
+                    case validateChange currentOwnedBuild newOwnedBuild of
+                        [] -> return newOwnedBuild
+                        es -> throw $ IllegalChange es
+                    checkActionAuthorized (UpdateStarshipBuild userId name)
+                    BR.updateBuild expectedETag newOwnedBuild
+            traverse withNew $ f currentOwnedBuild
         GetBuild userId name -> getBuild' userId name
         GetBuildsByOwner _ -> undefined
 

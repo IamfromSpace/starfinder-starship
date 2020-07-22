@@ -51,7 +51,7 @@ instance FromJSON UserId where
 -- the Service result into ProxyResponse.  I'm still not totally convinced
 -- that's the abstraction though.
 handleCreate ::
-       Member BuildService r
+       Member (BuildService a) r
     => Text
     -> Build Text ReferencedWeapon Text
     -> Sem r ProxyResponse
@@ -64,7 +64,7 @@ handleCreate userId build = do
              mempty
              (textPlain "Done"))
 
-handleGet :: Member BuildService r => Text -> Text -> Sem r ProxyResponse
+handleGet :: Member (BuildService a) r => Text -> Text -> Sem r ProxyResponse
 handleGet userId name = do
     (ETagged eTag (OwnedBy _ build)) <- BS.getBuild userId name
     return
@@ -75,14 +75,15 @@ handleGet userId name = do
              (applicationJson build))
 
 handlePut ::
-       Member BuildService r
+       Member (BuildService a) r
     => Text
     -> Text
     -> Int
     -> Build Text ReferencedWeapon Text
     -> Sem r ProxyResponse
 handlePut userId name expectedETag build = do
-    eTag <-
+    -- impossible to fail the transform
+    eTag <- fromRight <$>
         BS.updateBuild
             userId
             name
@@ -96,7 +97,7 @@ handlePut userId name expectedETag build = do
              (textPlain "Done"))
 
 httpHandler ::
-       Member BuildService r => ProxyRequest UserId -> Sem r ProxyResponse
+       Member (BuildService a) r => ProxyRequest UserId -> Sem r ProxyResponse
 httpHandler pr@(ProxyRequest {path, requestContext, body, httpMethod, headers}) =
     case parseApiGatweayPath path of
         Just (UserBuilds userId) ->
@@ -189,8 +190,6 @@ httpBuildServiceErrorHandler =
                         mempty
                         -- TODO: format these so their actionable
                         (textPlain $ pack $ show errors)
-                -- Impossible today and should probably be elsewhere
-                BS.TransformError -> undefined
     in fmap (either handler id) . runError
 
 invalidJson :: String -> ProxyResponse
@@ -257,3 +256,6 @@ parseApiGatweayPath =
                 ["resources", "users", u, "builds", b] -> Just $ UserBuild u b
                 _ -> Nothing
     in parseSegments . filter (/= "") . decodePathSegments . encodeUtf8
+
+fromRight (Right x) = x
+fromRight (Left x) = error "Attempted to fromRight a Left!"
