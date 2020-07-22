@@ -104,10 +104,11 @@ buildServiceFromBuildRepo ::
 buildServiceFromBuildRepo =
     interpret $ \case
         SaveNewBuild v@(OwnedBy userId build) -> do
-            fromEither $ first StaticValidationError $ populateAndValidate build
             checkActionAuthorized (CreateStarshipBuild userId)
+            fromEither $ first StaticValidationError $ populateAndValidate build
             BR.saveNewBuild v
         UpdateBuild userId name expectedETag f -> do
+            checkActionAuthorized (UpdateStarshipBuild userId name)
             (ceob@(ETagged currentETag currentOwnedBuild)) <-
                 getBuild' userId name
             when (currentETag /= expectedETag) $ throw $ ETagMismatch ceob
@@ -118,7 +119,6 @@ buildServiceFromBuildRepo =
                     case validateChange currentOwnedBuild newOwnedBuild of
                         [] -> return newOwnedBuild
                         es -> throw $ IllegalChange es
-                    checkActionAuthorized (UpdateStarshipBuild userId name)
                     BR.updateBuild expectedETag newOwnedBuild
             traverse withNew $ f currentOwnedBuild
         GetBuild userId name -> getBuild' userId name
