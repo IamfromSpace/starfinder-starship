@@ -36,6 +36,7 @@ import Data.Bifunctor (bimap)
 import Data.HashMap.Strict (fromList)
 import Data.Hashable (Hashable(..))
 import Data.Text
+import Error.VersionMismatch (VersionMismatch(..))
 import Lib
 import Network.AWS.DynamoDB.GetItem
        (GetItem, getItem, giConsistentRead, giKey, girsItem)
@@ -67,13 +68,13 @@ makeSem ''BuildRepo
 data DynamoBuildRepoError
     = AlreadyExists
     | DoesNotExist
-    | ETagMismatch (ETagged (OwnedBy (Build Text ReferencedWeapon Text)))
 
 buildRepoToDynamo ::
        ( AWSConstraint ar m
        , Member (Reader Text) r
        , Member (Embed m) r
        , Member (Error DynamoBuildRepoError) r
+       , Member (Error (VersionMismatch (OwnedBy (Build Text ReferencedWeapon Text)))) r
        )
     => Sem (BuildRepo ': r) a
     -> Sem r a
@@ -128,7 +129,8 @@ buildRepoToDynamo =
               -- matches if it didn't on write.  I think.
               -- TODO: A hashed salt helps with unguessability (but seems
               -- overkill).
-                 -> throw =<< ETagMismatch <$> getBuild' userId name
+                 ->
+                   throw =<< VersionMismatch <$> getBuild' userId name
                 Right _ -> return newETag
         GetBuild userId name -> getBuild' userId name
         GetBuildsByOwner _ _ -> undefined

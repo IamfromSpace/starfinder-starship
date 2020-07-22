@@ -35,6 +35,7 @@ import Data.HashMap.Strict (fromList)
 import qualified Data.KeyedSet as KS
 import Data.Maybe (catMaybes)
 import Data.Text
+import Error.VersionMismatch (VersionMismatch(..))
 import Lib
 import Polysemy (Member, Sem, interpret, makeSem)
 import Polysemy.Error (Error, fromEither, throw)
@@ -68,10 +69,6 @@ data ChangeValidationError
 
 data BuildServiceError
     = StaticValidationError [StaticValidationError]
-    -- TODO: We don't really want this to be an ETag in any context except the
-    -- controller context
-    -- TODO: This should be pulled out as a common error
-    | ETagMismatch (ETagged (OwnedBy (Build Text ReferencedWeapon Text)))
     | IllegalChange [ChangeValidationError]
     deriving (Show)
 
@@ -98,6 +95,7 @@ buildServiceFromBuildRepo ::
        ( Member BR.BuildRepo r
        , Member (Authorizer Action) r
        , Member (Error BuildServiceError) r
+       , Member (Error (VersionMismatch (OwnedBy (Build Text ReferencedWeapon Text)))) r
        )
     => Sem (BuildService x ': r) a
     -> Sem r a
@@ -111,7 +109,7 @@ buildServiceFromBuildRepo =
             checkActionAuthorized (UpdateStarshipBuild userId name)
             (ceob@(ETagged currentETag currentOwnedBuild)) <-
                 getBuild' userId name
-            when (currentETag /= expectedETag) $ throw $ ETagMismatch ceob
+            when (currentETag /= expectedETag) $ throw $ VersionMismatch ceob
             let withNew (newOwnedBuild@(OwnedBy _ newBuild)) = do
                     fromEither $
                         first (StaticValidationError) $

@@ -28,6 +28,7 @@ import Data.HashMap.Strict (HashMap, fromList, lookup)
 import Data.Maybe (fromJust)
 import Data.Text (Text, pack, unpack)
 import Data.Text.Encoding (encodeUtf8)
+import Error.VersionMismatch (VersionMismatch(..))
 import Lib (ETagged(..), OwnedBy(..))
 import Network.HTTP.Types.URI (decodePathSegments)
 import Polysemy (Member, Sem)
@@ -112,12 +113,6 @@ httpDynamoBuildRepoErrorHandler =
                         mempty
                         (textPlain "User already has a ship with that name.")
                 BR.DoesNotExist -> notFound
-                BR.ETagMismatch (ETagged eTag (OwnedBy _ build)) ->
-                    ProxyResponse
-                        preconditionFailed412
-                        (fromList [("ETag", hashToETagValue eTag)])
-                        mempty
-                        (applicationJson build)
     in fmap (either handler id) . runError
 
 httpBuildServiceErrorHandler ::
@@ -134,12 +129,6 @@ httpBuildServiceErrorHandler =
                         -- TODO: Ideally these are formatted so they're more
                         -- actionable (both Create and Update)
                         (textPlain $ pack $ show errors)
-                BS.ETagMismatch (ETagged eTag (OwnedBy _ build)) ->
-                    ProxyResponse
-                        preconditionFailed412
-                        (fromList [("ETag", hashToETagValue eTag)])
-                        mempty
-                        (applicationJson build)
                 BS.IllegalChange errors ->
                     ProxyResponse
                         conflict409
@@ -147,6 +136,20 @@ httpBuildServiceErrorHandler =
                         mempty
                         -- TODO: format these so their actionable
                         (textPlain $ pack $ show errors)
+    in fmap (either handler id) . runError
+
+httpVersionMismatchHandler ::
+       Sem ((Error (VersionMismatch (OwnedBy (Build Text ReferencedWeapon Text)))) ': r) ProxyResponse
+    -> Sem r ProxyResponse
+httpVersionMismatchHandler =
+    let handler =
+            \case
+                VersionMismatch (ETagged eTag (OwnedBy _ build)) ->
+                    ProxyResponse
+                        preconditionFailed412
+                        (fromList [("ETag", hashToETagValue eTag)])
+                        mempty
+                        (applicationJson build)
     in fmap (either handler id) . runError
 
 done :: Int -> ProxyResponse
