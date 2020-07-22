@@ -27,7 +27,7 @@ import Authorizer (Authorizer, checkActionAuthorized)
 import qualified BuildRepo as BR
 import Control.Exception.Lens (trying)
 import Control.Lens (set, view)
-import Control.Monad ((>=>))
+import Control.Monad ((>=>), when)
 import Control.Monad.Reader (MonadReader, ask)
 import Data.Bifunctor (bimap)
 import Data.Bifunctor (first)
@@ -37,6 +37,7 @@ import Data.Maybe (catMaybes)
 import Data.Text
 import Lib
 import Polysemy (Member, Sem, interpret, makeSem)
+import Polysemy.Error (Error, fromEither, throw)
 import Starfinder.Starship.Assets.Frames (frames)
 import qualified Starfinder.Starship.Assets.Shields as S
 import Starfinder.Starship.Assets.Weapons (dereferenceWeapon)
@@ -65,26 +66,21 @@ data ChangeValidationError
     | FrameChanged
     deriving (Show)
 
-data CreateError
-    -- TODO: figure out how to do duplicate names better
-      =
-    StaticValidationErrorC [StaticValidationError]
-    deriving (Show)
-
-data UpdateError
-    = StaticValidationErrorU [StaticValidationError]
+data BuildServiceError
+    = StaticValidationError [StaticValidationError]
     -- TODO: We don't really want this to be an ETag in any context except the
     -- controller context
+    -- TODO: This should be pulled out as a common error
     | ETagMismatch (ETagged (OwnedBy (Build Text ReferencedWeapon Text)))
     | IllegalChange [ChangeValidationError]
     -- TODO: Ideally this is paramaterized
+    -- TODO: This probably should be part of the Effect, just _as_ the parametr
     | TransformError
     deriving (Show)
 
 data BuildService m a where
     SaveNewBuild
-        :: OwnedBy (Build Text ReferencedWeapon Text)
-        -> BuildService m (Either CreateError Int)
+        :: OwnedBy (Build Text ReferencedWeapon Text) -> BuildService m Int
     UpdateBuild
         :: Text
         -> Text
@@ -92,7 +88,7 @@ data BuildService m a where
         -- TODO: Ideally this could fail with a specific error or even happen in
         -- its own monad!
         -> (OwnedBy (Build Text ReferencedWeapon Text) -> Maybe (OwnedBy (Build Text ReferencedWeapon Text)))
-        -> BuildService m (Either UpdateError Int)
+        -> BuildService m Int
     GetBuild
         :: Text
         -> Text
@@ -102,37 +98,31 @@ data BuildService m a where
 makeSem ''BuildService
 
 buildServiceFromBuildRepo ::
-       (Member BR.BuildRepo r, Member (Authorizer Action) r)
+       ( Member BR.BuildRepo r
+       , Member (Authorizer Action) r
+       , Member (Error BuildServiceError) r
+       )
     => Sem (BuildService ': r) a
     -> Sem r a
 buildServiceFromBuildRepo =
     interpret $ \case
-        SaveNewBuild v@(OwnedBy userId build) ->
-            let validated =
-                    first StaticValidationErrorC $ populateAndValidate build
-            in do checkActionAuthorized (CreateStarshipBuild userId)
-                  case validated of
-                      Left es -> return $ Left es
-                      Right _ -> Right <$> BR.saveNewBuild v
+        SaveNewBuild v@(OwnedBy userId build) -> do
+            fromEither $ first StaticValidationError $ populateAndValidate build
+            checkActionAuthorized (CreateStarshipBuild userId)
+            BR.saveNewBuild v
         UpdateBuild userId name expectedETag f -> do
             (ceob@(ETagged currentETag currentOwnedBuild)) <-
                 getBuild' userId name
-            let eNewOwnedBuild = do
-                    if currentETag /= expectedETag
-                        then Left $ ETagMismatch ceob
-                        else Right ()
-                    (newOwnedBuild@(OwnedBy _ newBuild)) <-
-                        case f currentOwnedBuild of
-                            Nothing -> Left TransformError
-                            Just x -> Right x
-                    first StaticValidationErrorU $ populateAndValidate newBuild
-                    case validateChange currentOwnedBuild newOwnedBuild of
-                        [] -> return newOwnedBuild
-                        es -> Left $ IllegalChange es
-            let withNewOwnedBuild newOwnedBuild =
-                    Right <$> BR.updateBuild expectedETag newOwnedBuild
+            when (currentETag /= expectedETag) $ throw $ ETagMismatch ceob
+            (newOwnedBuild@(OwnedBy _ newBuild)) <-
+                maybe (throw TransformError) return $ f currentOwnedBuild
+            fromEither $
+                first (StaticValidationError) $ populateAndValidate newBuild
+            case validateChange currentOwnedBuild newOwnedBuild of
+                [] -> return newOwnedBuild
+                es -> throw $ IllegalChange es
             checkActionAuthorized (UpdateStarshipBuild userId name)
-            either (return . Left) withNewOwnedBuild eNewOwnedBuild
+            BR.updateBuild expectedETag newOwnedBuild
         GetBuild userId name -> getBuild' userId name
         GetBuildsByOwner _ -> undefined
 

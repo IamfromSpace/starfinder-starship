@@ -19,8 +19,7 @@ import AWS.Lambda.Events.ApiGateway.ProxyResponse
 import Authorizer (Authorizer)
 import BuildAuthorizer (Forbidden, authorizeUser)
 import qualified BuildRepo as BR (DynamoBuildRepoError(..))
-import BuildService
-       (Action, BuildService, CreateError(..), UpdateError(..))
+import BuildService (Action, BuildService)
 import qualified BuildService as BS
 import Control.Monad ((>=>))
 import Data.Aeson (FromJSON(..), Value(..), (.:), eitherDecode')
@@ -57,24 +56,13 @@ handleCreate ::
     -> Build Text ReferencedWeapon Text
     -> Sem r ProxyResponse
 handleCreate userId build = do
-    errorOrETag <- BS.saveNewBuild $ OwnedBy userId build
-    case errorOrETag of
-        Right eTag ->
-            return
-                (ProxyResponse
-                     ok200
-                     (fromList [("ETag", hashToETagValue eTag)])
-                     mempty
-                     (textPlain "Done"))
-        Left (StaticValidationErrorC errors) ->
-            return
-                (ProxyResponse
-                     badRequest400
-                     mempty
-                     mempty
-                     -- TODO: Ideally these are formatted so they're
-                     -- more actionable (both Create and Update)
-                     (textPlain $ pack $ show errors))
+    eTag <- BS.saveNewBuild $ OwnedBy userId build
+    return
+        (ProxyResponse
+             ok200
+             (fromList [("ETag", hashToETagValue eTag)])
+             mempty
+             (textPlain "Done"))
 
 handleGet :: Member BuildService r => Text -> Text -> Sem r ProxyResponse
 handleGet userId name = do
@@ -94,42 +82,18 @@ handlePut ::
     -> Build Text ReferencedWeapon Text
     -> Sem r ProxyResponse
 handlePut userId name expectedETag build = do
-    res <-
+    eTag <-
         BS.updateBuild
             userId
             name
             expectedETag
             (const $ pure $ OwnedBy userId build)
-    case res of
-        Right eTag ->
-            return
-                (ProxyResponse
-                     ok200
-                     (fromList [("ETag", hashToETagValue eTag)])
-                     mempty
-                     (textPlain "Done"))
-        Left (StaticValidationErrorU x) ->
-            return
-                (ProxyResponse
-                     badRequest400
-                     mempty
-                     mempty
-                     (textPlain (pack $ show x)))
-        Left (ETagMismatch (ETagged eTag (OwnedBy _ build))) ->
-            return
-                (ProxyResponse
-                     preconditionFailed412
-                     (fromList [("ETag", hashToETagValue eTag)])
-                     mempty
-                     (applicationJson build))
-        Left (IllegalChange x) ->
-            return
-                (ProxyResponse
-                     conflict409
-                     mempty
-                     mempty
-                     (textPlain $ pack $ show x))
-        Left TransformError -> undefined -- impossible
+    return
+        (ProxyResponse
+             ok200
+             (fromList [("ETag", hashToETagValue eTag)])
+             mempty
+             (textPlain "Done"))
 
 httpHandler ::
        Member BuildService r => ProxyRequest UserId -> Sem r ProxyResponse
@@ -196,6 +160,37 @@ httpDynamoBuildRepoErrorHandler =
                         (fromList [("ETag", hashToETagValue eTag)])
                         mempty
                         (applicationJson build)
+    in fmap (either handler id) . runError
+
+httpBuildServiceErrorHandler ::
+       Sem ((Error BS.BuildServiceError) ': r) ProxyResponse
+    -> Sem r ProxyResponse
+httpBuildServiceErrorHandler =
+    let handler =
+            \case
+                BS.StaticValidationError errors ->
+                    ProxyResponse
+                        badRequest400
+                        mempty
+                        mempty
+                        -- TODO: Ideally these are formatted so they're more
+                        -- actionable (both Create and Update)
+                        (textPlain $ pack $ show errors)
+                BS.ETagMismatch (ETagged eTag (OwnedBy _ build)) ->
+                    ProxyResponse
+                        preconditionFailed412
+                        (fromList [("ETag", hashToETagValue eTag)])
+                        mempty
+                        (applicationJson build)
+                BS.IllegalChange errors ->
+                    ProxyResponse
+                        conflict409
+                        mempty
+                        mempty
+                        -- TODO: format these so their actionable
+                        (textPlain $ pack $ show errors)
+                -- Impossible today and should probably be elsewhere
+                BS.TransformError -> undefined
     in fmap (either handler id) . runError
 
 invalidJson :: String -> ProxyResponse
