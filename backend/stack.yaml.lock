@@ -23,12 +23,12 @@ packages:
     version: 0.2.0
     git: https://github.com/Nike-Inc/hal.git
     pantry-tree:
-      size: 1575
-      sha256: ac01e3bc7a2fa1b0a7d208bbc9b46728e8590bf79b86665557d24a4cb29d1fec
-    commit: 1749a2998a420b178a635a57f6f2851dca07e563
+      size: 1576
+      sha256: 3380f2b2841ea5fc333b800b6b5718ad7361c41538f2bb0debf866647da79d9f
+    commit: f9f2b12fede1aa0fdc70be088ba8898c142b3dde
   original:
     git: https://github.com/Nike-Inc/hal.git
-    commit: 1749a2998a420b178a635a57f6f2851dca07e563
+    commit: f9f2b12fede1aa0fdc70be088ba8898c142b3dde
 snapshots:
 - completed:
     size: 531707

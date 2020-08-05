@@ -13,9 +13,9 @@ module BuildController where
 import AWS.Lambda.Events.ApiGateway.ProxyRequest
        (ProxyRequest(..), authorizer)
 import AWS.Lambda.Events.ApiGateway.ProxyResponse
-       (ProxyResponse(..), applicationJson, badRequest400, conflict409,
+       (ProxyResponse, setHeader, applicationJson, badRequest400, conflict409,
         forbidden403, methodNotAllowed405, notFound404, notImplemented501,
-        ok200, preconditionFailed412, textPlain, unauthorized401)
+        ok200, preconditionFailed412, response, textPlain, unauthorized401)
 import Authorizer (Authorizer)
 import BuildAuthorizer (Forbidden, authorizeUser)
 import qualified BuildRepo as BR (DynamoBuildRepoError(..))
@@ -24,7 +24,7 @@ import qualified BuildService as BS
 import Control.Monad ((>=>))
 import Data.Aeson (FromJSON(..), Value(..), (.:), eitherDecode')
 import Data.CaseInsensitive (CI, mk)
-import Data.HashMap.Strict (HashMap, fromList, lookup)
+import Data.HashMap.Strict (HashMap, lookup)
 import Data.Maybe (fromJust)
 import Data.Text (Text, pack, unpack)
 import Data.Text.Encoding (encodeUtf8)
@@ -107,10 +107,8 @@ httpDynamoBuildRepoErrorHandler =
     let handler =
             \case
                 BR.AlreadyExists ->
-                    ProxyResponse
+                    response
                         conflict409
-                        mempty
-                        mempty
                         (textPlain "User already has a ship with that name.")
                 BR.DoesNotExist -> notFound
     in fmap (either handler id) . runError
@@ -122,18 +120,14 @@ httpBuildServiceErrorHandler =
     let handler =
             \case
                 BS.StaticValidationError errors ->
-                    ProxyResponse
+                    response
                         badRequest400
-                        mempty
-                        mempty
                         -- TODO: Ideally these are formatted so they're more
                         -- actionable (both Create and Update)
                         (textPlain $ pack $ show errors)
                 BS.IllegalChange errors ->
-                    ProxyResponse
+                    response
                         conflict409
-                        mempty
-                        mempty
                         -- TODO: format these so their actionable
                         (textPlain $ pack $ show errors)
     in fmap (either handler id) . runError
@@ -145,60 +139,47 @@ httpVersionMismatchHandler =
     let handler =
             \case
                 VersionMismatch (ETagged eTag (OwnedBy _ build)) ->
-                    ProxyResponse
-                        preconditionFailed412
-                        (fromList [("ETag", hashToETagValue eTag)])
-                        mempty
-                        (applicationJson build)
+                    setHeader "ETag" (hashToETagValue eTag) $
+                    response preconditionFailed412 (applicationJson build)
     in fmap (either handler id) . runError
 
 done :: Int -> ProxyResponse
 done eTag =
-    ProxyResponse
-        ok200
-        (fromList [("ETag", hashToETagValue eTag)])
-        mempty
-        (textPlain "Done")
+    setHeader "ETag" (hashToETagValue eTag) $ response ok200 (textPlain "Done")
 
 got :: ETagged (OwnedBy (Build Text ReferencedWeapon Text)) -> ProxyResponse
 got (ETagged eTag (OwnedBy _ build)) =
-    ProxyResponse
-        ok200
-        (fromList [("ETag", hashToETagValue eTag)])
-        mempty
-        (applicationJson build)
+    setHeader "ETag" (hashToETagValue eTag) $
+    response ok200 (applicationJson build)
 
 invalidJson :: String -> ProxyResponse
-invalidJson err = ProxyResponse badRequest400 mempty mempty (textPlain (pack err))
+invalidJson err =
+    response badRequest400 (textPlain (pack err))
 
 unauthorized :: ProxyResponse
 unauthorized =
-    ProxyResponse unauthorized401 mempty mempty (textPlain "Unauthorized")
+    response unauthorized401 (textPlain "Unauthorized")
 
 badRequest :: ProxyResponse
-badRequest = ProxyResponse badRequest400 mempty mempty (textPlain "Bad Request")
+badRequest = response badRequest400 (textPlain "Bad Request")
 
 notImplemented :: ProxyResponse
 notImplemented =
-    ProxyResponse
+    response
         notImplemented501
-        mempty
-        mempty
         (textPlain "Not Yet Implemented")
 
 notFound :: ProxyResponse
-notFound = ProxyResponse notFound404 mempty mempty (textPlain "Not Found")
+notFound = response notFound404 (textPlain "Not Found")
 
 methodNotAllowed :: ProxyResponse
 methodNotAllowed =
-    ProxyResponse
+    response
         methodNotAllowed405
-        mempty
-        mempty
         (textPlain "Method Not Allowed")
 
 forbidden :: ProxyResponse
-forbidden = ProxyResponse forbidden403 mempty mempty (textPlain "Forbidden")
+forbidden = response forbidden403 (textPlain "Forbidden")
 
 hashToETagValue :: Int -> Text
 hashToETagValue = pack . show . show

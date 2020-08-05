@@ -42,7 +42,7 @@ extra-deps:
   - polysemy-plugin-0.2.5.0@sha256:67e30be568a141b852aace1a60e180cb5060fbb2835365a81a3ea779536d6d35,2952
   - ghc-tcplugins-extra-0.3.2@sha256:1bbfd4449c3669a31618ea0ebc5d00d980a53988daad3b6218bab5c8cdff268d,1687
   - git: https://github.com/Nike-Inc/hal.git
-    commit: 1749a2998a420b178a635a57f6f2851dca07e563
+    commit: f9f2b12fede1aa0fdc70be088ba8898c142b3dde
 
 # Override default flag values for local packages and extra-deps
 # flags: {}
