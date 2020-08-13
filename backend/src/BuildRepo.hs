@@ -32,6 +32,8 @@ module BuildRepo where
 import Control.Exception.Lens (trying)
 import Control.Lens (set, view)
 import Control.Monad.Trans.AWS (AWSConstraint, send)
+import Data.Map.Strict (Map)
+import qualified Data.Map.Strict as Map
 import Data.Bifunctor (bimap)
 import Data.HashMap.Strict (fromList)
 import Data.Hashable (Hashable(..))
@@ -49,6 +51,7 @@ import Polysemy (makeSem, Sem, Member, Embed, interpret)
 import Polysemy.Embed (embed)
 import Polysemy.Error (Error, throw)
 import Polysemy.Reader (Reader, ask)
+import Polysemy.State (State, get, put)
 import Starfinder.Starship.Build (Build(Build, name))
 import Starfinder.Starship.ReferencedWeapon (ReferencedWeapon)
 
@@ -162,3 +165,42 @@ getBuild' userId name = do
     res <- embed $ send item
     maybe (throw DoesNotExist) return $
         fromAttrValue $ toAttrValue $ view girsItem res
+
+type MockState = Map (Text, Text) (ETagged (OwnedBy (Build Text ReferencedWeapon Text)))
+
+mockBuildRepoToDynamo ::
+       ( Member (Error DynamoBuildRepoError) r
+       , Member (Error (VersionMismatch (OwnedBy (Build Text ReferencedWeapon Text)))) r
+       , Member (State MockState) r
+       )
+    => Sem (BuildRepo ': r) a
+    -> Sem r a
+mockBuildRepoToDynamo =
+    interpret $ \case
+        SaveNewBuild ownedBuild@(OwnedBy owner Build { name }) -> do
+            let eTag = hash ownedBuild
+            current <- get
+            case Map.lookup (owner, name) current of
+                Just _  -> throw AlreadyExists
+                Nothing -> do
+                  let next = Map.insert (owner, name) (ETagged eTag ownedBuild) current
+                  put next
+                  return eTag
+        UpdateBuild expectedETag ownedBuild@(OwnedBy owner Build { name }) -> do
+            let eTag = hash ownedBuild
+            current <- get
+            case Map.lookup (owner, name) current of
+                Nothing -> throw DoesNotExist
+                Just e@(ETagged oldETag _) ->
+                  if oldETag /= expectedETag then
+                    throw $ VersionMismatch e
+                  else do
+                    let next = Map.insert (owner, name) (ETagged eTag ownedBuild) current
+                    put next
+                    return eTag
+        GetBuild userId name -> do
+            current <- get
+            case Map.lookup (userId, name) current of
+                Nothing  -> throw DoesNotExist
+                Just x -> return x
+        GetBuildsByOwner _ _ -> undefined
