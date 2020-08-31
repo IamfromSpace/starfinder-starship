@@ -25,7 +25,6 @@ import Control.Monad ((>=>))
 import Data.Aeson (FromJSON(..), Value(..), (.:), eitherDecode')
 import Data.CaseInsensitive (CI, mk)
 import Data.HashMap.Strict (HashMap, lookup)
-import Data.Maybe (fromJust)
 import Data.Text (Text, pack, unpack)
 import Data.Text.Encoding (encodeUtf8)
 import Error.VersionMismatch (VersionMismatch(..))
@@ -33,7 +32,7 @@ import Lib (ETagged(..), OwnedBy(..))
 import Network.HTTP.Types.URI (decodePathSegments)
 import Polysemy (Member, Sem)
 import Polysemy.Error (Error, runError)
-import Polysemy.Reader (Reader, runReader)
+import Polysemy.Reader (Reader, local, runReader)
 import Prelude hiding (lookup)
 import Starfinder.Starship.Build (Build)
 import qualified Starfinder.Starship.Build as B (Build(name))
@@ -49,8 +48,11 @@ instance FromJSON UserId where
         UserId <$> (v .: "claims" >>= (\(Object v2) -> v2 .: "sub"))
 
 httpHandler ::
-       Member (BuildService a) r => ProxyRequest UserId -> Sem r ProxyResponse
+       Member (BuildService a) r
+    => Member (Reader (Maybe Text)) r =>
+           ProxyRequest UserId -> Sem r ProxyResponse
 httpHandler pr@(ProxyRequest {path, requestContext, body, httpMethod, headers}) =
+    local (\_ -> getUserId <$> authorizer requestContext) $
     case parseApiGatweayPath path of
         Just (UserBuilds userId) ->
             case httpMethod of
@@ -93,11 +95,10 @@ httpHandler pr@(ProxyRequest {path, requestContext, body, httpMethod, headers}) 
         _ -> return notFound
 
 httpAuthorizer ::
-       ProxyRequest UserId
-    -> Sem ((Authorizer Action) ': (Error Forbidden) ': (Reader Text) ': r) ProxyResponse
+       Sem ((Authorizer Action) ': (Error Forbidden) ': (Reader (Maybe Text)) ': r) ProxyResponse
     -> Sem r ProxyResponse
-httpAuthorizer ProxyRequest {requestContext} =
-    runReader (getUserId (fromJust (authorizer requestContext))) .
+httpAuthorizer =
+    runReader Nothing .
     fmap (either (const forbidden) id) . runError . authorizeUser
 
 httpDynamoBuildRepoErrorHandler ::

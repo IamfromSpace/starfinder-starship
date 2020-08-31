@@ -24,6 +24,7 @@ module BuildAuthorizer where
 
 import Authorizer (Authorizer(..))
 import BuildService (Action(..))
+import Data.Maybe (fromJust)
 import Data.Text (Text)
 import Polysemy (Member, Sem, interpret)
 import Polysemy.Error (Error, throw)
@@ -33,23 +34,24 @@ data Forbidden =
     Forbidden
 
 authorizeUser ::
-       (Member (Reader Text) r, Member (Error Forbidden) r)
+       (Member (Reader (Maybe Text)) r, Member (Error Forbidden) r)
     => Sem ((Authorizer Action) ': r) b
     -> Sem r b
 authorizeUser =
     interpret $ \case
         CheckActionAuthorized (CreateStarshipBuild userId') -> do
-            userId <- ask
+            -- TODO: Unauthorized on Nothing
+            userId <- fromJust <$> ask
             if userId /= userId'
                 then throw Forbidden
                 else return ()
         CheckActionAuthorized (UpdateStarshipBuild userId' _) -> do
-            userId <- ask
+            userId <- fromJust <$> ask
             if userId /= userId'
                 then throw Forbidden
                 else return ()
         CheckActionAuthorized (GetStarshipBuild userId' _) -> do
-            userId <- ask
+            userId <- fromJust <$> ask
             if userId /= userId'
                 then throw Forbidden
                 else return ()

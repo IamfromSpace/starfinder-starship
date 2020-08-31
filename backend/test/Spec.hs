@@ -108,11 +108,11 @@ main =
                 statusCode (status second) `shouldBe` 200
 
 makeApp :: IORef MockState -> ProxyRequest UserId -> IO ProxyResponse
-makeApp ioRef e =
-    runM $
-    httpAuthorizer e $
-    httpVersionMismatchHandler $
-    httpDynamoBuildRepoErrorHandler $
-    runStateIORef ioRef $
-    mockBuildRepoToDynamo $
-    httpBuildServiceErrorHandler $ buildServiceFromBuildRepo $ httpHandler e
+makeApp ioRef =
+    runM .
+    httpAuthorizer .
+    httpVersionMismatchHandler .
+    httpDynamoBuildRepoErrorHandler .
+    runStateIORef ioRef .
+    mockBuildRepoToDynamo .
+    httpBuildServiceErrorHandler . buildServiceFromBuildRepo . httpHandler
