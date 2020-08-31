@@ -25,13 +25,8 @@ module BuildService where
 
 import Authorizer (Authorizer, checkActionAuthorized)
 import qualified BuildRepo as BR
-import Control.Exception.Lens (trying)
-import Control.Lens (set, view)
 import Control.Monad ((>=>), when)
-import Control.Monad.Reader (MonadReader, ask)
-import Data.Bifunctor (bimap)
 import Data.Bifunctor (first)
-import Data.HashMap.Strict (fromList)
 import qualified Data.KeyedSet as KS
 import Data.Maybe (catMaybes)
 import Data.Text
@@ -115,7 +110,7 @@ buildServiceFromBuildRepo =
                         first (StaticValidationError) $
                         populateAndValidate newBuild
                     case validateChange currentOwnedBuild newOwnedBuild of
-                        [] -> return newOwnedBuild
+                        [] -> return ()
                         es -> throw $ IllegalChange es
                     BR.updateBuild expectedETag newOwnedBuild
             traverse withNew $ f currentOwnedBuild

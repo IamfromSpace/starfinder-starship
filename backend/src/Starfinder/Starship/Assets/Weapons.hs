@@ -7,8 +7,8 @@ import Data.Set as S
 import Data.Text (Text)
 import qualified Starfinder.Starship.ReferencedWeapon as RW
 import Starfinder.Starship.Weapon
-       (ArcMountClass(..), Class(..), Irradiation(..), Range(..),
-        TurretMountClass(..), Type(..), Weapon(..), WeaponProperty(..))
+       (Class(..), Irradiation(..), Range(..), Type(..), Weapon(..),
+        WeaponProperty(..))
 
 dereferenceWeapon :: RW.ReferencedWeapon -> Maybe (Weapon Bool)
 dereferenceWeapon rw = do

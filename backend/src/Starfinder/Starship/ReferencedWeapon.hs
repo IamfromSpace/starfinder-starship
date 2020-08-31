@@ -7,7 +7,7 @@ module Starfinder.Starship.ReferencedWeapon
 import Data.Aeson (FromJSON, ToJSON)
 import Data.Hashable (Hashable)
 import Data.Text (Text)
-import Data.Text.Arbitrary
+import Data.Text.Arbitrary ()
 import GHC.Generics (Generic)
 import Test.QuickCheck.Arbitrary (Arbitrary(..))
 

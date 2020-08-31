@@ -5,7 +5,7 @@ module Main where
 import AWS.Lambda.Context (HasLambdaContext(..), LambdaContext)
 import AWS.Lambda.Runtime (mRuntimeWithContext)
 import BuildController
-       (forbidden, httpAuthorizer, httpBuildServiceErrorHandler,
+       (httpAuthorizer, httpBuildServiceErrorHandler,
         httpDynamoBuildRepoErrorHandler, httpHandler,
         httpVersionMismatchHandler)
 import BuildRepo (buildRepoToDynamo)
@@ -16,7 +16,6 @@ import Data.Text (pack)
 import qualified Network.AWS as AWS
 import Network.AWS
        (Credentials(Discover), LogLevel(Debug), newLogger, runResourceT)
-import Polysemy (runM)
 
 -- This is here to enable optimizations
 import Polysemy.Internal

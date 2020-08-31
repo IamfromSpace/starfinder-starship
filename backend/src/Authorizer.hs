@@ -20,7 +20,7 @@ Provided alwaysAuthed interpretation never checks anything.
 -}
 module Authorizer where
 
-import Polysemy (Member, Sem, interpret, makeSem)
+import Polysemy (Sem, interpret, makeSem)
 
 data Authorizer action m b where
     CheckActionAuthorized :: action -> Authorizer action m ()

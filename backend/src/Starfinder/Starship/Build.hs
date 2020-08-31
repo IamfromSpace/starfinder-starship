@@ -7,7 +7,7 @@ module Starfinder.Starship.Build (BuildError(..), CrewQuarters(..), DriftEngine(
 import Data.Hashable (Hashable)
 import Data.Set (member, Set, fromList)
 import Data.Text (Text)
-import Data.Text.Arbitrary
+import Data.Text.Arbitrary ()
 import Data.Aeson (FromJSON, ToJSON, toJSON, parseJSON)
 import GHC.Generics (Generic)
 import Starfinder.Starship.Arc (Arc)
@@ -17,7 +17,7 @@ import Starfinder.Starship.ExpansionBay (ExpansionBay(..), isValidSize, getExpan
 import Starfinder.Starship.Frame (Frame(..))
 import Starfinder.Starship.Size (Size(..), Sized(..), topSpeed)
 import Starfinder.Starship.Togglable (Togglable, extract)
-import Starfinder.Starship.Weapon (Weapon(..), getMountPointsUsed, isTrackingWeapon, TurretMountClass(..), ArcMountClass(..))
+import Starfinder.Starship.Weapon (Weapon(..), getMountPointsUsed, TurretMountClass(..), ArcMountClass(..))
 import qualified Starfinder.Starship.Weapon as Weapon
 import Starfinder.Starship.CostsBuildPoints (CostsBuildPoints(..))
 import Starfinder.Starship.DrawsPower (DrawsPower(..))
@@ -727,7 +727,7 @@ areWeaponClassesValidForFrame Build { arcWeapons, turretWeapons, frame = Frame {
 
 
 areTurretWeaponClassesValid :: Build Frame (Weapon Bool) a -> Bool
-areTurretWeaponClassesValid Build { turretWeapons, frame } =
+areTurretWeaponClassesValid Build { turretWeapons } =
     all
         ((/=) Weapon.Capital . weaponClass . extract)
         turretWeapons

@@ -34,16 +34,15 @@ import Control.Lens (set, view)
 import Control.Monad.Trans.AWS (AWSConstraint, send)
 import Data.Map.Strict (Map)
 import qualified Data.Map.Strict as Map
-import Data.Bifunctor (bimap)
 import Data.HashMap.Strict (fromList)
 import Data.Hashable (Hashable(..))
 import Data.Text
 import Error.VersionMismatch (VersionMismatch(..))
 import Lib
 import Network.AWS.DynamoDB.GetItem
-       (GetItem, getItem, giConsistentRead, giKey, girsItem)
+       (getItem, giConsistentRead, giKey, girsItem)
 import Network.AWS.DynamoDB.PutItem
-       (PutItem, piConditionExpression, piExpressionAttributeNames,
+       (piConditionExpression, piExpressionAttributeNames,
         piExpressionAttributeValues, piItem, putItem)
 import Network.AWS.DynamoDB.Types
        (_ConditionalCheckFailedException)

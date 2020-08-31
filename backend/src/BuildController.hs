@@ -45,13 +45,18 @@ newtype UserId = UserId
 
 instance FromJSON UserId where
     parseJSON (Object v) =
-        UserId <$> (v .: "claims" >>= (\(Object v2) -> v2 .: "sub"))
+        UserId <$>
+        (v .: "claims" >>=
+         (\case
+              Object v2 -> v2 .: "sub"
+              _ -> fail "JWT claims was not object!"))
+    parseJSON _ = fail "API Gateway Authorizer value was not an object!"
 
 httpHandler ::
        Member (BuildService a) r
     => Member (Reader (Maybe Text)) r =>
            ProxyRequest UserId -> Sem r ProxyResponse
-httpHandler pr@(ProxyRequest {path, requestContext, body, httpMethod, headers}) =
+httpHandler ProxyRequest {path, requestContext, body, httpMethod, headers} =
     local (\_ -> getUserId <$> authorizer requestContext) $
     case parseApiGatweayPath path of
         Just (UserBuilds userId) ->
@@ -215,5 +220,6 @@ parseApiGatweayPath =
                 _ -> Nothing
     in parseSegments . filter (/= "") . decodePathSegments . encodeUtf8
 
+fromRight :: Either a b -> b
 fromRight (Right x) = x
-fromRight (Left x) = error "Attempted to fromRight a Left!"
+fromRight (Left _) = error "Attempted to fromRight a Left!"

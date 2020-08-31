@@ -13,7 +13,7 @@ delete :: (Eq k, Hashable k) => k -> KeyedSet k v -> KeyedSet k v
 delete k (KeyedSet fn hm) = KeyedSet fn  $ HM.delete k hm
 
 lookup :: (Eq k, Hashable k) => k -> KeyedSet k v -> Maybe v
-lookup k (KeyedSet fn hm) = HM.lookup k hm
+lookup k (KeyedSet _ hm) = HM.lookup k hm
 
 fromList :: (Eq k, Hashable k) => (v -> k) -> [v] -> KeyedSet k v
 fromList fn = KeyedSet fn . HM.fromList . fmap (\v -> (fn v, v))

@@ -6,28 +6,23 @@
 
 module Lib where
 
-import Control.Lens (Lens', _1, _2, set, view)
-import Control.Lens.At (at)
+import Control.Lens (set, view)
 import Control.Monad ((>=>))
-import Data.Foldable (toList)
 import Data.Hashable (Hashable)
 import Data.HashMap.Strict (HashMap, fromList, lookup)
-import qualified Data.Map as Map
-import Data.Maybe (fromJust, fromMaybe)
-import Data.Scientific (FPFormat(..), Scientific, formatScientific)
-import Data.Set (Set, member)
+import Data.Maybe (fromMaybe)
+import Data.Scientific (Scientific)
 import Data.Text (Text, pack, unpack)
-import Data.Text.Arbitrary
+import Data.Text.Arbitrary ()
 import Network.AWS.DynamoDB.Types
        (AttributeValue, attributeValue, avBOOL, avL, avM, avN, avNULL,
-        avS, avSS)
+        avS)
 import Prelude hiding (lookup)
 import Starfinder.Starship.Arc (Arc(..))
 import Starfinder.Starship.Build
        (Armor(..), Build(..), CrewQuarters, DefensiveCountermeasures(..),
         DriftEngine, PowerCoreUnits(..), Sensor(..), Thrusters(..))
 import Starfinder.Starship.Computer (Computer(..))
-import Starfinder.Starship.CostsBuildPoints (CostsBuildPoints(..))
 import Starfinder.Starship.DefenseLevel (DefenseLevel)
 import Starfinder.Starship.ExpansionBay (ExpansionBay)
 import Starfinder.Starship.Togglable (Togglable(..))
@@ -145,21 +140,21 @@ instance ToDynamoDbAttrValue a => ToDynamoDbAttrValue (Arc a) where
 -- indexes are always lenses (getters) inside and can be fully typed and
 -- separated.
 instance ToDynamoDbAttrValue (ETagged (OwnedBy (Build Text RW.ReferencedWeapon Text))) where
-    toAttrValue (ETagged eTag (OwnedBy userId build@Build { frame
-                                                          , powerCoreUnits
-                                                          , thrusters
-                                                          , armor
-                                                          , computer
-                                                          , crewQuarters
-                                                          , defensiveCountermeasures
-                                                          , driftEngine
-                                                          , name
-                                                          , expansionBays
-                                                          , sensors
-                                                          , arcWeapons
-                                                          , turretWeapons
-                                                          , shields
-                                                          })) =
+    toAttrValue (ETagged eTag (OwnedBy userId Build { frame
+                                                    , powerCoreUnits
+                                                    , thrusters
+                                                    , armor
+                                                    , computer
+                                                    , crewQuarters
+                                                    , defensiveCountermeasures
+                                                    , driftEngine
+                                                    , name
+                                                    , expansionBays
+                                                    , sensors
+                                                    , arcWeapons
+                                                    , turretWeapons
+                                                    , shields
+                                                    })) =
         toAttrValue $
         fromList
             [ ("HASH1" :: Text, toAttrValue userId)
