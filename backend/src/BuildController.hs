@@ -17,7 +17,7 @@ import AWS.Lambda.Events.ApiGateway.ProxyResponse
         forbidden403, methodNotAllowed405, notFound404, notImplemented501,
         ok200, preconditionFailed412, response, textPlain, unauthorized401)
 import Authorizer (Authorizer)
-import BuildAuthorizer (Forbidden, authorizeUser)
+import BuildAuthorizer (AuthError(..), authorizeUser)
 import qualified BuildRepo as BR (DynamoBuildRepoError(..))
 import BuildService (Action, BuildService)
 import qualified BuildService as BS
@@ -100,11 +100,17 @@ httpHandler ProxyRequest {path, requestContext, body, httpMethod, headers} =
         _ -> return notFound
 
 httpAuthorizer ::
-       Sem ((Authorizer Action) ': (Error Forbidden) ': (Reader (Maybe Text)) ': r) ProxyResponse
+       Sem ((Authorizer Action) ': (Error AuthError) ': (Reader (Maybe Text)) ': r) ProxyResponse
     -> Sem r ProxyResponse
 httpAuthorizer =
     runReader Nothing .
-    fmap (either (const forbidden) id) . runError . authorizeUser
+    fmap
+        (either
+             (\case
+                  Unidentified -> unauthorized
+                  Forbidden -> forbidden)
+             id) .
+    runError . authorizeUser
 
 httpDynamoBuildRepoErrorHandler ::
        Sem ((Error BR.DynamoBuildRepoError) ': r) ProxyResponse

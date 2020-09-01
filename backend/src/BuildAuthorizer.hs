@@ -7,6 +7,7 @@
 {-# LANGUAGE LambdaCase #-}
 {-# LANGUAGE TypeOperators #-}
 {-# LANGUAGE TypeApplications #-}
+{-# LANGUAGE ViewPatterns #-}
 
 {-|
 Module      : BuildService
@@ -24,34 +25,36 @@ module BuildAuthorizer where
 
 import Authorizer (Authorizer(..))
 import BuildService (Action(..))
-import Data.Maybe (fromJust)
 import Data.Text (Text)
 import Polysemy (Member, Sem, interpret)
 import Polysemy.Error (Error, throw)
 import Polysemy.Reader (Reader, ask)
 
-data Forbidden =
-    Forbidden
+data AuthError
+    = Unidentified
+    | Forbidden
 
 authorizeUser ::
-       (Member (Reader (Maybe Text)) r, Member (Error Forbidden) r)
+       (Member (Reader (Maybe Text)) r, Member (Error AuthError) r)
     => Sem ((Authorizer Action) ': r) b
     -> Sem r b
 authorizeUser =
     interpret $ \case
-        CheckActionAuthorized (CreateStarshipBuild userId') -> do
-            -- TODO: Unauthorized on Nothing
-            userId <- fromJust <$> ask
-            if userId /= userId'
-                then throw Forbidden
-                else return ()
-        CheckActionAuthorized (UpdateStarshipBuild userId' _) -> do
-            userId <- fromJust <$> ask
-            if userId /= userId'
-                then throw Forbidden
-                else return ()
-        CheckActionAuthorized (GetStarshipBuild userId' _) -> do
-            userId <- fromJust <$> ask
-            if userId /= userId'
-                then throw Forbidden
-                else return ()
+        CheckActionAuthorized (CreateStarshipBuild userId) ->
+            ask >>=
+            (\case
+                 Nothing -> throw Unidentified
+                 Just ((==) userId -> False) -> throw Forbidden
+                 _ -> return ())
+        CheckActionAuthorized (UpdateStarshipBuild userId _) ->
+            ask >>=
+            (\case
+                 Nothing -> throw Unidentified
+                 Just ((==) userId -> False) -> throw Forbidden
+                 _ -> return ())
+        CheckActionAuthorized (GetStarshipBuild userId _) ->
+            ask >>=
+            (\case
+                 Nothing -> throw Unidentified
+                 Just ((==) userId -> False) -> throw Forbidden
+                 _ -> return ())
