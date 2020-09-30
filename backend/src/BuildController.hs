@@ -215,7 +215,7 @@ getAndParseETag =
     in getETag >=> parseETag
 
 data ValidPath
-    -- /resources/users/${Text}
+    -- /resources/users/${Text}/builds
     = UserBuilds Text
     -- /resources/users/${Text}/builds/${Text}
     | UserBuild Text
