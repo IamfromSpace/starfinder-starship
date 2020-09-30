@@ -28,15 +28,16 @@ all details beyond the ones of interest to the interface.
 -}
 module BuildRepo where
 
-
 import Control.Exception.Lens (trying)
 import Control.Lens (set, view)
+import Control.Monad ((<=<))
 import Control.Monad.Trans.AWS (AWSConstraint, send)
 import Data.Map.Strict (Map)
 import qualified Data.Map.Strict as Map
-import Data.HashMap.Strict (fromList)
+import Data.HashMap.Strict (fromList, lookup)
 import Data.Hashable (Hashable(..))
-import Data.Text
+import Data.Maybe (fromMaybe)
+import Data.Text hiding (reverse)
 import Error.VersionMismatch (VersionMismatch(..))
 import Lib
 import Network.AWS.DynamoDB.GetItem
@@ -44,6 +45,9 @@ import Network.AWS.DynamoDB.GetItem
 import Network.AWS.DynamoDB.PutItem
        (piConditionExpression, piExpressionAttributeNames,
         piExpressionAttributeValues, piItem, putItem)
+import Network.AWS.DynamoDB.Query
+       (qExpressionAttributeNames, qExpressionAttributeValues,
+        qKeyConditionExpression, qProjectionExpression, qrsItems, query)
 import Network.AWS.DynamoDB.Types
        (_ConditionalCheckFailedException)
 import Polysemy (makeSem, Sem, Member, Embed, interpret)
@@ -51,6 +55,7 @@ import Polysemy.Embed (embed)
 import Polysemy.Error (Error, throw)
 import Polysemy.Reader (Reader, ask)
 import Polysemy.State (State, get, put)
+import Prelude hiding (lookup)
 import Starfinder.Starship.Build (Build(Build, name))
 import Starfinder.Starship.ReferencedWeapon (ReferencedWeapon)
 
@@ -63,7 +68,7 @@ data BuildRepo m a where
         :: Text
         -> Text
         -> BuildRepo m (ETagged (OwnedBy (Build Text ReferencedWeapon Text)))
-    GetBuildsByOwner :: a -> Text -> BuildRepo m [Text]
+    GetBuildsByOwner :: Text -> BuildRepo m [Text]
 
 makeSem ''BuildRepo
 
@@ -135,7 +140,24 @@ buildRepoToDynamo =
                    throw =<< VersionMismatch <$> getBuild' userId name
                 Right _ -> return newETag
         GetBuild userId name -> getBuild' userId name
-        GetBuildsByOwner _ _ -> undefined
+        GetBuildsByOwner userId -> do
+            tableName <- ask
+            res <-
+                embed $
+                send $
+                set
+                    qExpressionAttributeValues
+                    (fromList [(":thisUser", toAttrValue userId)]) $
+                set
+                    qExpressionAttributeNames
+                    (fromList [("#userId", "HASH1"), ("#name", "RANGE1.1")]) $
+                set qKeyConditionExpression (Just "#userId = :thisUser") $
+                set qProjectionExpression (Just "#name") $ query tableName
+            let items = view qrsItems res
+            return $
+                -- This should never happen, not sure we could do much about it
+                fromMaybe (error "Couldn't get a name from starship build!") $
+                traverse (fromAttrValue <=< lookup "RANGE1.1") items
 
 getBuild' ::
        ( AWSConstraint ar m
@@ -202,4 +224,32 @@ mockBuildRepoToDynamo =
             case Map.lookup (userId, name) current of
                 Nothing  -> throw DoesNotExist
                 Just x -> return x
-        GetBuildsByOwner _ _ -> undefined
+        GetBuildsByOwner userId -> do
+            current <- get
+            -- Get all items >= our users Id
+            let (_, emp, gt) = Map.splitLookup (userId, "") current
+            -- Remove all items > our user's id
+            let (eq, _, _) = Map.splitLookup (succUuid userId, "") gt
+            -- Convert this to a list, and take only the names
+            let names = snd <$> Map.keys eq
+            -- If we got a match for the "", add it to the list
+            let items = fromMaybe names (const ("" : names) <$> emp)
+            return items
+
+-- TODO: We should really use a UUID type!
+-- TODO: Could just be succ on UUID type
+-- TODO: Assumes lower case!
+succUuid :: Text -> Text
+succUuid t = pack $ reverse $ succUuid' $ reverse $ unpack t
+
+succUuid' :: String -> String
+-- We found the max uuid!  Need to maintain string length, rather than roll.
+-- We should buy some lotto tickets...
+succUuid' ['f'] = ['g']
+succUuid' ('-':t) = '-' : succUuid' t
+succUuid' ('f':t) = '0' : succUuid' t
+-- 9 is a special case in character layout vs value
+succUuid' ('9':t) = 'a' : t
+-- Otherwise, succ will increment correctly
+succUuid' (c:t) = succ c : t
+succUuid' [] = []
