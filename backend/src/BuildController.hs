@@ -66,6 +66,8 @@ httpHandler ProxyRequest {path, requestContext, body, httpMethod, headers} =
                         Right (build :: Build Text ReferencedWeapon Text) ->
                             done <$> (BS.saveNewBuild $ OwnedBy userId build)
                         Left err -> return (invalidJson err)
+                -- TODO: Return the link too
+                "GET" -> list <$> BS.getBuildsByOwner userId
                 _ -> return methodNotAllowed
         Just (UserBuild userId name) ->
             case httpMethod of
@@ -163,6 +165,9 @@ got :: ETagged (OwnedBy (Build Text ReferencedWeapon Text)) -> ProxyResponse
 got (ETagged eTag (OwnedBy _ build)) =
     setHeader "ETag" (hashToETagValue eTag) $
     response ok200 (applicationJson build)
+
+list :: [Text] -> ProxyResponse
+list names = response ok200 (applicationJson names)
 
 invalidJson :: String -> ProxyResponse
 invalidJson err =
