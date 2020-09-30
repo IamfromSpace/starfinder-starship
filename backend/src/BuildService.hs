@@ -49,6 +49,8 @@ data Action
     | GetStarshipBuild Text
                        Text -- userId name
 
+    | ListStarshipBuildForUser Text -- userId
+
 data StaticValidationError
     = InvalidFrame
     | InvalidWeapon
@@ -115,7 +117,9 @@ buildServiceFromBuildRepo =
                     BR.updateBuild expectedETag newOwnedBuild
             traverse withNew $ f currentOwnedBuild
         GetBuild userId name -> getBuild' userId name
-        GetBuildsByOwner _ -> undefined
+        GetBuildsByOwner userId -> do
+            checkActionAuthorized (ListStarshipBuildForUser userId)
+            BR.getBuildsByOwner userId
 
 getBuild' ::
        Member BR.BuildRepo r

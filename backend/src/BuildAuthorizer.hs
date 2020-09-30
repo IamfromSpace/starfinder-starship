@@ -58,3 +58,9 @@ authorizeUser =
                  Nothing -> throw Unidentified
                  Just ((==) userId -> False) -> throw Forbidden
                  _ -> return ())
+        CheckActionAuthorized (ListStarshipBuildForUser userId) ->
+            ask >>=
+            (\case
+                 Nothing -> throw Unidentified
+                 Just ((==) userId -> False) -> throw Forbidden
+                 _ -> return ())
