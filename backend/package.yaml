@@ -21,6 +21,7 @@ dependencies:
 - aeson
 - amazonka
 - amazonka-dynamodb
+- binary
 - exceptions
 - case-insensitive
 - containers
@@ -77,4 +78,6 @@ tests:
     - -with-rtsopts=-N
     dependencies:
     - backend
+    - bytestring
     - hspec
+    - vector

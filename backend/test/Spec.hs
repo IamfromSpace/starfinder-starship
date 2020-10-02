@@ -15,9 +15,13 @@ import BuildController
         httpVersionMismatchHandler, UserId)
 import BuildRepo (mockBuildRepoToDynamo, MockState)
 import BuildService (buildServiceFromBuildRepo)
-import Data.Aeson (decode)
+import Data.Aeson (decode, Value(..))
+import Data.ByteString.Lazy (fromStrict)
+import qualified Data.HashMap.Strict as HashMap
 import Data.IORef (IORef, newIORef)
 import Data.Map (Map)
+import Data.Text.Encoding (encodeUtf8)
+import qualified Data.Vector as Vector
 import Lib
 import Polysemy (runM)
 import Polysemy.State (runStateIORef)
@@ -93,14 +97,29 @@ main =
                 _ <- app $ fromJust $ Data.Aeson.decode "{ \"path\": \"/resources/users/abc/builds\", \"requestContext\": { \"authorizer\": { \"claims\": { \"sub\": \"abc\" } }, \"path\": \"resources/users/abc/builds\", \"accountId\": \"123\", \"resourceId\": \"anId\", \"stage\": \"default\", \"requestId\": \"123\", \"identity\": { \"sourceIp\": \"192.168.0.1\" }, \"resourcePath\": \"/hey\", \"httpMethod\": \"POST\", \"apiId\": \"123\" }, \"resource\": \"someResource\", \"httpMethod\": \"POST\", \"isBase64Encoded\": false, \"body\": \"{ \\\"name\\\": \\\"456\\\", \\\"frame\\\": \\\"Medium Explorer\\\", \\\"powerCoreUnits\\\": 130, \\\"thrusters\\\": { \\\"isOn\\\": true, \\\"toggled\\\": 12 }, \\\"computer\\\": { \\\"isOn\\\": true, \\\"toggled\\\": { \\\"bonus\\\": 0, \\\"nodes\\\": 0 } }, \\\"crewQuarters\\\": \\\"Common\\\", \\\"expansionBays\\\": [], \\\"sensors\\\": { \\\"range\\\": \\\"Medium\\\", \\\"bonus\\\": 0 }, \\\"arcWeapons\\\": { \\\"forward\\\": [], \\\"portSide\\\": [], \\\"starboard\\\": [], \\\"aft\\\": [] }, \\\"turretWeapons\\\": [], \\\"shields\\\": { \\\"isOn\\\": true, \\\"toggled\\\": \\\"Light Shields 50\\\" } }\" }"
                 res <- app $ fromJust $ Data.Aeson.decode "{ \"path\": \"/resources/users/abc/builds\", \"requestContext\": { \"authorizer\": { \"claims\": { \"sub\": \"abc\" } }, \"path\": \"resources/users/abc/builds\", \"accountId\": \"123\", \"resourceId\": \"anId\", \"stage\": \"default\", \"requestId\": \"123\", \"identity\": { \"sourceIp\": \"192.168.0.1\" }, \"resourcePath\": \"/hey\", \"httpMethod\": \"GET\", \"apiId\": \"123\" }, \"resource\": \"someResource\", \"httpMethod\": \"GET\", \"isBase64Encoded\": false, \"body\": \"\" }"
                 statusCode (status res) `shouldBe` 200
-                serialized (body res) `shouldBe` "[\"123\",\"456\"]"
+                let bodyValue = decode (fromStrict (encodeUtf8 (serialized (body res))))
+                let expected =
+                        list
+                            [ obj
+                                  [ ("name", String "123")
+                                  , ( "link"
+                                    , String "/resources/users/abc/builds/123")
+                                  ]
+                            , obj
+                                  [ ("name", String "456")
+                                  , ( "link"
+                                    , String "/resources/users/abc/builds/456")
+                                  ]
+                            ]
+                bodyValue `shouldBe` Just expected
             it "Should return 200 on an authorized _list_ GET if we create the build first, but be empty if it's not our builds" $ do
                 app <- makeApp <$> newIORef mempty
                 _ <- app $ fromJust $ Data.Aeson.decode "{ \"path\": \"/resources/users/abc/builds\", \"requestContext\": { \"authorizer\": { \"claims\": { \"sub\": \"abc\" } }, \"path\": \"resources/users/abc/builds\", \"accountId\": \"123\", \"resourceId\": \"anId\", \"stage\": \"default\", \"requestId\": \"123\", \"identity\": { \"sourceIp\": \"192.168.0.1\" }, \"resourcePath\": \"/hey\", \"httpMethod\": \"POST\", \"apiId\": \"123\" }, \"resource\": \"someResource\", \"httpMethod\": \"POST\", \"isBase64Encoded\": false, \"body\": \"{ \\\"name\\\": \\\"123\\\", \\\"frame\\\": \\\"Medium Explorer\\\", \\\"powerCoreUnits\\\": 130, \\\"thrusters\\\": { \\\"isOn\\\": true, \\\"toggled\\\": 12 }, \\\"computer\\\": { \\\"isOn\\\": true, \\\"toggled\\\": { \\\"bonus\\\": 0, \\\"nodes\\\": 0 } }, \\\"crewQuarters\\\": \\\"Common\\\", \\\"expansionBays\\\": [], \\\"sensors\\\": { \\\"range\\\": \\\"Medium\\\", \\\"bonus\\\": 0 }, \\\"arcWeapons\\\": { \\\"forward\\\": [], \\\"portSide\\\": [], \\\"starboard\\\": [], \\\"aft\\\": [] }, \\\"turretWeapons\\\": [], \\\"shields\\\": { \\\"isOn\\\": true, \\\"toggled\\\": \\\"Light Shields 50\\\" } }\" }"
                 _ <- app $ fromJust $ Data.Aeson.decode "{ \"path\": \"/resources/users/abc/builds\", \"requestContext\": { \"authorizer\": { \"claims\": { \"sub\": \"abc\" } }, \"path\": \"resources/users/abc/builds\", \"accountId\": \"123\", \"resourceId\": \"anId\", \"stage\": \"default\", \"requestId\": \"123\", \"identity\": { \"sourceIp\": \"192.168.0.1\" }, \"resourcePath\": \"/hey\", \"httpMethod\": \"POST\", \"apiId\": \"123\" }, \"resource\": \"someResource\", \"httpMethod\": \"POST\", \"isBase64Encoded\": false, \"body\": \"{ \\\"name\\\": \\\"456\\\", \\\"frame\\\": \\\"Medium Explorer\\\", \\\"powerCoreUnits\\\": 130, \\\"thrusters\\\": { \\\"isOn\\\": true, \\\"toggled\\\": 12 }, \\\"computer\\\": { \\\"isOn\\\": true, \\\"toggled\\\": { \\\"bonus\\\": 0, \\\"nodes\\\": 0 } }, \\\"crewQuarters\\\": \\\"Common\\\", \\\"expansionBays\\\": [], \\\"sensors\\\": { \\\"range\\\": \\\"Medium\\\", \\\"bonus\\\": 0 }, \\\"arcWeapons\\\": { \\\"forward\\\": [], \\\"portSide\\\": [], \\\"starboard\\\": [], \\\"aft\\\": [] }, \\\"turretWeapons\\\": [], \\\"shields\\\": { \\\"isOn\\\": true, \\\"toggled\\\": \\\"Light Shields 50\\\" } }\" }"
                 res <- app $ fromJust $ Data.Aeson.decode "{ \"path\": \"/resources/users/abd/builds\", \"requestContext\": { \"authorizer\": { \"claims\": { \"sub\": \"abd\" } }, \"path\": \"resources/users/abd/builds\", \"accountId\": \"123\", \"resourceId\": \"anId\", \"stage\": \"default\", \"requestId\": \"123\", \"identity\": { \"sourceIp\": \"192.168.0.1\" }, \"resourcePath\": \"/hey\", \"httpMethod\": \"GET\", \"apiId\": \"123\" }, \"resource\": \"someResource\", \"httpMethod\": \"GET\", \"isBase64Encoded\": false, \"body\": \"\" }"
                 statusCode (status res) `shouldBe` 200
-                serialized (body res) `shouldBe` "[]"
+                let bodyValue = decode (fromStrict (encodeUtf8 (serialized (body res))))
+                bodyValue `shouldBe` Just (list [])
             it "Should return 409 if we try to POST a build twice" $ do
                 app <- makeApp <$> newIORef mempty
                 first <- app $ fromJust $ Data.Aeson.decode "{ \"path\": \"/resources/users/me/builds\", \"requestContext\": { \"authorizer\": { \"claims\": { \"sub\": \"me\" } }, \"path\": \"resources/users/me/builds\", \"accountId\": \"123\", \"resourceId\": \"anId\", \"stage\": \"default\", \"requestId\": \"123\", \"identity\": { \"sourceIp\": \"192.168.0.1\" }, \"resourcePath\": \"/hey\", \"httpMethod\": \"POST\", \"apiId\": \"123\" }, \"resource\": \"someResource\", \"httpMethod\": \"POST\", \"isBase64Encoded\": false, \"body\": \"{ \\\"name\\\": \\\"123\\\", \\\"frame\\\": \\\"Medium Explorer\\\", \\\"powerCoreUnits\\\": 130, \\\"thrusters\\\": { \\\"isOn\\\": true, \\\"toggled\\\": 12 }, \\\"computer\\\": { \\\"isOn\\\": true, \\\"toggled\\\": { \\\"bonus\\\": 0, \\\"nodes\\\": 0 } }, \\\"crewQuarters\\\": \\\"Common\\\", \\\"expansionBays\\\": [], \\\"sensors\\\": { \\\"range\\\": \\\"Medium\\\", \\\"bonus\\\": 0 }, \\\"arcWeapons\\\": { \\\"forward\\\": [], \\\"portSide\\\": [], \\\"starboard\\\": [], \\\"aft\\\": [] }, \\\"turretWeapons\\\": [], \\\"shields\\\": { \\\"isOn\\\": true, \\\"toggled\\\": \\\"Light Shields 50\\\" } }\" }"
@@ -130,3 +149,9 @@ makeApp ioRef =
     runStateIORef ioRef .
     mockBuildRepoToDynamo .
     httpBuildServiceErrorHandler . buildServiceFromBuildRepo . httpHandler
+
+list :: [Value] -> Value
+list = Array . Vector.fromList
+
+obj :: [(Text, Value)] -> Value
+obj = Object . HashMap.fromList

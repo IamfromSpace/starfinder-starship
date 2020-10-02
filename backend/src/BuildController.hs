@@ -1,4 +1,5 @@
 {-# LANGUAGE DuplicateRecordFields #-}
+{-# LANGUAGE DeriveGeneric #-}
 {-# LANGUAGE NamedFieldPuns #-}
 {-# LANGUAGE LambdaCase #-}
 {-# LANGUAGE ScopedTypeVariables #-}
@@ -22,14 +23,20 @@ import qualified BuildRepo as BR (DynamoBuildRepoError(..))
 import BuildService (Action, BuildService)
 import qualified BuildService as BS
 import Control.Monad ((>=>))
-import Data.Aeson (FromJSON(..), Value(..), (.:), eitherDecode')
+import Data.Aeson
+       (FromJSON(..), ToJSON(..), Value(..), (.:), eitherDecode')
+import Data.Binary.Builder (toLazyByteString)
 import Data.CaseInsensitive (CI, mk)
 import Data.HashMap.Strict (HashMap, lookup)
 import Data.Text (Text, pack, unpack)
 import Data.Text.Encoding (encodeUtf8)
+import Data.Text.Lazy (toStrict)
+import Data.Text.Lazy.Encoding (decodeUtf8)
 import Error.VersionMismatch (VersionMismatch(..))
+import GHC.Generics (Generic)
 import Lib (ETagged(..), OwnedBy(..))
-import Network.HTTP.Types.URI (decodePathSegments)
+import Network.HTTP.Types.URI
+       (decodePathSegments, encodePathSegments)
 import Polysemy (Member, Sem)
 import Polysemy.Error (Error, runError)
 import Polysemy.Reader (Reader, local, runReader)
@@ -52,13 +59,20 @@ instance FromJSON UserId where
               _ -> fail "JWT claims was not object!"))
     parseJSON _ = fail "API Gateway Authorizer value was not an object!"
 
+data BuildLink = BuildLink
+    { name :: Text
+    , link :: ValidPath
+    } deriving (Generic)
+
+instance ToJSON BuildLink
+
 httpHandler ::
        Member (BuildService a) r
     => Member (Reader (Maybe Text)) r =>
            ProxyRequest UserId -> Sem r ProxyResponse
 httpHandler ProxyRequest {path, requestContext, body, httpMethod, headers} =
     local (\_ -> getUserId <$> authorizer requestContext) $
-    case parseApiGatweayPath path of
+    case parseApiGatewayPath path of
         Just (UserBuilds userId) ->
             case httpMethod of
                 "POST" ->
@@ -67,7 +81,7 @@ httpHandler ProxyRequest {path, requestContext, body, httpMethod, headers} =
                             done <$> (BS.saveNewBuild $ OwnedBy userId build)
                         Left err -> return (invalidJson err)
                 -- TODO: Return the link too
-                "GET" -> list <$> BS.getBuildsByOwner userId
+                "GET" -> listLinks userId <$> BS.getBuildsByOwner userId
                 _ -> return methodNotAllowed
         Just (UserBuild userId name) ->
             case httpMethod of
@@ -166,8 +180,10 @@ got (ETagged eTag (OwnedBy _ build)) =
     setHeader "ETag" (hashToETagValue eTag) $
     response ok200 (applicationJson build)
 
-list :: [Text] -> ProxyResponse
-list names = response ok200 (applicationJson names)
+listLinks :: Text -> [Text] -> ProxyResponse
+listLinks userId =
+    response ok200 .
+    applicationJson . fmap (\n -> BuildLink n (UserBuild userId n))
 
 invalidJson :: String -> ProxyResponse
 invalidJson err =
@@ -220,10 +236,22 @@ data ValidPath
     -- /resources/users/${Text}/builds/${Text}
     | UserBuild Text
                 Text
-    deriving (Show)
+    deriving (Show, Eq)
 
-parseApiGatweayPath :: Text -> Maybe (ValidPath)
-parseApiGatweayPath =
+instance ToJSON ValidPath where
+    toJSON = String . renderApiGatewayPath
+
+renderApiGatewayPath :: ValidPath -> Text
+renderApiGatewayPath =
+    toStrict .
+    decodeUtf8 .
+    toLazyByteString .
+    encodePathSegments . \case
+        UserBuilds u -> ["resources", "users", u, "builds"]
+        UserBuild u b -> ["resources", "users", u, "builds", b]
+
+parseApiGatewayPath :: Text -> Maybe (ValidPath)
+parseApiGatewayPath =
     let parseSegments =
             \case
                 ["resources", "users", u, "builds"] -> Just $ UserBuilds u
