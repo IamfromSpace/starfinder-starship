@@ -1,7 +1,7 @@
 module CreateAndEditStarshipBuild exposing (Model, Msg(..), initialModel, update, view)
 
 import Arc
-import BuildClient exposing (CreateStarshipBuildError, GetStarshipBuildError, HttpClientError, UpdateStarshipBuildError, createStarshipBuild, createStarshipBuildErrorToString, getStarshipBuild, getStarshipBuildErrorToString, httpClientErrorToString, updateStarshipBuild, updateStarshipBuildErrorToString)
+import BuildClient exposing (CreateStarshipBuildError, GetStarshipBuildError, GetStarshipBuildsError(..), HttpClientError, StarshipBuildLink, UpdateStarshipBuildError, createStarshipBuild, createStarshipBuildErrorToString, getStarshipBuild, getStarshipBuildErrorToString, getStarshipBuilds, getStarshipBuildsErrorToString, httpClientErrorToString, updateStarshipBuild, updateStarshipBuildErrorToString)
 import Dict
 import Html exposing (Html, button, div, input, label, text)
 import Html.Attributes exposing (disabled, value)
@@ -22,6 +22,7 @@ initialModel =
     , error = Nothing
     , isFetching = False
     , shipName = ""
+    , ships = Nothing
     }
 
 
@@ -32,16 +33,19 @@ type alias Model =
     , error : Maybe String
     , isFetching : Bool
     , shipName : String
+    , ships : Maybe (List StarshipBuildLink)
     }
 
 
 type Msg
     = CreateStarshipBuildResult (Result (HttpClientError CreateStarshipBuildError) String)
     | GetStarshipBuildResult (Result (HttpClientError GetStarshipBuildError) ( String, Starship ))
+    | GetStarshipBuildsResult (Result (HttpClientError GetStarshipBuildsError) (List StarshipBuildLink))
     | UpdateStarshipBuildResult (Result (HttpClientError UpdateStarshipBuildError) String)
     | CreateShip
     | SaveShip
     | GetShip
+    | GetShips
     | SetShipName String
     | StarshipUpdate StarshipEditor.Msg
     | Back
@@ -55,6 +59,13 @@ update { idToken, hostName } msg ({ starshipBuild, error, isFetching, shipName }
             , Cmd.map
                 GetStarshipBuildResult
                 (getStarshipBuild hostName idToken shipName)
+            )
+
+        GetShips ->
+            ( { s | isFetching = True }
+            , Cmd.map
+                GetStarshipBuildsResult
+                (getStarshipBuilds hostName idToken)
             )
 
         CreateShip ->
@@ -103,6 +114,29 @@ update { idToken, hostName } msg ({ starshipBuild, error, isFetching, shipName }
 
                             Nothing ->
                                 ( s, Cmd.none )
+
+            else
+                ( s, Cmd.none )
+
+        GetStarshipBuildsResult r ->
+            if isFetching then
+                case r of
+                    Err x ->
+                        ( { s
+                            | error =
+                                Just (httpClientErrorToString getStarshipBuildsErrorToString x)
+                            , isFetching = False
+                          }
+                        , Cmd.none
+                        )
+
+                    Ok ships ->
+                        ( { s
+                            | isFetching = False
+                            , ships = Just ships
+                          }
+                        , Cmd.none
+                        )
 
             else
                 ( s, Cmd.none )
@@ -180,7 +214,7 @@ update { idToken, hostName } msg ({ starshipBuild, error, isFetching, shipName }
 
 
 view : Model -> Html Msg
-view { starshipBuild, error, isFetching, shipName } =
+view { starshipBuild, error, isFetching, shipName, ships } =
     div
         []
         (case ( starshipBuild, error, isFetching ) of
@@ -205,5 +239,17 @@ view { starshipBuild, error, isFetching, shipName } =
                     ]
                 , button [ onClick CreateShip ] [ text "CREATE NEW" ]
                 , button [ onClick GetShip ] [ text "GET" ]
+                , button [ onClick GetShips ] [ text "GET ALL SHIP NAMES" ]
+
+                -- TODO: This could obviously be much better
+                , div []
+                    (case ships of
+                        Just s ->
+                            div [] [ text "Current Ships:" ]
+                                :: List.map (\ship -> div [] [ text ship.name ]) s
+
+                        Nothing ->
+                            [ div [] [ text "Ships Not Fetched" ] ]
+                    )
                 ]
         )
