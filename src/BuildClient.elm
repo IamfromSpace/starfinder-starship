@@ -1,4 +1,4 @@
-module BuildClient exposing (CreateStarshipBuild, CreateStarshipBuildError(..), GetStarshipBuild, GetStarshipBuildError(..), HttpClientError, UpdateStarshipBuild, UpdateStarshipBuildError(..), createStarshipBuild, createStarshipBuildErrorToString, getStarshipBuild, getStarshipBuildErrorToString, httpClientErrorToString, updateStarshipBuild, updateStarshipBuildErrorToString)
+module BuildClient exposing (CreateStarshipBuild, CreateStarshipBuildError(..), GetStarshipBuild, GetStarshipBuildError(..), GetStarshipBuilds, GetStarshipBuildsError(..), HttpClientError, StarshipBuildLink, UpdateStarshipBuild, UpdateStarshipBuildError(..), createStarshipBuild, createStarshipBuildErrorToString, getStarshipBuild, getStarshipBuildErrorToString, getStarshipBuilds, getStarshipBuildsErrorToString, httpClientErrorToString, updateStarshipBuild, updateStarshipBuildErrorToString)
 
 import Arc exposing (Arc)
 import Computer exposing (Computer)
@@ -683,6 +683,7 @@ responseToGetBuildClientResult r =
 
 
 type alias GetStarshipBuild =
+    --TODO: We can use a Link instead of a String
     String -> String -> String -> Cmd (Result (HttpClientError GetStarshipBuildError) ( String, Starship ))
 
 
@@ -783,6 +784,7 @@ responseToUpdateBuildClientResult r =
 
 
 type alias UpdateStarshipBuild =
+    --TODO: We can use a Link instead of a String
     String -> String -> String -> Starship -> Cmd (Result (HttpClientError UpdateStarshipBuildError) String)
 
 
@@ -805,6 +807,85 @@ updateStarshipBuild hostname token eTag starshipBuild =
                         |> encode 0
                         |> stringBody "application/x.starfinder-starship-build+json"
                 , expect = expectResponse responseToUpdateBuildClientResult
+                , timeout = Just 5000
+                , tracker = Nothing
+                }
+        )
+
+
+type alias StarshipBuildLink =
+    { name : String
+    , link : String
+    }
+
+
+starshipBuildLinkDecoder : Decoder StarshipBuildLink
+starshipBuildLinkDecoder =
+    D.succeed StarshipBuildLink
+        |> required "name" D.string
+        |> required "link" D.string
+
+
+type GetStarshipBuildsError
+    = ForbiddenGs
+
+
+getStarshipBuildsErrorToString : GetStarshipBuildsError -> String
+getStarshipBuildsErrorToString x =
+    case x of
+        ForbiddenGs ->
+            "Forbidden"
+
+
+responseToGetBuildsClientResult : Response String -> Result (HttpClientError GetStarshipBuildsError) (List StarshipBuildLink)
+responseToGetBuildsClientResult r =
+    case r of
+        GoodStatus_ _ body ->
+            case decodeString (D.list starshipBuildLinkDecoder) body of
+                Ok linkList ->
+                    Ok linkList
+
+                Err _ ->
+                    Err (UnexpectedResponse "Could not decode body!")
+
+        Timeout_ ->
+            Err Timeout
+
+        NetworkError_ ->
+            Err NetworkError
+
+        BadUrl_ x ->
+            Err (BadUrl x)
+
+        BadStatus_ { statusCode, headers } body ->
+            if statusCode >= 500 then
+                Err (UnexpectedResponse "5XX Status Code")
+
+            else if statusCode == 403 then
+                Err (ExpectedError ForbiddenGs)
+
+            else
+                Err (UnexpectedResponse "Unexpected 4XX")
+
+
+type alias GetStarshipBuilds =
+    String -> String -> Cmd (Result (HttpClientError GetStarshipBuildsError) (List StarshipBuildLink))
+
+
+getStarshipBuilds : GetStarshipBuilds
+getStarshipBuilds hostname token =
+    withSubFromToken token
+        (\userId ->
+            request
+                { method = "GET"
+                , headers =
+                    [ header "Authorization" ("Bearer " ++ token)
+                    ]
+
+                -- TODO: Want to limit need for URL construction for clients
+                , url = "https://" ++ hostname ++ "/resources/users/" ++ userId ++ "/builds"
+                , body = emptyBody
+                , expect = expectResponse responseToGetBuildsClientResult
                 , timeout = Just 5000
                 , tracker = Nothing
                 }
