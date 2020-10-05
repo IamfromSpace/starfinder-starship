@@ -153,6 +153,9 @@ buildRepoToDynamo =
                     (fromList [("#userId", "HASH1"), ("#name", "RANGE1.1")]) $
                 set qKeyConditionExpression (Just "#userId = :thisUser") $
                 set qProjectionExpression (Just "#name") $ query tableName
+            -- TODO: Our current pattern assumes that we're going to get all
+            -- items, so we either need to do that, or we need to make our
+            -- interface more complex (counts/last/etc)
             let items = view qrsItems res
             return $
                 -- This should never happen, not sure we could do much about it
