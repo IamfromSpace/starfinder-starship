@@ -288,10 +288,10 @@ linkAndTogglableWeaponToValue x =
 
 
 type alias CreateStarshipBuild =
-    String -> String -> Starship -> Cmd (Result (HttpClientError CreateStarshipBuildError) ( String, Link ))
+    Starship -> Cmd (Result (HttpClientError CreateStarshipBuildError) ( String, Link ))
 
 
-createStarshipBuild : CreateStarshipBuild
+createStarshipBuild : String -> String -> CreateStarshipBuild
 createStarshipBuild hostname token starshipBuild =
     withSubFromToken token
         (\userId ->
@@ -698,10 +698,10 @@ responseToGetBuildClientResult r =
 
 
 type alias GetStarshipBuild =
-    String -> Link -> Cmd (Result (HttpClientError GetStarshipBuildError) ( String, Starship ))
+    Link -> Cmd (Result (HttpClientError GetStarshipBuildError) ( String, Starship ))
 
 
-getStarshipBuild : GetStarshipBuild
+getStarshipBuild : String -> GetStarshipBuild
 getStarshipBuild token (Link url) =
     withSubFromToken token
         (\userId ->
@@ -797,10 +797,10 @@ responseToUpdateBuildClientResult r =
 
 type alias UpdateStarshipBuild =
     -- TODO: ETag and Token could be opaque too
-    String -> Link -> String -> Starship -> Cmd (Result (HttpClientError UpdateStarshipBuildError) String)
+    Link -> String -> Starship -> Cmd (Result (HttpClientError UpdateStarshipBuildError) String)
 
 
-updateStarshipBuild : UpdateStarshipBuild
+updateStarshipBuild : String -> UpdateStarshipBuild
 updateStarshipBuild token (Link url) eTag starshipBuild =
     withSubFromToken token
         (\userId ->
@@ -879,10 +879,10 @@ responseToGetBuildsClientResult r =
 
 
 type alias GetStarshipBuilds =
-    String -> String -> Cmd (Result (HttpClientError GetStarshipBuildsError) (List StarshipBuildLink))
+    Cmd (Result (HttpClientError GetStarshipBuildsError) (List StarshipBuildLink))
 
 
-getStarshipBuilds : GetStarshipBuilds
+getStarshipBuilds : String -> String -> GetStarshipBuilds
 getStarshipBuilds hostname token =
     withSubFromToken token
         (\userId ->
