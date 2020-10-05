@@ -1,4 +1,4 @@
-module BuildClient exposing (CreateStarshipBuild, CreateStarshipBuildError(..), GetStarshipBuild, GetStarshipBuildError(..), GetStarshipBuilds, GetStarshipBuildsError(..), HttpClientError, Link, StarshipBuildLink, UpdateStarshipBuild, UpdateStarshipBuildError(..), createStarshipBuild, createStarshipBuildErrorToString, getStarshipBuild, getStarshipBuildErrorToString, getStarshipBuilds, getStarshipBuildsErrorToString, httpClientErrorToString, updateStarshipBuild, updateStarshipBuildErrorToString)
+module BuildClient exposing (CreateStarshipBuild, CreateStarshipBuildError(..), GetStarshipBuild, GetStarshipBuildError(..), GetStarshipBuilds, GetStarshipBuildsError(..), HttpClientError, Link, StarshipBuildLink, UpdateStarshipBuild, UpdateStarshipBuildError(..), createStarshipBuild, createStarshipBuildErrorToString, getStarshipBuild, getStarshipBuildErrorToString, getStarshipBuilds, getStarshipBuildsErrorToString, httpClientErrorToString, makeMockGetStarshipBuild, makeMockUpdateStarshipBuild, mockCreateStarshipBuild, mockGetStarshipBuilds, updateStarshipBuild, updateStarshipBuildErrorToString)
 
 import Arc exposing (Arc)
 import Computer exposing (Computer)
@@ -926,3 +926,48 @@ lowerCaseCommaJoin =
                 )
         )
         Dict.empty
+
+
+
+--TODO: We need this to be defined in the same module to keep Link opaque everywhere else.
+
+
+mockCreateStarshipBuild : CreateStarshipBuild
+mockCreateStarshipBuild _ =
+    Task.perform identity <|
+        Task.succeed <|
+            Ok ( "eTag", Link "hey" )
+
+
+makeMockGetStarshipBuild : Starship -> GetStarshipBuild
+makeMockGetStarshipBuild defaultShip link =
+    Task.perform identity <|
+        Task.succeed <|
+            case link of
+                Link "hey" ->
+                    Ok ( "eTag", defaultShip )
+
+                _ ->
+                    Err <| ExpectedError DoesNotExistG
+
+
+makeMockUpdateStarshipBuild : Starship -> UpdateStarshipBuild
+makeMockUpdateStarshipBuild defaultShip link eTag ship =
+    Task.perform identity <|
+        Task.succeed <|
+            case ( link, eTag ) of
+                ( Link "hey", "eTag" ) ->
+                    Ok "eTag"
+
+                ( Link "hey", _ ) ->
+                    Err <| ExpectedError <| ETagMismatch ( "eTag", defaultShip )
+
+                _ ->
+                    Err <| ExpectedError DoesNotExistU
+
+
+mockGetStarshipBuilds : GetStarshipBuilds
+mockGetStarshipBuilds =
+    Task.perform identity <|
+        Task.succeed <|
+            Ok [ { link = Link "hey", name = "hey" } ]

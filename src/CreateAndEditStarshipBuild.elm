@@ -1,7 +1,7 @@
-module CreateAndEditStarshipBuild exposing (Model, Msg(..), initialModel, update, view)
+module CreateAndEditStarshipBuild exposing (Config, Model, Msg(..), initialModel, update, view)
 
 import Arc
-import BuildClient exposing (CreateStarshipBuildError, GetStarshipBuildError, GetStarshipBuildsError(..), HttpClientError, Link, StarshipBuildLink, UpdateStarshipBuildError, createStarshipBuild, createStarshipBuildErrorToString, getStarshipBuild, getStarshipBuildErrorToString, getStarshipBuilds, getStarshipBuildsErrorToString, httpClientErrorToString, updateStarshipBuild, updateStarshipBuildErrorToString)
+import BuildClient exposing (CreateStarshipBuild, CreateStarshipBuildError, GetStarshipBuild, GetStarshipBuildError, GetStarshipBuilds, GetStarshipBuildsError(..), HttpClientError, Link, StarshipBuildLink, UpdateStarshipBuild, UpdateStarshipBuildError, createStarshipBuild, createStarshipBuildErrorToString, getStarshipBuild, getStarshipBuildErrorToString, getStarshipBuilds, getStarshipBuildsErrorToString, httpClientErrorToString, updateStarshipBuild, updateStarshipBuildErrorToString)
 import Dict
 import Html exposing (Html, button, div, input, label, text)
 import Html.Attributes exposing (disabled, value)
@@ -51,25 +51,34 @@ type Msg
     | Back
 
 
+type alias Config a =
+    { a
+        | getStarshipBuild : GetStarshipBuild
+        , getStarshipBuilds : GetStarshipBuilds
+        , createStarshipBuild : CreateStarshipBuild
+        , updateStarshipBuild : UpdateStarshipBuild
+    }
 
--- TODO: The config shouldn't be an idToken and hostname, this should be our client
 
-
-update : { a | idToken : String, hostName : String } -> Msg -> Model -> ( Model, Cmd Msg )
-update { idToken, hostName } msg ({ starshipBuild, error, isFetching, shipName } as s) =
+update :
+    Config a
+    -> Msg
+    -> Model
+    -> ( Model, Cmd Msg )
+update { getStarshipBuild, getStarshipBuilds, createStarshipBuild, updateStarshipBuild } msg ({ starshipBuild, error, isFetching, shipName } as s) =
     case msg of
         GetShip link ->
             ( { s | isFetching = True }
             , Cmd.map
                 (GetStarshipBuildResult link)
-                (getStarshipBuild idToken link)
+                (getStarshipBuild link)
             )
 
         GetShips ->
             ( { s | isFetching = True }
             , Cmd.map
                 GetStarshipBuildsResult
-                (getStarshipBuilds hostName idToken)
+                getStarshipBuilds
             )
 
         CreateShip ->
@@ -81,14 +90,14 @@ update { idToken, hostName } msg ({ starshipBuild, error, isFetching, shipName }
                     ( { s | isFetching = True }
                     , Cmd.map
                         UpdateStarshipBuildResult
-                        (updateStarshipBuild idToken link eTag starship)
+                        (updateStarshipBuild link eTag starship)
                     )
 
                 Just ( Nothing, starship ) ->
                     ( { s | isFetching = True }
                     , Cmd.map
                         CreateStarshipBuildResult
-                        (createStarshipBuild hostName idToken starship)
+                        (createStarshipBuild starship)
                     )
 
                 _ ->

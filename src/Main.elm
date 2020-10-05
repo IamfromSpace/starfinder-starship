@@ -2,6 +2,7 @@ module Main exposing (main)
 
 import App
 import Browser exposing (element)
+import BuildClient as BC
 import CognitoClient
 import Login
 import Platform.Cmd exposing (Cmd)
@@ -40,7 +41,10 @@ main =
                         appConfig =
                             { loginInit = Login.mkInit loginConfig Nothing
                             , loginUpdate = Login.update loginConfig
-                            , hostName = f.hostName
+                            , createStarshipBuild = BC.createStarshipBuild f.hostName
+                            , getStarshipBuild = BC.getStarshipBuild
+                            , updateStarshipBuild = BC.updateStarshipBuild
+                            , getStarshipBuilds = BC.getStarshipBuilds f.hostName
                             }
                     in
                     ( appConfig, App.init appConfig )

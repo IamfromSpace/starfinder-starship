@@ -1,5 +1,6 @@
 module App exposing (Config, Model, Msg, init, update, view)
 
+import BuildClient as BC
 import CognitoClient
 import CreateAndEditStarshipBuild as CAESB
 import Html exposing (Html)
@@ -39,8 +40,11 @@ type Msg
 type alias Config a =
     { a
         | loginUpdate : Login.LoginUpdate
-        , hostName : String
         , loginInit : ( Login.Model, Cmd Login.Msg )
+        , createStarshipBuild : String -> BC.CreateStarshipBuild
+        , getStarshipBuild : String -> BC.GetStarshipBuild
+        , updateStarshipBuild : String -> BC.UpdateStarshipBuild
+        , getStarshipBuilds : String -> BC.GetStarshipBuilds
     }
 
 
@@ -57,8 +61,10 @@ update config msg model =
                     let
                         ( iModel, cmd ) =
                             CAESB.update
-                                { hostName = config.hostName
-                                , idToken = id
+                                { createStarshipBuild = config.createStarshipBuild id
+                                , getStarshipBuild = config.getStarshipBuild id
+                                , updateStarshipBuild = config.updateStarshipBuild id
+                                , getStarshipBuilds = config.getStarshipBuilds id
                                 }
                                 iMsg
                                 model.inner

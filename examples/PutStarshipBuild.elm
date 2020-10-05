@@ -2,36 +2,34 @@ module Main exposing (main)
 
 import Arc
 import Browser exposing (element)
-import CreateAndEditStarshipBuild exposing (Model, Msg, initialModel, update, view)
+import BuildClient as BC
+import CreateAndEditStarshipBuild exposing (Config, Model, Msg, initialModel, update, view)
 import Dict
 import Html.Attributes exposing (disabled, value)
 import Html.Events exposing (onClick, onInput)
-import InputConfigured as IC
 import Platform.Cmd exposing (Cmd)
 import Platform.Sub exposing (Sub)
+import StarshipEditor
 
 
-main : Program () (IC.Model Model) (IC.Msg Msg)
+config : Config {}
+config =
+    { createStarshipBuild = BC.mockCreateStarshipBuild
+    , getStarshipBuild = BC.makeMockGetStarshipBuild StarshipEditor.init
+    , updateStarshipBuild = BC.makeMockUpdateStarshipBuild StarshipEditor.init
+    , getStarshipBuilds = BC.mockGetStarshipBuilds
+    }
+
+
+main : Program () Model Msg
 main =
     element
         { init =
-            IC.initialModel
-                (Dict.fromList
-                    [ ( "hostName", "" )
-                    , ( "idToken", "" )
-                    ]
-                )
-                (\_ -> ( initialModel, Cmd.none ))
+            \_ -> ( initialModel, Cmd.none )
         , update =
-            IC.update
-                (\c ->
-                    { hostName = Maybe.withDefault "Not Configured" <| Dict.get "hostName" c
-                    , idToken = Maybe.withDefault "Not Configured" <| Dict.get "idToken" c
-                    }
-                )
-                update
+            update config
         , view =
-            IC.view always (\_ -> view)
+            view
         , subscriptions =
             \_ -> Sub.none
         }
