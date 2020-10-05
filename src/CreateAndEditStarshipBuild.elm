@@ -121,6 +121,12 @@ update { getStarshipBuild, getStarshipBuilds, createStarshipBuild, updateStarshi
                                 ( { s
                                     | isFetching = False
                                     , starshipBuild = Just ( Just ( eTag, link ), sb )
+                                    , ships =
+                                        Maybe.map
+                                            (\ships ->
+                                                { link = link, name = sb.name } :: ships
+                                            )
+                                            s.ships
                                   }
                                 , Cmd.none
                                 )
