@@ -230,6 +230,7 @@ getAndParseETag =
         parseETag = maybe (Left Invalid) Right . eTagValueToHash
     in getETag >=> parseETag
 
+-- TODO: These types can be _much_ more stringent, non-empty-case-insensitive and UUID
 data ValidPath
     -- /resources/users/${Text}/builds
     = UserBuilds Text
