@@ -1,7 +1,7 @@
 module CreateAndEditStarshipBuild exposing (Model, Msg(..), initialModel, update, view)
 
 import Arc
-import BuildClient exposing (CreateStarshipBuildError, GetStarshipBuildError, GetStarshipBuildsError(..), HttpClientError, StarshipBuildLink, UpdateStarshipBuildError, createStarshipBuild, createStarshipBuildErrorToString, getStarshipBuild, getStarshipBuildErrorToString, getStarshipBuilds, getStarshipBuildsErrorToString, httpClientErrorToString, updateStarshipBuild, updateStarshipBuildErrorToString)
+import BuildClient exposing (CreateStarshipBuildError, GetStarshipBuildError, GetStarshipBuildsError(..), HttpClientError, Link, StarshipBuildLink, UpdateStarshipBuildError, createStarshipBuild, createStarshipBuildErrorToString, getStarshipBuild, getStarshipBuildErrorToString, getStarshipBuilds, getStarshipBuildsErrorToString, httpClientErrorToString, updateStarshipBuild, updateStarshipBuildErrorToString)
 import Dict
 import Html exposing (Html, button, div, input, label, text)
 import Html.Attributes exposing (disabled, value)
@@ -29,7 +29,7 @@ initialModel =
 type alias Model =
     -- TODO: Store the previous Starship Build state so we can detect if it's
     -- actually changed
-    { starshipBuild : Maybe ( Maybe String, Starship )
+    { starshipBuild : Maybe ( Maybe ( String, Link ), Starship )
     , error : Maybe String
     , isFetching : Bool
     , shipName : String
@@ -38,27 +38,31 @@ type alias Model =
 
 
 type Msg
-    = CreateStarshipBuildResult (Result (HttpClientError CreateStarshipBuildError) String)
-    | GetStarshipBuildResult (Result (HttpClientError GetStarshipBuildError) ( String, Starship ))
+    = CreateStarshipBuildResult (Result (HttpClientError CreateStarshipBuildError) ( String, Link ))
+    | GetStarshipBuildResult Link (Result (HttpClientError GetStarshipBuildError) ( String, Starship ))
     | GetStarshipBuildsResult (Result (HttpClientError GetStarshipBuildsError) (List StarshipBuildLink))
     | UpdateStarshipBuildResult (Result (HttpClientError UpdateStarshipBuildError) String)
     | CreateShip
     | SaveShip
-    | GetShip
+    | GetShip Link
     | GetShips
     | SetShipName String
     | StarshipUpdate StarshipEditor.Msg
     | Back
 
 
+
+-- TODO: The config shouldn't be an idToken and hostname, this should be our client
+
+
 update : { a | idToken : String, hostName : String } -> Msg -> Model -> ( Model, Cmd Msg )
 update { idToken, hostName } msg ({ starshipBuild, error, isFetching, shipName } as s) =
     case msg of
-        GetShip ->
+        GetShip link ->
             ( { s | isFetching = True }
             , Cmd.map
-                GetStarshipBuildResult
-                (getStarshipBuild hostName idToken shipName)
+                (GetStarshipBuildResult link)
+                (getStarshipBuild idToken link)
             )
 
         GetShips ->
@@ -73,11 +77,11 @@ update { idToken, hostName } msg ({ starshipBuild, error, isFetching, shipName }
 
         SaveShip ->
             case starshipBuild of
-                Just ( Just eTag, starship ) ->
+                Just ( Just ( eTag, link ), starship ) ->
                     ( { s | isFetching = True }
                     , Cmd.map
                         UpdateStarshipBuildResult
-                        (updateStarshipBuild hostName idToken eTag starship)
+                        (updateStarshipBuild idToken link eTag starship)
                     )
 
                 Just ( Nothing, starship ) ->
@@ -102,12 +106,12 @@ update { idToken, hostName } msg ({ starshipBuild, error, isFetching, shipName }
                         , Cmd.none
                         )
 
-                    Ok eTag ->
+                    Ok ( eTag, link ) ->
                         case starshipBuild of
                             Just ( _, sb ) ->
                                 ( { s
                                     | isFetching = False
-                                    , starshipBuild = Just ( Just eTag, sb )
+                                    , starshipBuild = Just ( Just ( eTag, link ), sb )
                                   }
                                 , Cmd.none
                                 )
@@ -141,7 +145,7 @@ update { idToken, hostName } msg ({ starshipBuild, error, isFetching, shipName }
             else
                 ( s, Cmd.none )
 
-        GetStarshipBuildResult r ->
+        GetStarshipBuildResult link r ->
             if isFetching then
                 case r of
                     Err x ->
@@ -156,7 +160,7 @@ update { idToken, hostName } msg ({ starshipBuild, error, isFetching, shipName }
                     Ok ( eTag, sb ) ->
                         ( { s
                             | isFetching = False
-                            , starshipBuild = Just ( Just eTag, sb )
+                            , starshipBuild = Just ( Just ( eTag, link ), sb )
                           }
                         , Cmd.none
                         )
@@ -178,13 +182,17 @@ update { idToken, hostName } msg ({ starshipBuild, error, isFetching, shipName }
 
                     Ok eTag ->
                         case starshipBuild of
-                            Just ( _, sb ) ->
+                            Just ( Just ( _, link ), sb ) ->
                                 ( { s
                                     | isFetching = False
-                                    , starshipBuild = Just ( Just eTag, sb )
+                                    , starshipBuild = Just ( Just ( eTag, link ), sb )
                                   }
                                 , Cmd.none
                                 )
+
+                            -- This should be impossible, right?
+                            Just ( Nothing, _ ) ->
+                                ( s, Cmd.none )
 
                             Nothing ->
                                 ( s, Cmd.none )
@@ -233,12 +241,7 @@ view { starshipBuild, error, isFetching, shipName, ships } =
                 ]
 
             ( Nothing, _, _ ) ->
-                [ div []
-                    [ label [] [ text "Starship Build Name:" ]
-                    , input [ onInput SetShipName, value shipName ] []
-                    ]
-                , button [ onClick CreateShip ] [ text "CREATE NEW" ]
-                , button [ onClick GetShip ] [ text "GET" ]
+                [ button [ onClick CreateShip ] [ text "CREATE NEW" ]
                 , button [ onClick GetShips ] [ text "GET ALL SHIP NAMES" ]
 
                 -- TODO: This could obviously be much better
@@ -246,7 +249,16 @@ view { starshipBuild, error, isFetching, shipName, ships } =
                     (case ships of
                         Just s ->
                             div [] [ text "Current Ships:" ]
-                                :: List.map (\ship -> div [] [ text ship.name ]) s
+                                :: List.map
+                                    (\ship ->
+                                        div []
+                                            [ button
+                                                [ onClick (GetShip ship.link)
+                                                ]
+                                                [ text ship.name ]
+                                            ]
+                                    )
+                                    s
 
                         Nothing ->
                             [ div [] [ text "Ships Not Fetched" ] ]

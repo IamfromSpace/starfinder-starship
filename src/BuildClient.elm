@@ -1,4 +1,4 @@
-module BuildClient exposing (CreateStarshipBuild, CreateStarshipBuildError(..), GetStarshipBuild, GetStarshipBuildError(..), GetStarshipBuilds, GetStarshipBuildsError(..), HttpClientError, StarshipBuildLink, UpdateStarshipBuild, UpdateStarshipBuildError(..), createStarshipBuild, createStarshipBuildErrorToString, getStarshipBuild, getStarshipBuildErrorToString, getStarshipBuilds, getStarshipBuildsErrorToString, httpClientErrorToString, updateStarshipBuild, updateStarshipBuildErrorToString)
+module BuildClient exposing (CreateStarshipBuild, CreateStarshipBuildError(..), GetStarshipBuild, GetStarshipBuildError(..), GetStarshipBuilds, GetStarshipBuildsError(..), HttpClientError, Link, StarshipBuildLink, UpdateStarshipBuild, UpdateStarshipBuildError(..), createStarshipBuild, createStarshipBuildErrorToString, getStarshipBuild, getStarshipBuildErrorToString, getStarshipBuilds, getStarshipBuildsErrorToString, httpClientErrorToString, updateStarshipBuild, updateStarshipBuildErrorToString)
 
 import Arc exposing (Arc)
 import Computer exposing (Computer)
@@ -19,6 +19,14 @@ import Switch exposing (Switch(..))
 import Task
 import Togglable exposing (Togglable(..))
 import Weapon exposing (Range(..), Weapon)
+
+
+
+-- Opaque type to ensure links aren't inspected or manipulated
+
+
+type Link
+    = Link String
 
 
 
@@ -111,13 +119,17 @@ listToString_ list =
             "," ++ listToString_ xs
 
 
-responseToCreateBuildClientResult : Response String -> Result (HttpClientError CreateStarshipBuildError) String
-responseToCreateBuildClientResult e =
+
+-- TODO: We don't want to thread the link we came up with, we want to use a link returned by the service
+
+
+responseToCreateBuildClientResult : Link -> Response String -> Result (HttpClientError CreateStarshipBuildError) ( String, Link )
+responseToCreateBuildClientResult link e =
     case e of
         GoodStatus_ { headers } _ ->
             case Dict.get "etag" (lowerCaseCommaJoin headers) of
                 Just eTag ->
-                    Ok eTag
+                    Ok ( eTag, link )
 
                 Nothing ->
                     Err (UnexpectedResponse "Missing ETag")
@@ -276,26 +288,29 @@ linkAndTogglableWeaponToValue x =
 
 
 type alias CreateStarshipBuild =
-    String -> String -> Starship -> Cmd (Result (HttpClientError CreateStarshipBuildError) String)
+    String -> String -> Starship -> Cmd (Result (HttpClientError CreateStarshipBuildError) ( String, Link ))
 
 
 createStarshipBuild : CreateStarshipBuild
 createStarshipBuild hostname token starshipBuild =
     withSubFromToken token
         (\userId ->
+            let
+                -- TODO: Want to limit need for URL construction for clients
+                url =
+                    "https://" ++ hostname ++ "/resources/users/" ++ userId ++ "/builds/" ++ starshipBuild.name
+            in
             request
                 { method = "PUT"
                 , headers =
                     [ header "Authorization" ("Bearer " ++ token) ]
-
-                -- TODO: Want to limit need for URL construction for clients
-                , url = "https://" ++ hostname ++ "/resources/users/" ++ userId ++ "/builds/" ++ starshipBuild.name
+                , url = url
                 , body =
                     starshipBuild
                         |> buildToXStarfinderStarshipBuildValue
                         |> encode 0
                         |> stringBody "application/x.starfinder-starship-build+json"
-                , expect = expectResponse responseToCreateBuildClientResult
+                , expect = expectResponse <| responseToCreateBuildClientResult <| Link url
                 , timeout = Just 5000
                 , tracker = Nothing
                 }
@@ -683,21 +698,18 @@ responseToGetBuildClientResult r =
 
 
 type alias GetStarshipBuild =
-    --TODO: We can use a Link instead of a String
-    String -> String -> String -> Cmd (Result (HttpClientError GetStarshipBuildError) ( String, Starship ))
+    String -> Link -> Cmd (Result (HttpClientError GetStarshipBuildError) ( String, Starship ))
 
 
 getStarshipBuild : GetStarshipBuild
-getStarshipBuild hostname token name =
+getStarshipBuild token (Link url) =
     withSubFromToken token
         (\userId ->
             request
                 { method = "GET"
                 , headers =
                     [ header "Authorization" ("Bearer " ++ token) ]
-
-                -- TODO: Want to limit need for URL construction for clients
-                , url = "https://" ++ hostname ++ "/resources/users/" ++ userId ++ "/builds/" ++ name
+                , url = url
                 , body = emptyBody
                 , expect = expectResponse responseToGetBuildClientResult
                 , timeout = Just 5000
@@ -784,12 +796,12 @@ responseToUpdateBuildClientResult r =
 
 
 type alias UpdateStarshipBuild =
-    --TODO: We can use a Link instead of a String
-    String -> String -> String -> Starship -> Cmd (Result (HttpClientError UpdateStarshipBuildError) String)
+    -- TODO: ETag and Token could be opaque too
+    String -> Link -> String -> Starship -> Cmd (Result (HttpClientError UpdateStarshipBuildError) String)
 
 
 updateStarshipBuild : UpdateStarshipBuild
-updateStarshipBuild hostname token eTag starshipBuild =
+updateStarshipBuild token (Link url) eTag starshipBuild =
     withSubFromToken token
         (\userId ->
             request
@@ -798,9 +810,7 @@ updateStarshipBuild hostname token eTag starshipBuild =
                     [ header "Authorization" ("Bearer " ++ token)
                     , header "If-Match" eTag
                     ]
-
-                -- TODO: Want to limit need for URL construction for clients
-                , url = "https://" ++ hostname ++ "/resources/users/" ++ userId ++ "/builds/" ++ starshipBuild.name
+                , url = url
                 , body =
                     starshipBuild
                         |> buildToXStarfinderStarshipBuildValue
@@ -815,7 +825,7 @@ updateStarshipBuild hostname token eTag starshipBuild =
 
 type alias StarshipBuildLink =
     { name : String
-    , link : String
+    , link : Link
     }
 
 
@@ -823,7 +833,7 @@ starshipBuildLinkDecoder : Decoder StarshipBuildLink
 starshipBuildLinkDecoder =
     D.succeed StarshipBuildLink
         |> required "name" D.string
-        |> required "link" D.string
+        |> required "link" (D.map Link D.string)
 
 
 type GetStarshipBuildsError
