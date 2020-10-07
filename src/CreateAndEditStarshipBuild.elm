@@ -12,6 +12,7 @@ import Platform.Cmd exposing (Cmd)
 import ShipAssets
 import Starship exposing (Starship)
 import StarshipEditor
+import StatusEditor
 import Togglable
 import Weapon
 
@@ -19,6 +20,7 @@ import Weapon
 initialModel : Model
 initialModel =
     { starshipBuild = Nothing
+    , starshipStatus = Nothing
     , error = Nothing
     , isFetching = False
     , shipName = ""
@@ -30,6 +32,7 @@ type alias Model =
     -- TODO: Store the previous Starship Build state so we can detect if it's
     -- actually changed
     { starshipBuild : Maybe ( Maybe ( String, Link ), Starship )
+    , starshipStatus : Maybe StatusEditor.Model
     , error : Maybe String
     , isFetching : Bool
     , shipName : String
@@ -42,12 +45,15 @@ type Msg
     | GetStarshipBuildResult Link (Result (HttpClientError GetStarshipBuildError) ( String, Starship ))
     | GetStarshipBuildsResult (Result (HttpClientError GetStarshipBuildsError) (List StarshipBuildLink))
     | UpdateStarshipBuildResult (Result (HttpClientError UpdateStarshipBuildError) String)
+    | FlyStarshipGetResult (Result (HttpClientError GetStarshipBuildError) ( String, Starship ))
     | CreateShip
     | SaveShip
     | GetShip Link
     | GetShips
+    | FlyShip Link
     | SetShipName String
     | StarshipUpdate StarshipEditor.Msg
+    | StatusUpdate StatusEditor.Msg
     | Back
 
 
@@ -65,7 +71,7 @@ update :
     -> Msg
     -> Model
     -> ( Model, Cmd Msg )
-update { getStarshipBuild, getStarshipBuilds, createStarshipBuild, updateStarshipBuild } msg ({ starshipBuild, error, isFetching, shipName } as s) =
+update { getStarshipBuild, getStarshipBuilds, createStarshipBuild, updateStarshipBuild } msg ({ starshipBuild, error, isFetching, shipName, starshipStatus } as s) =
     case msg of
         GetShip link ->
             ( { s | isFetching = True }
@@ -83,6 +89,13 @@ update { getStarshipBuild, getStarshipBuilds, createStarshipBuild, updateStarshi
 
         CreateShip ->
             ( { s | starshipBuild = Just ( Nothing, StarshipEditor.init ) }, Cmd.none )
+
+        FlyShip link ->
+            ( { s | isFetching = True }
+            , Cmd.map
+                FlyStarshipGetResult
+                (getStarshipBuild link)
+            )
 
         SaveShip ->
             case starshipBuild of
@@ -215,6 +228,30 @@ update { getStarshipBuild, getStarshipBuilds, createStarshipBuild, updateStarshi
             else
                 ( s, Cmd.none )
 
+        FlyStarshipGetResult r ->
+            if isFetching then
+                case r of
+                    Err x ->
+                        ( { s
+                            | error =
+                                Just (httpClientErrorToString getStarshipBuildErrorToString x)
+                            , isFetching = False
+                          }
+                        , Cmd.none
+                        )
+
+                    Ok ( eTag, sb ) ->
+                        ( { s
+                            | isFetching = False
+                            , starshipBuild = Just ( Nothing, sb )
+                            , starshipStatus = Just (StatusEditor.init sb)
+                          }
+                        , Cmd.none
+                        )
+
+            else
+                ( s, Cmd.none )
+
         SetShipName sn ->
             ( { s | shipName = sn }, Cmd.none )
 
@@ -226,6 +263,18 @@ update { getStarshipBuild, getStarshipBuilds, createStarshipBuild, updateStarshi
                 _ ->
                     ( s, Cmd.none )
 
+        StatusUpdate sMsg ->
+            case ( starshipBuild, starshipStatus ) of
+                ( Just ( _, sModel ), Just sStatus ) ->
+                    let
+                        ( newStatus, cmd ) =
+                            StatusEditor.update sModel sMsg sStatus
+                    in
+                    ( { s | starshipStatus = Just newStatus }, Cmd.map StatusUpdate cmd )
+
+                _ ->
+                    ( s, Cmd.none )
+
         Back ->
             case error of
                 Just _ ->
@@ -233,14 +282,14 @@ update { getStarshipBuild, getStarshipBuilds, createStarshipBuild, updateStarshi
 
                 Nothing ->
                     -- TODO: This could lose saved progress!
-                    ( { s | starshipBuild = Nothing }, Cmd.none )
+                    ( { s | starshipBuild = Nothing, starshipStatus = Nothing }, Cmd.none )
 
 
 view : Model -> Html Msg
-view { starshipBuild, error, isFetching, shipName, ships } =
+view { starshipBuild, error, isFetching, shipName, ships, starshipStatus } =
     div
         []
-        (case ( starshipBuild, error, isFetching ) of
+        (case ( ( starshipBuild, starshipStatus ), error, isFetching ) of
             ( _, _, True ) ->
                 [ text "..." ]
 
@@ -249,13 +298,18 @@ view { starshipBuild, error, isFetching, shipName, ships } =
                 , button [ onClick Back ] [ text "BACK" ]
                 ]
 
-            ( Just ( _, starship ), _, _ ) ->
+            ( ( Just ( _, starship ), Just status ), _, _ ) ->
+                [ Html.map StatusUpdate <| StatusEditor.view starship status
+                , button [ onClick Back ] [ text "BACK" ]
+                ]
+
+            ( ( Just ( _, starship ), Nothing ), _, _ ) ->
                 [ Html.map StarshipUpdate <| StarshipEditor.view starship
                 , button [ onClick SaveShip ] [ text "SAVE" ]
                 , button [ onClick Back ] [ text "BACK" ]
                 ]
 
-            ( Nothing, _, _ ) ->
+            ( ( Nothing, _ ), _, _ ) ->
                 [ button [ onClick CreateShip ] [ text "CREATE NEW" ]
                 , button [ onClick GetShips ] [ text "GET ALL SHIP NAMES" ]
 
@@ -267,10 +321,12 @@ view { starshipBuild, error, isFetching, shipName, ships } =
                                 :: List.map
                                     (\ship ->
                                         div []
-                                            [ button
+                                            [ label [] [ text (ship.name ++ ": ") ]
+                                            , button
                                                 [ onClick (GetShip ship.link)
                                                 ]
-                                                [ text ship.name ]
+                                                [ text "EDIT" ]
+                                            , button [ onClick (FlyShip ship.link) ] [ text "FLY" ]
                                             ]
                                     )
                                     s
