@@ -274,7 +274,7 @@ view starship model =
             ]
             []
         , button
-            (if model.status.unresolvedCriticals > 0 then
+            (if model.status.unresolvedCriticals > 0 && damagePercent > 0 then
                 [ E.onClick ResolveCrit ]
 
              else
