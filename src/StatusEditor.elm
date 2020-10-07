@@ -31,14 +31,14 @@ type alias Model =
     }
 
 
-init : Model
-init =
+init : Starship -> Model
+init starship =
     { status =
         { damage =
             0
 
         -- TODO: Users determine this as they go into combat
-        , shields = Arc.pure ((extract norikamaDropship.shields).shieldPoints // 4)
+        , shields = Arc.pure ((extract starship.shields).shieldPoints // 4)
         , lifeSupport = Nothing
         , sensors = Nothing
         , weaponsArray = Arc.pure Nothing
@@ -331,7 +331,7 @@ view starship model =
 main : Program () Model Msg
 main =
     element
-        { init = \_ -> ( init, Cmd.none )
+        { init = \_ -> ( init norikamaDropship, Cmd.none )
         , update = update norikamaDropship
         , view = view norikamaDropship
         , subscriptions = \_ -> Sub.none
