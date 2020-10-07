@@ -35,7 +35,6 @@ type alias Status =
     , weaponsArray : Arc (Maybe CriticalStatus)
     , engines : Maybe CriticalStatus
     , powerCore : Maybe CriticalStatus
-    , unresolvedCriticals : Int
     }
 
 
@@ -155,16 +154,8 @@ patchStatus =
 
 
 damageSystem : Maybe Int -> PatchableSystem -> Status -> Status
-damageSystem rounds sys status =
-    if status.unresolvedCriticals > 0 then
-        let
-            s =
-                updateCriticalStatus (damage rounds >> Just) sys status
-        in
-        { s | unresolvedCriticals = s.unresolvedCriticals - 1 }
-
-    else
-        status
+damageSystem rounds =
+    updateCriticalStatus (damage rounds >> Just)
 
 
 tickCriticalStatus : CriticalStatus -> Maybe CriticalStatus
@@ -202,7 +193,7 @@ tick status =
         |> update PowerCore
 
 
-damageArc : Bool -> Starship -> AnArc -> Int -> Status -> Status
+damageArc : Bool -> Starship -> AnArc -> Int -> Status -> ( Int, Status )
 damageArc wasCrit build arc amount status =
     let
         criticalThreshold =
@@ -222,7 +213,7 @@ damageArc wasCrit build arc amount status =
             amount - shielding
     in
     if hullDamage <= 0 then
-        { status | shields = Arc.updateArc (\x -> x - amount) arc status.shields }
+        ( 0, { status | shields = Arc.updateArc (\x -> x - amount) arc status.shields } )
 
     else
         let
@@ -232,7 +223,7 @@ damageArc wasCrit build arc amount status =
             newCriticalThresholdCount =
                 (status.damage + hullDamage) // criticalThreshold
 
-            newCritCount =
+            critCount =
                 (newCriticalThresholdCount
                     - oldCriticalThresholdCount
                 )
@@ -243,11 +234,12 @@ damageArc wasCrit build arc amount status =
                         0
                       )
         in
-        { status
+        ( critCount
+        , { status
             | shields = Arc.updateArc (always 0) arc status.shields
             , damage = status.damage + hullDamage
-            , unresolvedCriticals = status.unresolvedCriticals + newCritCount
-        }
+          }
+        )
 
 
 maxMovableShieldPoints : Starship -> AnArc -> Arc.Arc Int -> Int

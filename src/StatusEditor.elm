@@ -25,7 +25,7 @@ import Togglable exposing (extract, meta)
 
 type alias Model =
     { status : Status
-    , locked : Bool
+    , critsRemaining : Int
     , selected : Maybe AnArc
     , damageInput : Int
     }
@@ -44,9 +44,8 @@ init starship =
         , weaponsArray = Arc.pure Nothing
         , engines = Nothing
         , powerCore = Nothing
-        , unresolvedCriticals = 0
         }
-    , locked = False
+    , critsRemaining = 0
     , selected = Nothing
     , damageInput = 1
     }
@@ -54,7 +53,6 @@ init starship =
 
 type Msg
     = Damage AnArc Int Bool
-    | ResolveCrit
     | ApplyCrit Status.PatchableSystem
     | SelectSheildArc AnArc
     | DeselectSheildArc
@@ -69,41 +67,39 @@ update starship msg model =
         Damage arc damage wasCrit ->
             -- This may be over defensive, but we lock the model
             -- while we are waiting for the random result to come back
-            if not model.locked then
-                ( { model
-                    | status =
+            if model.critsRemaining == 0 then
+                let
+                    ( critCount, newStatus ) =
                         Status.damageArc
                             wasCrit
                             starship
                             arc
                             damage
                             model.status
+                in
+                ( { model
+                    | status = newStatus
+                    , critsRemaining = critCount
                     , selected = Nothing
                   }
-                , Cmd.none
+                , Cmd.batch
+                    (List.repeat critCount
+                        (Random.generate ApplyCrit
+                            Status.pickPatchableSystem
+                        )
+                    )
                 )
 
             else
                 ( model, Cmd.none )
-
-        ResolveCrit ->
-            ( { model | locked = True }
-            , Random.generate ApplyCrit
-                Status.pickPatchableSystem
-            )
 
         ApplyCrit system ->
-            if model.locked then
-                ( { model
-                    | status = Status.damageSystem Nothing system model.status
-                    , locked = False
-                    , selected = Nothing
-                  }
-                , Cmd.none
-                )
-
-            else
-                ( model, Cmd.none )
+            ( { model
+                | status = Status.damageSystem Nothing system model.status
+                , critsRemaining = model.critsRemaining - 1
+              }
+            , Cmd.none
+            )
 
         SelectSheildArc arc ->
             -- Shields are unselectable when the ship is dead
@@ -273,14 +269,6 @@ view starship model =
             , A.type_ "number"
             ]
             []
-        , button
-            (if model.status.unresolvedCriticals > 0 && damagePercent > 0 then
-                [ E.onClick ResolveCrit ]
-
-             else
-                [ A.disabled True ]
-            )
-            [ text ("Resolve Critical (" ++ String.fromInt model.status.unresolvedCriticals ++ ")") ]
         , button
             (case model.selected of
                 Nothing ->
