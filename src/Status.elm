@@ -1,4 +1,4 @@
-module Status exposing (CriticalStatus, PatchableSystem(..), Severity(..), Status, balanceEvenly, balanceToAll, damage, damageArc, damageSeverity, damageSystem, getEffectiveCriticalStatus, patchCriticalStatus, patchSeverity, patchStatus, pickPatchableSystem, tick, tickCriticalStatus, updateCriticalStatus)
+module Status exposing (CriticalStatus, PatchableSystem(..), Severity(..), Status, balanceEvenly, balanceToAll, damage, damageArc, damageSeverity, damageSystem, getEffectiveCriticalStatus, holdItTogether, patchCriticalStatus, patchSeverity, patchStatus, pickPatchableSystem, tick, tickCriticalStatus, updateCriticalStatus)
 
 import Arc exposing (AnArc, Arc)
 import Random exposing (Generator)
@@ -151,6 +151,11 @@ updateCriticalStatus fn system status =
 patchStatus : PatchableSystem -> Status -> Status
 patchStatus =
     updateCriticalStatus (Maybe.andThen patchCriticalStatus)
+
+
+holdItTogether : PatchableSystem -> Status -> Status
+holdItTogether =
+    updateCriticalStatus (Maybe.map (\s -> { s | heldTogether = True }))
 
 
 damageSystem : Maybe Int -> PatchableSystem -> Status -> Status

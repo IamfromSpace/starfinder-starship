@@ -60,6 +60,7 @@ type Msg
     | BalanceToAllFrom AnArc Int
     | BalanceEvenly
     | Patch PatchableSystem
+    | HoldItTogether PatchableSystem
 
 
 update : Starship -> Msg -> Model -> ( Model, Cmd Msg )
@@ -134,6 +135,9 @@ update starship msg model =
 
         Patch patchableSystem ->
             ( { model | status = Status.patchStatus patchableSystem model.status }, Cmd.none )
+
+        HoldItTogether patchableSystem ->
+            ( { model | status = Status.holdItTogether patchableSystem model.status }, Cmd.none )
 
 
 colorTransition : Float -> Color
@@ -256,6 +260,11 @@ view starship model =
                     , E.onClick (Patch patchableSystem)
                     ]
                     [ text "PATCH" ]
+                , button
+                    [ A.disabled (status == Nothing)
+                    , E.onClick (HoldItTogether patchableSystem)
+                    ]
+                    [ text "HOLD IT TOGETHER" ]
                 ]
     in
     div []
@@ -324,7 +333,6 @@ view starship model =
             )
             [ text "Balance Shields Evenly" ]
 
-        -- TODO: hold together a patchable system
         -- TODO: quick fix a patchable system
         -- TODO: Apply a temporary status to patchable system
         , patchableDisplay "Life Support" model.status.lifeSupport LifeSupport
