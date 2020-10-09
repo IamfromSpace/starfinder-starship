@@ -262,22 +262,25 @@ view starship model =
                             grey
                     )
                 ]
-                [ text (name ++ "  ") --TODO: should be styled
-                , button
+                [ button
                     [ A.disabled (status == Nothing)
+                    , A.title "PATCH: repair one level of severity."
                     , E.onClick (Patch patchableSystem)
                     ]
-                    [ text "PATCH" ]
+                    [ text "P" ]
                 , button
                     [ A.disabled (status == Nothing)
+                    , A.title "HOLD IT TOGETHER: temporarily repair two levels of severtity for a single round."
                     , E.onClick (HoldItTogether patchableSystem)
                     ]
-                    [ text "HOLD IT TOGETHER" ]
+                    [ text "H" ]
                 , button
                     [ A.disabled (status == Nothing)
+                    , A.title "QUICK FIX (1RP): Completely ignore all critical damage for this system for 1 hour."
                     , E.onClick (QuickFix patchableSystem)
                     ]
-                    [ text "QUICK FIX" ]
+                    [ text "Q" ]
+                , text name
                 ]
     in
     div []
