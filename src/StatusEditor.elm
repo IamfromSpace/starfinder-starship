@@ -58,6 +58,7 @@ type Msg
     | DeselectSheildArc
     | ChangeDamageInput Int
     | BalanceToAllFrom AnArc Int
+    | BalanceEvenly
 
 
 update : Starship -> Msg -> Model -> ( Model, Cmd Msg )
@@ -126,6 +127,9 @@ update starship msg model =
 
                 Nothing ->
                     ( model, Cmd.none )
+
+        BalanceEvenly ->
+            ( { model | status = Status.balanceEvenly starship model.status }, Cmd.none )
 
 
 colorTransition : Float -> Color
@@ -300,6 +304,15 @@ view starship model =
                     ]
             )
             [ text "Balance To All Others" ]
+        , button
+            (case model.selected of
+                Nothing ->
+                    [ E.onClick BalanceEvenly ]
+
+                Just arc ->
+                    [ A.disabled True ]
+            )
+            [ text "Balance Shields Evenly" ]
 
         -- TODO: patch a patchable system
         -- TODO: hold together a patchable system

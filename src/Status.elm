@@ -1,4 +1,4 @@
-module Status exposing (CriticalStatus, PatchableSystem(..), Severity(..), Status, balanceToAll, damage, damageArc, damageSeverity, damageSystem, getEffectiveCriticalStatus, patchCriticalStatus, patchSeverity, patchStatus, pickPatchableSystem, tick, tickCriticalStatus, updateCriticalStatus)
+module Status exposing (CriticalStatus, PatchableSystem(..), Severity(..), Status, balanceEvenly, balanceToAll, damage, damageArc, damageSeverity, damageSystem, getEffectiveCriticalStatus, patchCriticalStatus, patchSeverity, patchStatus, pickPatchableSystem, tick, tickCriticalStatus, updateCriticalStatus)
 
 import Arc exposing (AnArc, Arc)
 import Random exposing (Generator)
@@ -250,6 +250,28 @@ maxMovableShieldPoints starship arc shields =
             round (toFloat (extract starship.shields).shieldPoints * 0.1)
     in
     Arc.getArc arc shields - minRemaining
+
+
+balanceEvenly : Starship -> Status -> Status
+balanceEvenly starship ({ shields } as status) =
+    let
+        total =
+            Arc.foldr (+) 0 shields
+
+        quarter =
+            total // 4
+
+        leftover =
+            total - 4 * quarter
+
+        newShields =
+            shields
+                -- Add 1/4 to each
+                |> Arc.map (always quarter)
+                -- add the leftover to the forward arc
+                |> Arc.setArc ((+) leftover) Arc.Forward
+    in
+    { status | shields = newShields }
 
 
 balanceToAll_ : Starship -> AnArc -> Int -> Arc.Arc Int -> Maybe (Arc.Arc Int)
