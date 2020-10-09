@@ -61,6 +61,7 @@ type Msg
     | BalanceEvenly
     | Patch PatchableSystem
     | HoldItTogether PatchableSystem
+    | NextRound
 
 
 update : Starship -> Msg -> Model -> ( Model, Cmd Msg )
@@ -138,6 +139,9 @@ update starship msg model =
 
         HoldItTogether patchableSystem ->
             ( { model | status = Status.holdItTogether patchableSystem model.status }, Cmd.none )
+
+        NextRound ->
+            ( { model | status = Status.tick model.status }, Cmd.none )
 
 
 colorTransition : Float -> Color
@@ -343,6 +347,9 @@ view starship model =
         , patchableDisplay "Weapons Array - Starboard" model.status.weaponsArray.starboard (WeaponsArray Arc.Starboard)
         , patchableDisplay "Engines" model.status.engines Engines
         , patchableDisplay "Power Core" model.status.powerCore PowerCore
+        , button
+            [ E.onClick NextRound ]
+            [ text "NEXT ROUND" ]
         ]
 
 
