@@ -59,6 +59,7 @@ type Msg
     | ChangeDamageInput Int
     | BalanceToAllFrom AnArc Int
     | BalanceEvenly
+    | Patch PatchableSystem
 
 
 update : Starship -> Msg -> Model -> ( Model, Cmd Msg )
@@ -130,6 +131,9 @@ update starship msg model =
 
         BalanceEvenly ->
             ( { model | status = Status.balanceEvenly starship model.status }, Cmd.none )
+
+        Patch patchableSystem ->
+            ( { model | status = Status.patchStatus patchableSystem model.status }, Cmd.none )
 
 
 colorTransition : Float -> Color
@@ -234,7 +238,7 @@ view starship model =
             , shielded = colorTransition damagePercent
             }
 
-        patchableDisplay name status =
+        patchableDisplay name status patchableSystem =
             div
                 [ A.style
                     "background-color"
@@ -246,7 +250,13 @@ view starship model =
                             grey
                     )
                 ]
-                [ text name ]
+                [ text (name ++ "  ") --TODO: should be styled
+                , button
+                    [ A.disabled (status == Nothing)
+                    , E.onClick (Patch patchableSystem)
+                    ]
+                    [ text "PATCH" ]
+                ]
     in
     div []
         [ Svg.svg
@@ -314,18 +324,17 @@ view starship model =
             )
             [ text "Balance Shields Evenly" ]
 
-        -- TODO: patch a patchable system
         -- TODO: hold together a patchable system
         -- TODO: quick fix a patchable system
         -- TODO: Apply a temporary status to patchable system
-        , patchableDisplay "Life Support" model.status.lifeSupport
-        , patchableDisplay "Sensors" model.status.sensors
-        , patchableDisplay "Weapons Array - Forward" model.status.weaponsArray.forward
-        , patchableDisplay "Weapons Array - Aft" model.status.weaponsArray.aft
-        , patchableDisplay "Weapons Array - Port" model.status.weaponsArray.portSide
-        , patchableDisplay "Weapons Array - Starboard" model.status.weaponsArray.starboard
-        , patchableDisplay "Engines" model.status.engines
-        , patchableDisplay "Power Core" model.status.powerCore
+        , patchableDisplay "Life Support" model.status.lifeSupport LifeSupport
+        , patchableDisplay "Sensors" model.status.sensors Sensors
+        , patchableDisplay "Weapons Array - Forward" model.status.weaponsArray.forward (WeaponsArray Arc.Forward)
+        , patchableDisplay "Weapons Array - Aft" model.status.weaponsArray.aft (WeaponsArray Arc.Aft)
+        , patchableDisplay "Weapons Array - Port" model.status.weaponsArray.portSide (WeaponsArray Arc.Port)
+        , patchableDisplay "Weapons Array - Starboard" model.status.weaponsArray.starboard (WeaponsArray Arc.Starboard)
+        , patchableDisplay "Engines" model.status.engines Engines
+        , patchableDisplay "Power Core" model.status.powerCore PowerCore
         ]
 
 
