@@ -61,6 +61,7 @@ type Msg
     | BalanceEvenly
     | Patch PatchableSystem
     | HoldItTogether PatchableSystem
+    | QuickFix PatchableSystem
     | NextRound
 
 
@@ -139,6 +140,9 @@ update starship msg model =
 
         HoldItTogether patchableSystem ->
             ( { model | status = Status.holdItTogether patchableSystem model.status }, Cmd.none )
+
+        QuickFix patchableSystem ->
+            ( { model | status = Status.quickFix patchableSystem model.status }, Cmd.none )
 
         NextRound ->
             ( { model | status = Status.tick model.status }, Cmd.none )
@@ -269,6 +273,11 @@ view starship model =
                     , E.onClick (HoldItTogether patchableSystem)
                     ]
                     [ text "HOLD IT TOGETHER" ]
+                , button
+                    [ A.disabled (status == Nothing)
+                    , E.onClick (QuickFix patchableSystem)
+                    ]
+                    [ text "QUICK FIX" ]
                 ]
     in
     div []
