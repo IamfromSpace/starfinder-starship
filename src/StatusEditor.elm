@@ -251,6 +251,10 @@ view starship model =
             }
 
         patchableDisplay name status patchableSystem =
+            let
+                impacted =
+                    Maybe.andThen Status.getEffectiveCriticalStatus status == Nothing
+            in
             div
                 [ A.style
                     "background-color"
@@ -263,19 +267,19 @@ view starship model =
                     )
                 ]
                 [ button
-                    [ A.disabled (status == Nothing)
+                    [ A.disabled impacted
                     , A.title "PATCH: repair one level of severity."
                     , E.onClick (Patch patchableSystem)
                     ]
                     [ text "P" ]
                 , button
-                    [ A.disabled (status == Nothing)
+                    [ A.disabled impacted
                     , A.title "HOLD IT TOGETHER: temporarily repair two levels of severtity for a single round."
                     , E.onClick (HoldItTogether patchableSystem)
                     ]
                     [ text "H" ]
                 , button
-                    [ A.disabled (status == Nothing)
+                    [ A.disabled impacted
                     , A.title "QUICK FIX (1RP): Completely ignore all critical damage for this system for 1 hour."
                     , E.onClick (QuickFix patchableSystem)
                     ]
