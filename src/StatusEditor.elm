@@ -27,7 +27,7 @@ type alias Model =
     { status : Status
     , critsRemaining : Int
     , selected : Maybe AnArc
-    , damageInput : Int
+    , damageInput : Maybe Int
     }
 
 
@@ -47,7 +47,7 @@ init starship =
         }
     , critsRemaining = 0
     , selected = Nothing
-    , damageInput = 1
+    , damageInput = Nothing
     }
 
 
@@ -56,7 +56,7 @@ type Msg
     | ApplyCrit Status.PatchableSystem
     | SelectSheildArc AnArc
     | DeselectSheildArc
-    | ChangeDamageInput Int
+    | ChangeDamageInput (Maybe Int)
     | BalanceToAllFrom AnArc Int
     | BalanceEvenly
     | Patch PatchableSystem
@@ -117,12 +117,15 @@ update starship msg model =
         DeselectSheildArc ->
             ( { model | selected = Nothing }, Cmd.none )
 
-        ChangeDamageInput x ->
+        ChangeDamageInput (Just x) ->
             if x > 0 then
-                ( { model | damageInput = x }, Cmd.none )
+                ( { model | damageInput = Just x }, Cmd.none )
 
             else
                 ( model, Cmd.none )
+
+        ChangeDamageInput Nothing ->
+            ( { model | damageInput = Nothing }, Cmd.none )
 
         BalanceToAllFrom arc amount ->
             case Status.balanceToAll starship arc amount model.status of
@@ -306,41 +309,41 @@ view starship model =
                 )
             ]
         , input
-            [ A.value (String.fromInt model.damageInput)
+            [ A.value (Maybe.map String.fromInt model.damageInput |> Maybe.withDefault "")
             , A.disabled (model.selected == Nothing)
-            , E.onInput (String.toInt >> Maybe.withDefault 1 >> ChangeDamageInput)
+            , E.onInput (String.toInt >> ChangeDamageInput)
             , A.type_ "number"
             ]
             []
         , button
-            (case model.selected of
-                Nothing ->
-                    [ A.disabled True ]
+            (case ( model.selected, model.damageInput ) of
+                ( Just arc, Just damageInput ) ->
+                    [ E.onClick (Damage arc damageInput True) ]
 
-                Just arc ->
-                    [ E.onClick (Damage arc model.damageInput True) ]
+                _ ->
+                    [ A.disabled True ]
             )
             [ text "Damage w/Crit" ]
         , button
-            (case model.selected of
-                Nothing ->
-                    [ A.disabled True ]
+            (case ( model.selected, model.damageInput ) of
+                ( Just arc, Just damageInput ) ->
+                    [ E.onClick (Damage arc damageInput False) ]
 
-                Just arc ->
-                    [ E.onClick (Damage arc model.damageInput False) ]
+                _ ->
+                    [ A.disabled True ]
             )
             [ text "Damage" ]
         , button
-            (case model.selected of
-                Nothing ->
-                    [ A.disabled True ]
-
-                Just arc ->
+            (case ( model.selected, model.damageInput ) of
+                ( Just arc, Just damageInput ) ->
                     [ A.disabled
-                        (Status.balanceToAll starship arc model.damageInput model.status == Nothing)
+                        (Status.balanceToAll starship arc damageInput model.status == Nothing)
                     , E.onClick
-                        (BalanceToAllFrom arc model.damageInput)
+                        (BalanceToAllFrom arc damageInput)
                     ]
+
+                _ ->
+                    [ A.disabled True ]
             )
             [ text "Balance To All Others" ]
         , button
