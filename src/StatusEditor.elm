@@ -356,7 +356,6 @@ view starship model =
             )
             [ text "Balance Shields Evenly" ]
 
-        -- TODO: quick fix a patchable system
         -- TODO: Apply a temporary status to patchable system
         , patchableDisplay "Life Support" model.status.lifeSupport LifeSupport
         , patchableDisplay "Sensors" model.status.sensors Sensors
