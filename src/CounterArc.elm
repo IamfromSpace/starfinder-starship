@@ -21,6 +21,7 @@ type alias SingleModel a =
     , offset : Float
     , color : Color
     , backgroundColor : Color
+    , disabled : Bool
     , onPlus : a
     , onMinus : a
     }
@@ -98,7 +99,13 @@ single model =
             Svg.rect
                 (withOnClick
                     [ SA.fill (colorToCssRgba fill)
-                    , SA.stroke (colorToCssRgba model.color)
+                    , SA.stroke <|
+                        colorToCssRgba <|
+                            if model.disabled then
+                                Color.darkGray
+
+                            else
+                                model.color
                     , SA.strokeWidth <| String.fromFloat strokeWidth
                     , SA.height <| String.fromFloat (model.size - strokeWidth)
                     , SA.width <| String.fromFloat (model.size - strokeWidth)
@@ -117,13 +124,19 @@ single model =
                 )
                 []
 
-        text offset value =
+        text disabled offset value =
             Svg.text_
                 [ SA.fontFamily "mono"
                 , SA.textAnchor "middle"
                 , SA.alignmentBaseline "middle"
                 , SA.fontSize <| String.fromFloat fontSize
-                , SA.fill <| colorToCssRgba model.color
+                , SA.fill <|
+                    colorToCssRgba <|
+                        if disabled then
+                            Color.darkGray
+
+                        else
+                            model.color
                 , SA.transform <| translate offset
                 ]
                 [ Svg.text value ]
@@ -151,7 +164,7 @@ single model =
                     else
                         "-"
             in
-            text offset value
+            text model.disabled offset value
     in
     Svg.g
         [ SA.transform <|
@@ -172,13 +185,29 @@ single model =
         , buttonText True
 
         -- Hit box
-        , rect False (Just model.onPlus) invisible True
-        , text ( 0, 0 ) (String.fromInt model.count)
+        , rect False
+            (if model.disabled then
+                Nothing
+
+             else
+                Just model.onPlus
+            )
+            invisible
+            True
+        , text False ( 0, 0 ) (String.fromInt model.count)
         , rect True Nothing model.backgroundColor False
         , buttonText False
 
         -- Hit box
-        , rect False (Just model.onMinus) invisible False
+        , rect False
+            (if model.disabled then
+                Nothing
+
+             else
+                Just model.onMinus
+            )
+            invisible
+            False
         ]
 
 
@@ -189,6 +218,7 @@ type alias Model a =
     , offset : ( Float, Float )
     , backgroundColor : Color
     , counts : Arc.Arc Int
+    , disabled : Arc.Arc Bool
     , onPlus : AnArc -> a
     , onMinus : AnArc -> a
     }
@@ -199,7 +229,7 @@ view model =
     Svg.g
         [ SA.transform <| translate model.offset ]
         (Arc.foldWithAnArc
-            (\arc count list ->
+            (\arc ( count, disabled ) list ->
                 single
                     { count = count
                     , size = model.size
@@ -214,11 +244,12 @@ view model =
                               )
                     , color = model.color
                     , backgroundColor = model.backgroundColor
+                    , disabled = disabled
                     , onPlus = model.onPlus arc
                     , onMinus = model.onMinus arc
                     }
                     :: list
             )
             []
-            model.counts
+            (Arc.liftA2 (\a b -> ( a, b )) model.counts model.disabled)
         )
