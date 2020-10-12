@@ -1,4 +1,4 @@
-module Status exposing (CriticalStatus, PatchableSystem(..), Severity(..), Status, balanceEvenly, balanceToAll, damage, damageArc, damageSeverity, damageSystem, divertPowerToShields, getEffectiveCriticalStatus, holdItTogether, patchCriticalStatus, patchSeverity, patchStatus, pickPatchableSystem, quickFix, tick, tickCriticalStatus, updateCriticalStatus)
+module Status exposing (CriticalStatus, PatchableSystem(..), Severity(..), Status, areShieldsFull, balanceEvenly, balanceToAll, damage, damageArc, damageSeverity, damageSystem, divertPowerToShields, getEffectiveCriticalStatus, holdItTogether, patchCriticalStatus, patchSeverity, patchStatus, pickPatchableSystem, quickFix, tick, tickCriticalStatus, updateCriticalStatus)
 
 import Arc exposing (AnArc, Arc)
 import Random exposing (Generator)
@@ -369,3 +369,8 @@ divertPowerToShields starship added status =
     Maybe.map
         (\shields -> { status | shields = shields })
         (divertPowerToShields_ starship added status.shields)
+
+
+areShieldsFull : Starship -> Status -> Bool
+areShieldsFull starship status =
+    Arc.foldr (+) 0 status.shields >= (extract starship.shields).shieldPoints

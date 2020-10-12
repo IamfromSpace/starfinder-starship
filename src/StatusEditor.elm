@@ -423,9 +423,8 @@ view starship model =
             )
             [ text "Balance Shields Evenly" ]
         , button
-            -- TODO: should be disabled when shields are full
-            (case ( model.selected, model.diverting ) of
-                ( Nothing, Nothing ) ->
+            (case ( model.selected, model.diverting, Status.areShieldsFull starship model.status ) of
+                ( Nothing, Nothing, False ) ->
                     [ E.onClick StartDivertToShields ]
 
                 _ ->
