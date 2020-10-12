@@ -1,4 +1,4 @@
-module Status exposing (CriticalStatus, PatchableSystem(..), Severity(..), Status, balanceEvenly, balanceToAll, damage, damageArc, damageSeverity, damageSystem, getEffectiveCriticalStatus, holdItTogether, patchCriticalStatus, patchSeverity, patchStatus, pickPatchableSystem, quickFix, tick, tickCriticalStatus, updateCriticalStatus)
+module Status exposing (CriticalStatus, PatchableSystem(..), Severity(..), Status, balanceEvenly, balanceToAll, damage, damageArc, damageSeverity, damageSystem, divertPowerToShields, getEffectiveCriticalStatus, holdItTogether, patchCriticalStatus, patchSeverity, patchStatus, pickPatchableSystem, quickFix, tick, tickCriticalStatus, updateCriticalStatus)
 
 import Arc exposing (AnArc, Arc)
 import Random exposing (Generator)
@@ -337,6 +337,10 @@ moveShieldPoints starship from to amount status =
     Maybe.map
         (\shields -> { status | shields = shields })
         (moveShieldPoints_ starship from to amount status.shields)
+
+
+
+-- TODO: should this just enforce that all points are consumed (or shields are maxed out)?  Why would you _not_ take points?
 
 
 divertPowerToShields_ : Starship -> Arc Int -> Arc Int -> Maybe (Arc Int)

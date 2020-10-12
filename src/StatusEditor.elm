@@ -5,6 +5,7 @@ import Browser exposing (element)
 import Color exposing (Color, blue, green, grey, red, yellow)
 import Color.Convert exposing (colorToCssRgb)
 import Color.Manipulate exposing (weightedMix)
+import CounterArc
 import Fighter
 import Html exposing (Html, button, div, input, text)
 import Html.Attributes as A
@@ -28,6 +29,7 @@ type alias Model =
     , critsRemaining : Int
     , selected : Maybe AnArc
     , damageInput : Maybe Int
+    , diverting : Maybe (Arc.Arc Int)
     }
 
 
@@ -48,6 +50,7 @@ init starship =
     , critsRemaining = 0
     , selected = Nothing
     , damageInput = Nothing
+    , diverting = Nothing
     }
 
 
@@ -57,6 +60,10 @@ type Msg
     | SelectSheildArc AnArc
     | DeselectSheildArc
     | ChangeDamageInput (Maybe Int)
+    | StartDivertToShields
+    | EditDivertToShields AnArc (Int -> Int)
+    | CancelDivertToShields
+    | AcceptDivertToShields
     | BalanceToAllFrom AnArc Int
     | BalanceEvenly
     | Patch PatchableSystem
@@ -108,7 +115,8 @@ update starship msg model =
 
         SelectSheildArc arc ->
             -- Shields are unselectable when the ship is dead
-            if getDamagePercent starship model.status > 0 then
+            -- Shields are unselectable when diverting power
+            if getDamagePercent starship model.status > 0 && model.diverting == Nothing then
                 ( { model | selected = Just arc }, Cmd.none )
 
             else
@@ -126,6 +134,34 @@ update starship msg model =
 
         ChangeDamageInput Nothing ->
             ( { model | damageInput = Nothing }, Cmd.none )
+
+        StartDivertToShields ->
+            ( { model | diverting = Just (Arc.pure 0) }, Cmd.none )
+
+        EditDivertToShields arc f ->
+            ( { model
+                | diverting =
+                    Maybe.map (Arc.updateArc f arc) model.diverting
+              }
+            , Cmd.none
+            )
+
+        CancelDivertToShields ->
+            ( { model | diverting = Nothing }, Cmd.none )
+
+        AcceptDivertToShields ->
+            ( model.diverting
+                |> Maybe.andThen
+                    (\added ->
+                        Status.divertPowerToShields starship added model.status
+                    )
+                |> Maybe.map
+                    (\newStatus ->
+                        { model | diverting = Nothing, status = newStatus }
+                    )
+                |> Maybe.withDefault model
+            , Cmd.none
+            )
 
         BalanceToAllFrom arc amount ->
             case Status.balanceToAll starship arc amount model.status of
@@ -307,6 +343,21 @@ view starship model =
                     |> Maybe.map selectedArc
                     |> Maybe.withDefault shipAndShieldsBase
                 )
+
+            -- TODO: Shouldn't render buttons when not diverting (but actual SP is kind of useful?)
+            -- TODO: Shouldn't allow decrement to negative
+            -- TODO: Shouldn't allow increment beyond maximum
+            , CounterArc.view
+                { radius = size * 49 / 100
+                , size = size / 12.5
+                , offset = ( size / 2, size / 2 )
+                , color = Color.black
+                , backgroundColor = grey
+                , counts = Maybe.withDefault model.status.shields <| Maybe.map (Arc.liftA2 (+) model.status.shields) model.diverting
+                , disabled = Arc.pure <| Maybe.withDefault True <| Maybe.map (always False) model.diverting
+                , onPlus = \arc -> EditDivertToShields arc ((+) 1)
+                , onMinus = \arc -> EditDivertToShields arc (\x -> x - 1)
+                }
             ]
         , input
             [ A.value (Maybe.map String.fromInt model.damageInput |> Maybe.withDefault "")
@@ -347,14 +398,42 @@ view starship model =
             )
             [ text "Balance To All Others" ]
         , button
-            (case model.selected of
-                Nothing ->
+            (case ( model.selected, model.diverting ) of
+                ( Nothing, Nothing ) ->
                     [ E.onClick BalanceEvenly ]
 
-                Just arc ->
+                _ ->
                     [ A.disabled True ]
             )
             [ text "Balance Shields Evenly" ]
+        , button
+            -- TODO: should be disabled when shields are full
+            (case ( model.selected, model.diverting ) of
+                ( Nothing, Nothing ) ->
+                    [ E.onClick StartDivertToShields ]
+
+                _ ->
+                    [ A.disabled True ]
+            )
+            [ text "Divert Power to Shields" ]
+        , button
+            (case model.diverting of
+                Nothing ->
+                    [ A.disabled True ]
+
+                Just arc ->
+                    [ E.onClick CancelDivertToShields ]
+            )
+            [ text "Cancel Divert Power to Shields" ]
+        , button
+            (case Maybe.andThen (\x -> Status.divertPowerToShields starship x model.status) model.diverting of
+                Nothing ->
+                    [ A.disabled True ]
+
+                Just arc ->
+                    [ E.onClick AcceptDivertToShields ]
+            )
+            [ text "Accept Divert Power to Shields" ]
 
         -- TODO: Apply a temporary status to patchable system
         , patchableDisplay "Life Support" model.status.lifeSupport LifeSupport
