@@ -1,4 +1,4 @@
-module Arc exposing (AnArc(..), Arc, all, concat, foldWithAnArc, foldr, getArc, getDegrees, liftA2, liftA3, map, mapWithAnArc, pure, pureWithAnArc, setArc, updateArc)
+module Arc exposing (AnArc(..), Arc, all, concat, foldWithAnArc, foldr, getArc, getDegrees, liftA2, liftA3, map, mapWithAnArc, pure, pureWithAnArc, setArc, sum, updateArc)
 
 
 type alias Arc a =
@@ -64,6 +64,11 @@ foldWithAnArc fn init arc =
 all : Arc Bool -> Bool
 all =
     foldr (&&) True
+
+
+sum : Arc number -> number
+sum =
+    foldr (+) 0
 
 
 concat : Arc appendable -> appendable

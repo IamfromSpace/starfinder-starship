@@ -266,7 +266,7 @@ balanceEvenly : Starship -> Status -> Status
 balanceEvenly starship ({ shields } as status) =
     let
         total =
-            Arc.foldr (+) 0 shields
+            Arc.sum shields
 
         quarter =
             total // 4
@@ -349,7 +349,7 @@ maxDivertPowerToShieldPoints_ starship shields =
             (extract starship.shields).shieldPoints
 
         currentTotalShieldPoints =
-            Arc.foldr (+) 0 shields
+            Arc.sum shields
 
         maxAddable =
             maxTotalShieldPoints - currentTotalShieldPoints
@@ -375,7 +375,7 @@ divertPowerToShields_ starship added shields =
                 |> Arc.all
 
         pointsAdded =
-            Arc.foldr (+) 0 added
+            Arc.sum added
 
         maxAddable =
             maxDivertPowerToShieldPoints_ starship shields
@@ -396,4 +396,4 @@ divertPowerToShields starship added status =
 
 areShieldsFull : Starship -> Status -> Bool
 areShieldsFull starship status =
-    Arc.foldr (+) 0 status.shields >= (extract starship.shields).shieldPoints
+    Arc.sum status.shields >= (extract starship.shields).shieldPoints
