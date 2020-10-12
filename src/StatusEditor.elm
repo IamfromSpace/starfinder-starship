@@ -354,9 +354,10 @@ view starship model =
                 , color = Color.black
                 , backgroundColor = grey
                 , counts = Maybe.withDefault model.status.shields <| Maybe.map (Arc.liftA2 (+) model.status.shields) model.diverting
-                , disabled = Arc.pure <| Maybe.withDefault True <| Maybe.map (always False) model.diverting
-                , onPlus = \arc -> EditDivertToShields arc ((+) 1)
-                , onMinus = \arc -> EditDivertToShields arc (\x -> x - 1)
+                , onPlus =
+                    Arc.pureWithAnArc (\arc -> Maybe.map (always (EditDivertToShields arc ((+) 1))) model.diverting)
+                , onMinus =
+                    Arc.pureWithAnArc (\arc -> Maybe.map (always (EditDivertToShields arc (\x -> x - 1))) model.diverting)
                 }
             ]
         , input

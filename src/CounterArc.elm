@@ -21,9 +21,8 @@ type alias SingleModel a =
     , offset : Float
     , color : Color
     , backgroundColor : Color
-    , disabled : Bool
-    , onPlus : a
-    , onMinus : a
+    , onPlus : Maybe a
+    , onMinus : Maybe a
     }
 
 
@@ -76,7 +75,11 @@ single model =
             else
                 vFontSize
 
-        rect hasStroke mOnClick fill isLeft =
+        --mmOnClick : Maybe (Maybe a)
+        --  Nothing       -> component disabled
+        --  Just Nothing  -> enabled, but no handler on this component
+        --  Just (Just a) -> enabled, and this component has a handler
+        rect hasStroke mmOnClick fill isLeft =
             let
                 strokeWidth =
                     model.size / 14
@@ -89,7 +92,7 @@ single model =
                         1
 
                 withOnClick =
-                    case mOnClick of
+                    case Maybe.andThen identity mmOnClick of
                         Just msg ->
                             (::) (SE.onClick msg)
 
@@ -101,7 +104,7 @@ single model =
                     [ SA.fill (colorToCssRgba fill)
                     , SA.stroke <|
                         colorToCssRgba <|
-                            if model.disabled then
+                            if mmOnClick == Nothing then
                                 Color.darkGray
 
                             else
@@ -163,8 +166,15 @@ single model =
 
                     else
                         "-"
+
+                disabled =
+                    if isPlus then
+                        model.onPlus == Nothing
+
+                    else
+                        model.onMinus == Nothing
             in
-            text model.disabled offset value
+            text disabled offset value
     in
     Svg.g
         [ SA.transform <|
@@ -181,31 +191,27 @@ single model =
                     0
                 )
         ]
-        [ rect True Nothing model.backgroundColor True
+        [ rect True
+            (Maybe.map (always Nothing) model.onPlus)
+            model.backgroundColor
+            True
         , buttonText True
 
         -- Hit box
         , rect False
-            (if model.disabled then
-                Nothing
-
-             else
-                Just model.onPlus
-            )
+            (Maybe.map Just model.onPlus)
             invisible
             True
         , text False ( 0, 0 ) (String.fromInt model.count)
-        , rect True Nothing model.backgroundColor False
+        , rect True
+            (Maybe.map (always Nothing) model.onMinus)
+            model.backgroundColor
+            False
         , buttonText False
 
         -- Hit box
         , rect False
-            (if model.disabled then
-                Nothing
-
-             else
-                Just model.onMinus
-            )
+            (Maybe.map Just model.onMinus)
             invisible
             False
         ]
@@ -218,9 +224,8 @@ type alias Model a =
     , offset : ( Float, Float )
     , backgroundColor : Color
     , counts : Arc.Arc Int
-    , disabled : Arc.Arc Bool
-    , onPlus : AnArc -> a
-    , onMinus : AnArc -> a
+    , onPlus : Arc.Arc (Maybe a)
+    , onMinus : Arc.Arc (Maybe a)
     }
 
 
@@ -229,7 +234,7 @@ view model =
     Svg.g
         [ SA.transform <| translate model.offset ]
         (Arc.foldWithAnArc
-            (\arc ( count, disabled ) list ->
+            (\arc ( count, onPlus, onMinus ) list ->
                 single
                     { count = count
                     , size = model.size
@@ -244,12 +249,11 @@ view model =
                               )
                     , color = model.color
                     , backgroundColor = model.backgroundColor
-                    , disabled = disabled
-                    , onPlus = model.onPlus arc
-                    , onMinus = model.onMinus arc
+                    , onPlus = onPlus
+                    , onMinus = onMinus
                     }
                     :: list
             )
             []
-            (Arc.liftA2 (\a b -> ( a, b )) model.counts model.disabled)
+            (Arc.liftA3 (\a b c -> ( a, b, c )) model.counts model.onPlus model.onMinus)
         )

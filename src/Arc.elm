@@ -1,4 +1,4 @@
-module Arc exposing (AnArc(..), Arc, all, concat, foldWithAnArc, foldr, getArc, getDegrees, liftA2, map, mapWithAnArc, pure, setArc, updateArc)
+module Arc exposing (AnArc(..), Arc, all, concat, foldWithAnArc, foldr, getArc, getDegrees, liftA2, liftA3, map, mapWithAnArc, pure, pureWithAnArc, setArc, updateArc)
 
 
 type alias Arc a =
@@ -15,6 +15,15 @@ pure a =
     , aft = a
     , portSide = a
     , starboard = a
+    }
+
+
+pureWithAnArc : (AnArc -> a) -> Arc a
+pureWithAnArc f =
+    { forward = f Forward
+    , aft = f Aft
+    , portSide = f Port
+    , starboard = f Starboard
     }
 
 
@@ -71,6 +80,15 @@ liftA2 op a b =
     , aft = op a.aft b.aft
     , portSide = op a.portSide b.portSide
     , starboard = op a.starboard b.starboard
+    }
+
+
+liftA3 : (a -> b -> c -> d) -> Arc a -> Arc b -> Arc c -> Arc d
+liftA3 op a b c =
+    { forward = op a.forward b.forward c.forward
+    , aft = op a.aft b.aft c.aft
+    , portSide = op a.portSide b.portSide c.portSide
+    , starboard = op a.starboard b.starboard c.starboard
     }
 
 
