@@ -339,6 +339,29 @@ moveShieldPoints starship from to amount status =
         (moveShieldPoints_ starship from to amount status.shields)
 
 
+maxDivertPowerToShieldPoints_ : Starship -> Arc Int -> Int
+maxDivertPowerToShieldPoints_ starship shields =
+    let
+        maxProvidedByPowerCore =
+            starship.powerCoreUnits // 20
+
+        maxTotalShieldPoints =
+            (extract starship.shields).shieldPoints
+
+        currentTotalShieldPoints =
+            Arc.foldr (+) 0 shields
+
+        maxAddable =
+            maxTotalShieldPoints - currentTotalShieldPoints
+    in
+    min maxProvidedByPowerCore maxAddable
+
+
+maxDivertPowerToShieldPoints : Starship -> Status -> Int
+maxDivertPowerToShieldPoints starship status =
+    maxDivertPowerToShieldPoints_ starship status.shields
+
+
 
 -- TODO: should this just enforce that all points are consumed (or shields are maxed out)?  Why would you _not_ take points?
 
@@ -349,15 +372,15 @@ divertPowerToShields_ starship added shields =
         allPositive =
             added
                 |> Arc.map (\x -> x >= 0)
-                |> Arc.foldr (&&) True
+                |> Arc.all
 
         pointsAdded =
             Arc.foldr (+) 0 added
 
-        newTotalPoints =
-            Arc.foldr (+) pointsAdded shields
+        maxAddable =
+            maxDivertPowerToShieldPoints_ starship shields
     in
-    if not allPositive || pointsAdded > starship.powerCoreUnits // 20 || newTotalPoints > (extract starship.shields).shieldPoints then
+    if not allPositive || pointsAdded > maxAddable then
         Nothing
 
     else
