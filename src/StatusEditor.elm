@@ -345,19 +345,34 @@ view starship model =
                 )
 
             -- TODO: Shouldn't render buttons when not diverting (but actual SP is kind of useful?)
-            -- TODO: Shouldn't allow decrement to negative
-            -- TODO: Shouldn't allow increment beyond maximum
-            , CounterArc.view
+            , let
+                -- This is a bit inefficient, because it checks incrementing
+                -- for every arc, when we know that the rules only apply
+                -- againsts totals.  However, this approach dramatically
+                -- reduces re-implementation.
+                -- (also, if Status.divertPowerToShields enforced that we must
+                -- use our max, this would totaly ruin this!)
+                -- TODO: export efficient helpers in the Status module
+                tryEdit op arc =
+                    -- Try to our op, if it doesn't work, it's disabled
+                    model.diverting
+                        |> Maybe.andThen
+                            (\d ->
+                                Status.divertPowerToShields starship
+                                    (Arc.updateArc op arc d)
+                                    model.status
+                            )
+                        |> Maybe.map (always (EditDivertToShields arc op))
+              in
+              CounterArc.view
                 { radius = size * 49 / 100
                 , size = size / 12.5
                 , offset = ( size / 2, size / 2 )
                 , color = Color.black
                 , backgroundColor = grey
                 , counts = Maybe.withDefault model.status.shields <| Maybe.map (Arc.liftA2 (+) model.status.shields) model.diverting
-                , onPlus =
-                    Arc.pureWithAnArc (\arc -> Maybe.map (always (EditDivertToShields arc ((+) 1))) model.diverting)
-                , onMinus =
-                    Arc.pureWithAnArc (\arc -> Maybe.map (always (EditDivertToShields arc (\x -> x - 1))) model.diverting)
+                , onPlus = Arc.pureWithAnArc (tryEdit ((+) 1))
+                , onMinus = Arc.pureWithAnArc (tryEdit (\x -> x - 1))
                 }
             ]
         , input
