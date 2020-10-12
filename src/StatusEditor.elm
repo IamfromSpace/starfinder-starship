@@ -345,34 +345,43 @@ view starship model =
                 )
 
             -- TODO: Shouldn't render buttons when not diverting (but actual SP is kind of useful?)
-            , let
-                -- This is a bit inefficient, because it checks incrementing
-                -- for every arc, when we know that the rules only apply
-                -- againsts totals.  However, this approach dramatically
-                -- reduces re-implementation.
-                -- (also, if Status.divertPowerToShields enforced that we must
-                -- use our max, this would totaly ruin this!)
-                -- TODO: export efficient helpers in the Status module
-                tryEdit op arc =
-                    -- Try to our op, if it doesn't work, it's disabled
-                    model.diverting
-                        |> Maybe.andThen
-                            (\d ->
-                                Status.divertPowerToShields starship
-                                    (Arc.updateArc op arc d)
-                                    model.status
-                            )
-                        |> Maybe.map (always (EditDivertToShields arc op))
-              in
-              CounterArc.view
+            , CounterArc.view
                 { radius = size * 49 / 100
                 , size = size / 12.5
                 , offset = ( size / 2, size / 2 )
                 , color = Color.black
                 , backgroundColor = grey
                 , counts = Maybe.withDefault model.status.shields <| Maybe.map (Arc.liftA2 (+) model.status.shields) model.diverting
-                , onPlus = Arc.pureWithAnArc (tryEdit ((+) 1))
-                , onMinus = Arc.pureWithAnArc (tryEdit (\x -> x - 1))
+                , onPlus =
+                    let
+                        enabled =
+                            Maybe.andThen
+                                (\d ->
+                                    -- Enabled (for all) if we haven't exceed our maximum
+                                    if Status.maxDivertPowerToShieldPoints starship model.status > Arc.sum d then
+                                        Just ()
+
+                                    else
+                                        Nothing
+                                )
+                                model.diverting
+                    in
+                    Arc.pureWithAnArc
+                        (\arc -> Maybe.map (always (EditDivertToShields arc ((+) 1))) enabled)
+                , onMinus =
+                    Arc.pureWithAnArc
+                        (\arc ->
+                            Maybe.andThen
+                                (\d ->
+                                    -- Enabled as long as we don't push the arc below zero.
+                                    if Arc.getArc arc d > 0 then
+                                        Just (EditDivertToShields arc (\x -> x - 1))
+
+                                    else
+                                        Nothing
+                                )
+                                model.diverting
+                        )
                 }
             ]
         , input
