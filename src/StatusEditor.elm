@@ -343,8 +343,6 @@ view starship model =
                     |> Maybe.map selectedArc
                     |> Maybe.withDefault shipAndShieldsBase
                 )
-
-            -- TODO: Shouldn't render buttons when not diverting (but actual SP is kind of useful?)
             , CounterArc.view
                 { radius = size * 49 / 100
                 , size = size / 12.5

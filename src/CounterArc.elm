@@ -75,11 +75,7 @@ single model =
             else
                 vFontSize
 
-        --mmOnClick : Maybe (Maybe a)
-        --  Nothing       -> component disabled
-        --  Just Nothing  -> enabled, but no handler on this component
-        --  Just (Just a) -> enabled, and this component has a handler
-        rect hasStroke mmOnClick fill isLeft =
+        rect hasStroke mOnClick fill isLeft =
             let
                 strokeWidth =
                     model.size / 14
@@ -92,7 +88,7 @@ single model =
                         1
 
                 withOnClick =
-                    case Maybe.andThen identity mmOnClick of
+                    case mOnClick of
                         Just msg ->
                             (::) (SE.onClick msg)
 
@@ -102,13 +98,7 @@ single model =
             Svg.rect
                 (withOnClick
                     [ SA.fill (colorToCssRgba fill)
-                    , SA.stroke <|
-                        colorToCssRgba <|
-                            if mmOnClick == Nothing then
-                                Color.darkGray
-
-                            else
-                                model.color
+                    , SA.stroke <| colorToCssRgba model.color
                     , SA.strokeWidth <| String.fromFloat strokeWidth
                     , SA.height <| String.fromFloat (model.size - strokeWidth)
                     , SA.width <| String.fromFloat (model.size - strokeWidth)
@@ -127,19 +117,13 @@ single model =
                 )
                 []
 
-        text disabled offset value =
+        text offset value =
             Svg.text_
                 [ SA.fontFamily "mono"
                 , SA.textAnchor "middle"
                 , SA.alignmentBaseline "middle"
                 , SA.fontSize <| String.fromFloat fontSize
-                , SA.fill <|
-                    colorToCssRgba <|
-                        if disabled then
-                            Color.darkGray
-
-                        else
-                            model.color
+                , SA.fill <| colorToCssRgba model.color
                 , SA.transform <| translate offset
                 ]
                 [ Svg.text value ]
@@ -166,15 +150,49 @@ single model =
 
                     else
                         "-"
-
-                disabled =
-                    if isPlus then
-                        model.onPlus == Nothing
-
-                    else
-                        model.onMinus == Nothing
             in
-            text disabled offset value
+            text offset value
+
+        -- TODO: Now realizing the abstraction I've been searching for
+        -- *facepalm* the buttons themselves should be single Svg.g components
+        -- that can then be moved around.
+        plusButtonSvgs =
+            case model.onPlus of
+                Just _ ->
+                    [ rect True
+                        Nothing
+                        model.backgroundColor
+                        True
+                    , buttonText True
+
+                    -- Hit box
+                    , rect False
+                        model.onPlus
+                        invisible
+                        True
+                    ]
+
+                Nothing ->
+                    []
+
+        minusButtonSvgs =
+            case model.onMinus of
+                Just _ ->
+                    [ rect True
+                        Nothing
+                        model.backgroundColor
+                        False
+                    , buttonText False
+
+                    -- Hit box
+                    , rect False
+                        model.onMinus
+                        invisible
+                        False
+                    ]
+
+                Nothing ->
+                    []
     in
     Svg.g
         [ SA.transform <|
@@ -191,30 +209,10 @@ single model =
                     0
                 )
         ]
-        [ rect True
-            (Maybe.map (always Nothing) model.onPlus)
-            model.backgroundColor
-            True
-        , buttonText True
-
-        -- Hit box
-        , rect False
-            (Maybe.map Just model.onPlus)
-            invisible
-            True
-        , text False ( 0, 0 ) (String.fromInt model.count)
-        , rect True
-            (Maybe.map (always Nothing) model.onMinus)
-            model.backgroundColor
-            False
-        , buttonText False
-
-        -- Hit box
-        , rect False
-            (Maybe.map Just model.onMinus)
-            invisible
-            False
-        ]
+        (plusButtonSvgs
+            ++ [ text ( 0, 0 ) (String.fromInt model.count) ]
+            ++ minusButtonSvgs
+        )
 
 
 type alias Model a =
