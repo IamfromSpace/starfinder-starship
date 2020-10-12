@@ -362,10 +362,6 @@ maxDivertPowerToShieldPoints starship status =
     maxDivertPowerToShieldPoints_ starship status.shields
 
 
-
--- TODO: should this just enforce that all points are consumed (or shields are maxed out)?  Why would you _not_ take points?
-
-
 divertPowerToShields_ : Starship -> Arc Int -> Arc Int -> Maybe (Arc Int)
 divertPowerToShields_ starship added shields =
     let
@@ -380,7 +376,7 @@ divertPowerToShields_ starship added shields =
         maxAddable =
             maxDivertPowerToShieldPoints_ starship shields
     in
-    if not allPositive || pointsAdded > maxAddable then
+    if not allPositive || pointsAdded /= maxAddable then
         Nothing
 
     else
