@@ -342,13 +342,18 @@ moveShieldPoints starship from to amount status =
 divertPowerToShields_ : Starship -> Arc Int -> Arc Int -> Maybe (Arc Int)
 divertPowerToShields_ starship added shields =
     let
+        allPositive =
+            added
+                |> Arc.map (\x -> x >= 0)
+                |> Arc.foldr (&&) True
+
         pointsAdded =
             Arc.foldr (+) 0 added
 
         newTotalPoints =
             Arc.foldr (+) pointsAdded shields
     in
-    if pointsAdded > starship.powerCoreUnits // 20 || newTotalPoints > (extract starship.shields).shieldPoints then
+    if not allPositive || pointsAdded > starship.powerCoreUnits // 20 || newTotalPoints > (extract starship.shields).shieldPoints then
         Nothing
 
     else
