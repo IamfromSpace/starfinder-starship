@@ -423,7 +423,7 @@ view starship model =
             )
             [ text "Balance Shields Evenly" ]
         , button
-            (case ( model.selected, model.diverting, Status.areShieldsFull starship model.status ) of
+            (case ( model.selected, model.diverting, Status.maxDivertPowerToShieldPoints starship model.status <= 0 ) of
                 ( Nothing, Nothing, False ) ->
                     [ E.onClick StartDivertToShields ]
 

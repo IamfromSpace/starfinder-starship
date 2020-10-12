@@ -1,4 +1,4 @@
-module Status exposing (CriticalStatus, PatchableSystem(..), Severity(..), Status, areShieldsFull, balanceEvenly, balanceToAll, damage, damageArc, damageSeverity, damageSystem, divertPowerToShields, getEffectiveCriticalStatus, holdItTogether, patchCriticalStatus, patchSeverity, patchStatus, pickPatchableSystem, quickFix, tick, tickCriticalStatus, updateCriticalStatus)
+module Status exposing (CriticalStatus, PatchableSystem(..), Severity(..), Status, areShieldsFull, balanceEvenly, balanceToAll, damage, damageArc, damageSeverity, damageSystem, divertPowerToShields, getEffectiveCriticalStatus, holdItTogether, maxDivertPowerToShieldPoints, patchCriticalStatus, patchSeverity, patchStatus, pickPatchableSystem, quickFix, tick, tickCriticalStatus, updateCriticalStatus)
 
 import Arc exposing (AnArc, Arc)
 import Random exposing (Generator)
