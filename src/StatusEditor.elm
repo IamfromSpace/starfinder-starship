@@ -235,17 +235,36 @@ getDamagePercent starship status =
     toFloat (hp - status.damage) / toFloat hp
 
 
-view : Starship -> Model -> Html Msg
-view starship model =
+selectedShieldedFighter : Color -> Color -> (Arc.AnArc -> a) -> Arc.AnArc -> Float -> Svg a
+selectedShieldedFighter unselectedColor selectedColor onClicks selected size =
+    Shielded.view
+        (\size_ color ->
+            Fighter.view
+                { size = size_
+                , color = color
+                }
+        )
+        { size = size
+        , arcColors =
+            Arc.mapWithAnArc
+                (\arc _ ->
+                    if arc == selected then
+                        selectedColor
+
+                    else
+                        unselectedColor
+                )
+                (Arc.pure ())
+        , arcOnClick = onClicks
+        , shielded = unselectedColor
+        }
+
+
+shieldedFighter : Starship -> Status -> (Arc.AnArc -> a) -> Arc.Arc (Maybe a) -> Arc.Arc (Maybe a) -> Float -> Svg a
+shieldedFighter starship status arcOnClick onPlus onMinus size =
     let
-        size =
-            200
-
-        sizeStr =
-            String.fromFloat size
-
         damagePercent =
-            getDamagePercent starship model.status
+            getDamagePercent starship status
 
         shieldDamagePercents =
             Arc.map
@@ -257,37 +276,78 @@ view starship model =
                     else
                         0
                 )
-                model.status.shields
-
-        shipAndShieldsBase =
+                status.shields
+    in
+    Svg.g
+        []
+        [ Shielded.view
+            (\size_ color ->
+                Fighter.view
+                    { size = size_
+                    , color = color
+                    }
+            )
             { size = size
             , arcColors = Arc.map colorTransition shieldDamagePercents
-            , arcOnClick = SelectSheildArc
+            , arcOnClick = arcOnClick
             , shielded = colorTransition damagePercent
             }
+        , CounterArc.view
+            { radius = size * 49 / 100
+            , size = size / 12.5
+            , offset = ( size / 2, size / 2 )
+            , color = Color.black
+            , backgroundColor = grey
+            , counts = status.shields
+            , onPlus = onPlus
+            , onMinus = onMinus
+            }
+        ]
 
-        selectedArc a =
-            { size = size
-            , arcColors =
-                Arc.mapWithAnArc
-                    (\arc _ ->
-                        if arc == a then
-                            Color.black
 
-                        else
-                            Color.grey
-                    )
-                    (Arc.pure ())
-            , arcOnClick =
-                \arc ->
-                    -- Clear the selection if this is the selected arc
-                    if arc == a then
-                        DeselectSheildArc
+divertingShieldedFighter : Starship -> Status -> Arc.Arc Int -> Float -> Svg Msg
+divertingShieldedFighter starship status added size =
+    let
+        statusWithNew =
+            { status | shields = Arc.liftA2 (+) status.shields added }
+
+        onPlus =
+            let
+                enabled =
+                    if Status.maxDivertPowerToShieldPoints starship status > Arc.sum added then
+                        Just ()
 
                     else
-                        SelectSheildArc arc
-            , shielded = colorTransition damagePercent
-            }
+                        Nothing
+            in
+            Arc.pureWithAnArc
+                (\arc -> Maybe.map (always (EditDivertToShields arc ((+) 1))) enabled)
+
+        onMinus =
+            Arc.pureWithAnArc
+                (\arc ->
+                    -- Enabled as long as we don't push the arc below zero.
+                    if Arc.getArc arc added > 0 then
+                        Just (EditDivertToShields arc (\x -> x - 1))
+
+                    else
+                        Nothing
+                )
+    in
+    shieldedFighter starship statusWithNew SelectSheildArc onPlus onMinus size
+
+
+view : Starship -> Model -> Html Msg
+view starship model =
+    let
+        size =
+            200
+
+        sizeStr =
+            String.fromFloat size
+
+        damagePercent =
+            getDamagePercent starship model.status
 
         patchableDisplay name status patchableSystem =
             let
@@ -332,55 +392,25 @@ view starship model =
             , SA.width sizeStr
             , SA.viewBox <| "0 0 " ++ sizeStr ++ " " ++ sizeStr
             ]
-            [ Shielded.view
-                (\size_ color ->
-                    Fighter.view
-                        { size = size_
-                        , color = color
-                        }
-                )
-                (model.selected
-                    |> Maybe.map selectedArc
-                    |> Maybe.withDefault shipAndShieldsBase
-                )
-            , CounterArc.view
-                { radius = size * 49 / 100
-                , size = size / 12.5
-                , offset = ( size / 2, size / 2 )
-                , color = Color.black
-                , backgroundColor = grey
-                , counts = Maybe.withDefault model.status.shields <| Maybe.map (Arc.liftA2 (+) model.status.shields) model.diverting
-                , onPlus =
-                    let
-                        enabled =
-                            Maybe.andThen
-                                (\d ->
-                                    -- Enabled (for all) if we haven't exceed our maximum
-                                    if Status.maxDivertPowerToShieldPoints starship model.status > Arc.sum d then
-                                        Just ()
+            [ case ( model.selected, model.diverting ) of
+                ( Nothing, Nothing ) ->
+                    shieldedFighter starship model.status SelectSheildArc (Arc.pure Nothing) (Arc.pure Nothing) size
 
-                                    else
-                                        Nothing
-                                )
-                                model.diverting
-                    in
-                    Arc.pureWithAnArc
-                        (\arc -> Maybe.map (always (EditDivertToShields arc ((+) 1))) enabled)
-                , onMinus =
-                    Arc.pureWithAnArc
+                ( Just selected, _ ) ->
+                    selectedShieldedFighter Color.grey
+                        Color.black
                         (\arc ->
-                            Maybe.andThen
-                                (\d ->
-                                    -- Enabled as long as we don't push the arc below zero.
-                                    if Arc.getArc arc d > 0 then
-                                        Just (EditDivertToShields arc (\x -> x - 1))
+                            if arc == selected then
+                                DeselectSheildArc
 
-                                    else
-                                        Nothing
-                                )
-                                model.diverting
+                            else
+                                SelectSheildArc arc
                         )
-                }
+                        selected
+                        size
+
+                ( _, Just added ) ->
+                    divertingShieldedFighter starship model.status added size
             ]
         , input
             [ A.value (Maybe.map String.fromInt model.damageInput |> Maybe.withDefault "")
