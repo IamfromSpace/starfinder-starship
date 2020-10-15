@@ -27,6 +27,7 @@ import Togglable exposing (extract, meta)
 type PartialState
     = Selected AnArc
     | Diverting (Arc.Arc Int)
+    | Allotting (Arc.Arc Int)
     | None
 
 
@@ -50,6 +51,21 @@ maybeSelected ps =
             Nothing
 
 
+maybeAllotting : PartialState -> Maybe (Arc.Arc Int)
+maybeAllotting ps =
+    case ps of
+        Allotting x ->
+            Just x
+
+        _ ->
+            Nothing
+
+
+areShieldsFullWithAdded : Starship -> Status -> Arc.Arc Int -> Bool
+areShieldsFullWithAdded starship status added =
+    Status.areShieldsFull starship { status | shields = Arc.liftA2 (+) status.shields added }
+
+
 type alias Model =
     { status : Status
     , critsRemaining : Int
@@ -61,11 +77,8 @@ type alias Model =
 init : Starship -> Model
 init starship =
     { status =
-        { damage =
-            0
-
-        -- TODO: Users determine this as they go into combat
-        , shields = Arc.pure ((extract starship.shields).shieldPoints // 4)
+        { damage = 0
+        , shields = Arc.pure 0
         , lifeSupport = Nothing
         , sensors = Nothing
         , weaponsArray = Arc.pure Nothing
@@ -74,7 +87,7 @@ init starship =
         }
     , critsRemaining = 0
     , damageInput = Nothing
-    , partialState = None
+    , partialState = Allotting (Arc.pure ((extract starship.shields).shieldPoints // 4))
     }
 
 
@@ -88,6 +101,8 @@ type Msg
     | EditDivertToShields AnArc (Int -> Int)
     | CancelDivertToShields
     | AcceptDivertToShields
+    | EditAllotmentToShields AnArc (Int -> Int)
+    | AcceptAllotmentToShields
     | BalanceToAllFrom Int
     | BalanceEvenly
     | Patch PatchableSystem
@@ -148,6 +163,10 @@ update starship msg model =
                 ( _, Diverting _ ) ->
                     ( model, Cmd.none )
 
+                -- Shields are unselectable when allotting points
+                ( _, Allotting _ ) ->
+                    ( model, Cmd.none )
+
                 _ ->
                     ( { model | partialState = Selected arc }, Cmd.none )
 
@@ -206,6 +225,39 @@ update starship msg model =
                                 { model | partialState = None, status = newStatus }
                             )
                         |> Maybe.withDefault model
+                    , Cmd.none
+                    )
+
+                _ ->
+                    ( model, Cmd.none )
+
+        EditAllotmentToShields arc f ->
+            case model.partialState of
+                Allotting allotment ->
+                    ( { model
+                        | partialState = Allotting (Arc.updateArc f arc allotment)
+                      }
+                    , Cmd.none
+                    )
+
+                _ ->
+                    ( model, Cmd.none )
+
+        AcceptAllotmentToShields ->
+            case model.partialState of
+                Allotting allotment ->
+                    let
+                        status =
+                            model.status
+
+                        newStatus =
+                            { status | shields = Arc.liftA2 (+) model.status.shields allotment }
+                    in
+                    ( if Status.areShieldsFull starship newStatus then
+                        { model | partialState = None, status = newStatus }
+
+                      else
+                        model
                     , Cmd.none
                     )
 
@@ -386,6 +438,48 @@ divertingShieldedFighter starship status added size =
     shieldedFighter starship statusWithNew SelectSheildArc onPlus onMinus size
 
 
+allottingShieldedFighter : Starship -> Status -> Arc.Arc Int -> Float -> Svg Msg
+allottingShieldedFighter starship status allotment size =
+    let
+        -- TODO: Here, we're looking under the hood of the Status type.
+        -- Ideally, adding shield points is hidden within the status module.
+        -- However, the oddity here is that this just isn't an operation that
+        -- makes any sense!  We don't ever just arbitrarily add shield points.
+        -- In this case, the "status" isn't really a status at all, it can't be
+        -- a status until the inital state is determined.
+        statusWithAllotted =
+            { status | shields = Arc.liftA2 (+) status.shields allotment }
+
+        onPlus =
+            let
+                enabled =
+                    if Status.areShieldsFull starship statusWithAllotted then
+                        Nothing
+
+                    else
+                        Just ()
+            in
+            Arc.pureWithAnArc
+                (\arc -> Maybe.map (always (EditAllotmentToShields arc ((+) 1))) enabled)
+
+        onMinus =
+            let
+                minPoints =
+                    (extract starship.shields).shieldPoints // 10
+            in
+            Arc.pureWithAnArc
+                (\arc ->
+                    -- Enabled as long as we don't push the arc below zero.
+                    if Arc.getArc arc allotment > minPoints then
+                        Just (EditAllotmentToShields arc (\x -> x - 1))
+
+                    else
+                        Nothing
+                )
+    in
+    shieldedFighter starship statusWithAllotted SelectSheildArc onPlus onMinus size
+
+
 view : Starship -> Model -> Html Msg
 view starship model =
     let
@@ -460,6 +554,9 @@ view starship model =
 
                 Diverting added ->
                     divertingShieldedFighter starship model.status added size
+
+                Allotting allotment ->
+                    allottingShieldedFighter starship model.status allotment size
             ]
         , input
             [ A.value (Maybe.map String.fromInt model.damageInput |> Maybe.withDefault "")
@@ -542,6 +639,19 @@ view starship model =
                     [ E.onClick AcceptDivertToShields ]
             )
             [ text "Accept Divert Power to Shields" ]
+        , button
+            (case
+                Maybe.map
+                    (areShieldsFullWithAdded starship model.status)
+                    (maybeAllotting model.partialState)
+             of
+                Just True ->
+                    [ E.onClick AcceptAllotmentToShields ]
+
+                _ ->
+                    [ A.disabled True ]
+            )
+            [ text "Accept Allotted Shields" ]
 
         -- TODO: Apply a temporary status to patchable system
         , patchableDisplay "Life Support" model.status.lifeSupport LifeSupport
