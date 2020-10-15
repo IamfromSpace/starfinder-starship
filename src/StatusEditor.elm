@@ -40,6 +40,16 @@ maybeDiverting ps =
             Nothing
 
 
+maybeSelected : PartialState -> Maybe AnArc
+maybeSelected ps =
+    case ps of
+        Selected x ->
+            Just x
+
+        _ ->
+            Nothing
+
+
 type alias Model =
     { status : Status
     , critsRemaining : Int
@@ -69,7 +79,7 @@ init starship =
 
 
 type Msg
-    = Damage AnArc Int Bool
+    = Damage Int Bool
     | ApplyCrit Status.PatchableSystem
     | SelectSheildArc AnArc
     | DeselectSheildArc
@@ -78,7 +88,7 @@ type Msg
     | EditDivertToShields AnArc (Int -> Int)
     | CancelDivertToShields
     | AcceptDivertToShields
-    | BalanceToAllFrom AnArc Int
+    | BalanceToAllFrom Int
     | BalanceEvenly
     | Patch PatchableSystem
     | HoldItTogether PatchableSystem
@@ -90,38 +100,35 @@ update : Starship -> Msg -> Model -> ( Model, Cmd Msg )
 update starship msg model =
     -- TODO: Restrict actions based on the current phase of the round
     case msg of
-        Damage arc damage wasCrit ->
-            -- This may be over defensive, but we lock the model
-            -- while we are waiting for the random result to come back
-            if model.critsRemaining == 0 then
-                let
-                    ( critCount, newStatus ) =
-                        Status.damageArc
-                            wasCrit
-                            starship
-                            arc
-                            damage
-                            model.status
-                in
-                ( { model
-                    | status = newStatus
-                    , critsRemaining = critCount
-
-                    -- TODO: defend against damage without selection, it should
-                    -- really choose the arc based on the state, not the
-                    -- message
-                    , partialState = None
-                  }
-                , Cmd.batch
-                    (List.repeat critCount
-                        (Random.generate ApplyCrit
-                            Status.pickPatchableSystem
+        Damage damage wasCrit ->
+            case ( model.partialState, model.critsRemaining == 0 ) of
+                -- This may be over defensive, but we lock the model
+                -- while we are waiting for the random result to come back
+                ( Selected arc, True ) ->
+                    let
+                        ( critCount, newStatus ) =
+                            Status.damageArc
+                                wasCrit
+                                starship
+                                arc
+                                damage
+                                model.status
+                    in
+                    ( { model
+                        | status = newStatus
+                        , critsRemaining = critCount
+                        , partialState = None
+                      }
+                    , Cmd.batch
+                        (List.repeat critCount
+                            (Random.generate ApplyCrit
+                                Status.pickPatchableSystem
+                            )
                         )
                     )
-                )
 
-            else
-                ( model, Cmd.none )
+                _ ->
+                    ( model, Cmd.none )
 
         ApplyCrit system ->
             ( { model
@@ -205,12 +212,9 @@ update starship msg model =
                 _ ->
                     ( model, Cmd.none )
 
-        BalanceToAllFrom arc amount ->
-            case Status.balanceToAll starship arc amount model.status of
+        BalanceToAllFrom amount ->
+            case Maybe.andThen (\arc -> Status.balanceToAll starship arc amount model.status) (maybeSelected model.partialState) of
                 Just status ->
-                    -- TODO: Arc should come from the status not the action,
-                    -- and then this action can only occur while an arc is
-                    -- selected
                     ( { model | status = status, partialState = None }, Cmd.none )
 
                 Nothing ->
@@ -474,7 +478,7 @@ view starship model =
         , button
             (case ( model.partialState, model.damageInput ) of
                 ( Selected arc, Just damageInput ) ->
-                    [ E.onClick (Damage arc damageInput True) ]
+                    [ E.onClick (Damage damageInput True) ]
 
                 _ ->
                     [ A.disabled True ]
@@ -483,7 +487,7 @@ view starship model =
         , button
             (case ( model.partialState, model.damageInput ) of
                 ( Selected arc, Just damageInput ) ->
-                    [ E.onClick (Damage arc damageInput False) ]
+                    [ E.onClick (Damage damageInput False) ]
 
                 _ ->
                     [ A.disabled True ]
@@ -495,7 +499,7 @@ view starship model =
                     [ A.disabled
                         (Status.balanceToAll starship arc damageInput model.status == Nothing)
                     , E.onClick
-                        (BalanceToAllFrom arc damageInput)
+                        (BalanceToAllFrom damageInput)
                     ]
 
                 _ ->
