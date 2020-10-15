@@ -24,12 +24,27 @@ import Switch exposing (Switch(..))
 import Togglable exposing (extract, meta)
 
 
+type PartialState
+    = Selected AnArc
+    | Diverting (Arc.Arc Int)
+    | None
+
+
+maybeDiverting : PartialState -> Maybe (Arc.Arc Int)
+maybeDiverting ps =
+    case ps of
+        Diverting x ->
+            Just x
+
+        _ ->
+            Nothing
+
+
 type alias Model =
     { status : Status
     , critsRemaining : Int
-    , selected : Maybe AnArc
     , damageInput : Maybe Int
-    , diverting : Maybe (Arc.Arc Int)
+    , partialState : PartialState
     }
 
 
@@ -48,9 +63,8 @@ init starship =
         , powerCore = Nothing
         }
     , critsRemaining = 0
-    , selected = Nothing
     , damageInput = Nothing
-    , diverting = Nothing
+    , partialState = None
     }
 
 
@@ -92,7 +106,11 @@ update starship msg model =
                 ( { model
                     | status = newStatus
                     , critsRemaining = critCount
-                    , selected = Nothing
+
+                    -- TODO: defend against damage without selection, it should
+                    -- really choose the arc based on the state, not the
+                    -- message
+                    , partialState = None
                   }
                 , Cmd.batch
                     (List.repeat critCount
@@ -114,16 +132,25 @@ update starship msg model =
             )
 
         SelectSheildArc arc ->
-            -- Shields are unselectable when the ship is dead
-            -- Shields are unselectable when diverting power
-            if getDamagePercent starship model.status > 0 && model.diverting == Nothing then
-                ( { model | selected = Just arc }, Cmd.none )
+            case ( getDamagePercent starship model.status > 0, model.partialState ) of
+                -- Shields are unselectable when the ship is dead
+                ( False, _ ) ->
+                    ( model, Cmd.none )
 
-            else
-                ( model, Cmd.none )
+                -- Shields are unselectable when diverting power
+                ( _, Diverting _ ) ->
+                    ( model, Cmd.none )
+
+                _ ->
+                    ( { model | partialState = Selected arc }, Cmd.none )
 
         DeselectSheildArc ->
-            ( { model | selected = Nothing }, Cmd.none )
+            case model.partialState of
+                Selected _ ->
+                    ( { model | partialState = None }, Cmd.none )
+
+                _ ->
+                    ( model, Cmd.none )
 
         ChangeDamageInput (Just x) ->
             if x > 0 then
@@ -136,37 +163,55 @@ update starship msg model =
             ( { model | damageInput = Nothing }, Cmd.none )
 
         StartDivertToShields ->
-            ( { model | diverting = Just (Arc.pure 0) }, Cmd.none )
+            case model.partialState of
+                None ->
+                    ( { model | partialState = Diverting (Arc.pure 0) }, Cmd.none )
+
+                _ ->
+                    ( model, Cmd.none )
 
         EditDivertToShields arc f ->
-            ( { model
-                | diverting =
-                    Maybe.map (Arc.updateArc f arc) model.diverting
-              }
-            , Cmd.none
-            )
+            case model.partialState of
+                Diverting added ->
+                    ( { model
+                        | partialState = Diverting (Arc.updateArc f arc added)
+                      }
+                    , Cmd.none
+                    )
+
+                _ ->
+                    ( model, Cmd.none )
 
         CancelDivertToShields ->
-            ( { model | diverting = Nothing }, Cmd.none )
+            case model.partialState of
+                Diverting _ ->
+                    ( { model | partialState = None }, Cmd.none )
+
+                _ ->
+                    ( model, Cmd.none )
 
         AcceptDivertToShields ->
-            ( model.diverting
-                |> Maybe.andThen
-                    (\added ->
-                        Status.divertPowerToShields starship added model.status
+            case model.partialState of
+                Diverting added ->
+                    ( Status.divertPowerToShields starship added model.status
+                        |> Maybe.map
+                            (\newStatus ->
+                                { model | partialState = None, status = newStatus }
+                            )
+                        |> Maybe.withDefault model
+                    , Cmd.none
                     )
-                |> Maybe.map
-                    (\newStatus ->
-                        { model | diverting = Nothing, status = newStatus }
-                    )
-                |> Maybe.withDefault model
-            , Cmd.none
-            )
+
+                _ ->
+                    ( model, Cmd.none )
 
         BalanceToAllFrom arc amount ->
             case Status.balanceToAll starship arc amount model.status of
                 Just status ->
-                    ( { model | status = status, selected = Nothing }, Cmd.none )
+                    -- TODO: Arc should come from the status not the action,
+                    -- and then this action can only occur while an arc is
+                    -- selected
+                    ( { model | status = status, partialState = None }, Cmd.none )
 
                 Nothing ->
                     ( model, Cmd.none )
@@ -392,11 +437,11 @@ view starship model =
             , SA.width sizeStr
             , SA.viewBox <| "0 0 " ++ sizeStr ++ " " ++ sizeStr
             ]
-            [ case ( model.selected, model.diverting ) of
-                ( Nothing, Nothing ) ->
+            [ case model.partialState of
+                None ->
                     shieldedFighter starship model.status SelectSheildArc (Arc.pure Nothing) (Arc.pure Nothing) size
 
-                ( Just selected, _ ) ->
+                Selected selected ->
                     selectedShieldedFighter Color.grey
                         Color.black
                         (\arc ->
@@ -409,19 +454,26 @@ view starship model =
                         selected
                         size
 
-                ( _, Just added ) ->
+                Diverting added ->
                     divertingShieldedFighter starship model.status added size
             ]
         , input
             [ A.value (Maybe.map String.fromInt model.damageInput |> Maybe.withDefault "")
-            , A.disabled (model.selected == Nothing)
+            , A.disabled
+                (case model.partialState of
+                    Selected _ ->
+                        False
+
+                    _ ->
+                        True
+                )
             , E.onInput (String.toInt >> ChangeDamageInput)
             , A.type_ "number"
             ]
             []
         , button
-            (case ( model.selected, model.damageInput ) of
-                ( Just arc, Just damageInput ) ->
+            (case ( model.partialState, model.damageInput ) of
+                ( Selected arc, Just damageInput ) ->
                     [ E.onClick (Damage arc damageInput True) ]
 
                 _ ->
@@ -429,8 +481,8 @@ view starship model =
             )
             [ text "Damage w/Crit" ]
         , button
-            (case ( model.selected, model.damageInput ) of
-                ( Just arc, Just damageInput ) ->
+            (case ( model.partialState, model.damageInput ) of
+                ( Selected arc, Just damageInput ) ->
                     [ E.onClick (Damage arc damageInput False) ]
 
                 _ ->
@@ -438,8 +490,8 @@ view starship model =
             )
             [ text "Damage" ]
         , button
-            (case ( model.selected, model.damageInput ) of
-                ( Just arc, Just damageInput ) ->
+            (case ( model.partialState, model.damageInput ) of
+                ( Selected arc, Just damageInput ) ->
                     [ A.disabled
                         (Status.balanceToAll starship arc damageInput model.status == Nothing)
                     , E.onClick
@@ -451,8 +503,8 @@ view starship model =
             )
             [ text "Balance To All Others" ]
         , button
-            (case ( model.selected, model.diverting ) of
-                ( Nothing, Nothing ) ->
+            (case model.partialState of
+                None ->
                     [ E.onClick BalanceEvenly ]
 
                 _ ->
@@ -460,8 +512,8 @@ view starship model =
             )
             [ text "Balance Shields Evenly" ]
         , button
-            (case ( model.selected, model.diverting, Status.maxDivertPowerToShieldPoints starship model.status <= 0 ) of
-                ( Nothing, Nothing, False ) ->
+            (case ( model.partialState, Status.maxDivertPowerToShieldPoints starship model.status <= 0 ) of
+                ( None, False ) ->
                     [ E.onClick StartDivertToShields ]
 
                 _ ->
@@ -469,16 +521,16 @@ view starship model =
             )
             [ text "Divert Power to Shields" ]
         , button
-            (case model.diverting of
-                Nothing ->
-                    [ A.disabled True ]
-
-                Just arc ->
+            (case model.partialState of
+                Diverting _ ->
                     [ E.onClick CancelDivertToShields ]
+
+                _ ->
+                    [ A.disabled True ]
             )
             [ text "Cancel Divert Power to Shields" ]
         , button
-            (case Maybe.andThen (\x -> Status.divertPowerToShields starship x model.status) model.diverting of
+            (case Maybe.andThen (\x -> Status.divertPowerToShields starship x model.status) (maybeDiverting model.partialState) of
                 Nothing ->
                     [ A.disabled True ]
 
