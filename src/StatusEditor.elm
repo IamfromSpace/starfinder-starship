@@ -28,6 +28,7 @@ type PartialState
     = Selected AnArc
     | Diverting (Arc.Arc Int)
     | Allotting (Arc.Arc Int)
+    | Balancing ( Arc.AnArc, Arc.AnArc, Int )
     | None
 
 
@@ -55,6 +56,16 @@ maybeAllotting : PartialState -> Maybe (Arc.Arc Int)
 maybeAllotting ps =
     case ps of
         Allotting x ->
+            Just x
+
+        _ ->
+            Nothing
+
+
+maybeBalancing : PartialState -> Maybe ( Arc.AnArc, Arc.AnArc, Int )
+maybeBalancing ps =
+    case ps of
+        Balancing x ->
             Just x
 
         _ ->
@@ -103,7 +114,10 @@ type Msg
     | AcceptDivertToShields
     | EditAllotmentToShields AnArc (Int -> Int)
     | AcceptAllotmentToShields
-    | BalanceToAllFrom Int
+    | StartBalanceFromArc
+    | EditBalanceFromArc AnArc Int
+    | CancelBalanceFromArc
+    | AcceptBalanceFromArc
     | BalanceEvenly
     | Patch PatchableSystem
     | HoldItTogether PatchableSystem
@@ -165,6 +179,10 @@ update starship msg model =
 
                 -- Shields are unselectable when allotting points
                 ( _, Allotting _ ) ->
+                    ( model, Cmd.none )
+
+                -- Shields are unselectable when balancing from an arc
+                ( _, Balancing _ ) ->
                     ( model, Cmd.none )
 
                 _ ->
@@ -264,12 +282,47 @@ update starship msg model =
                 _ ->
                     ( model, Cmd.none )
 
-        BalanceToAllFrom amount ->
-            case Maybe.andThen (\arc -> Status.balanceToAll starship arc amount model.status) (maybeSelected model.partialState) of
-                Just status ->
-                    ( { model | status = status, partialState = None }, Cmd.none )
+        StartBalanceFromArc ->
+            case model.partialState of
+                Selected arc ->
+                    ( { model | partialState = Balancing ( arc, arc, 0 ) }, Cmd.none )
 
-                Nothing ->
+                _ ->
+                    ( model, Cmd.none )
+
+        EditBalanceFromArc to amount ->
+            case model.partialState of
+                Balancing ( from, _, _ ) ->
+                    ( { model
+                        | partialState = Balancing ( from, to, amount )
+                      }
+                    , Cmd.none
+                    )
+
+                _ ->
+                    ( model, Cmd.none )
+
+        CancelBalanceFromArc ->
+            case model.partialState of
+                Balancing _ ->
+                    ( { model | partialState = None }, Cmd.none )
+
+                _ ->
+                    ( model, Cmd.none )
+
+        AcceptBalanceFromArc ->
+            case model.partialState of
+                Balancing change ->
+                    ( Status.balanceFromArc starship change model.status
+                        |> Maybe.map
+                            (\newStatus ->
+                                { model | partialState = None, status = newStatus }
+                            )
+                        |> Maybe.withDefault model
+                    , Cmd.none
+                    )
+
+                _ ->
                     ( model, Cmd.none )
 
         BalanceEvenly ->
@@ -480,6 +533,68 @@ allottingShieldedFighter starship status allotment size =
     shieldedFighter starship statusWithAllotted SelectSheildArc onPlus onMinus size
 
 
+balancingShieldedFighter : Starship -> Status -> ( Arc.AnArc, Arc.AnArc, Int ) -> Float -> Svg Msg
+balancingShieldedFighter starship status ( from, to, amount ) size =
+    let
+        tenPercent =
+            Arc.sum status.shields // 10
+
+        -- TODO: Here, we want to use the available utilities from Status so we
+        -- don't have re-implementation or coupling, but they can return a
+        -- maybe in scenarios that are valid to render!  (Just not valid to
+        -- accept)
+        asArc =
+            Arc.pureWithAnArc
+                (\arc ->
+                    if arc == from then
+                        -amount
+
+                    else if arc == to then
+                        amount
+
+                    else
+                        0
+                )
+
+        statusWithAltered =
+            { status | shields = Arc.liftA2 (+) status.shields asArc }
+
+        validToArcs =
+            Status.canBalanceFromTo from status.shields
+
+        onPlus =
+            Arc.pureWithAnArc
+                (\arc ->
+                    let
+                        fromHasExtra =
+                            Arc.getArc from statusWithAltered.shields > tenPercent
+
+                        isCurrentSelection =
+                            amount /= 0 && arc == to
+
+                        isSelectable =
+                            amount == 0 && List.member arc validToArcs
+                    in
+                    if arc /= from && fromHasExtra && (isCurrentSelection || isSelectable) then
+                        Just (EditBalanceFromArc arc (amount + 1))
+
+                    else
+                        Nothing
+                )
+
+        onMinus =
+            Arc.pureWithAnArc
+                (\arc ->
+                    if arc == to && amount > 0 then
+                        Just (EditBalanceFromArc to (amount - 1))
+
+                    else
+                        Nothing
+                )
+    in
+    shieldedFighter starship statusWithAltered SelectSheildArc onPlus onMinus size
+
+
 view : Starship -> Model -> Html Msg
 view starship model =
     let
@@ -557,6 +672,9 @@ view starship model =
 
                 Allotting allotment ->
                     allottingShieldedFighter starship model.status allotment size
+
+                Balancing balance ->
+                    balancingShieldedFighter starship model.status balance size
             ]
         , input
             [ A.value (Maybe.map String.fromInt model.damageInput |> Maybe.withDefault "")
@@ -591,18 +709,37 @@ view starship model =
             )
             [ text "Damage" ]
         , button
-            (case ( model.partialState, model.damageInput ) of
-                ( Selected arc, Just damageInput ) ->
-                    [ A.disabled
-                        (Status.balanceToAll starship arc damageInput model.status == Nothing)
-                    , E.onClick
-                        (BalanceToAllFrom damageInput)
-                    ]
+            (case model.partialState of
+                Selected arc ->
+                    case Status.canBalanceFromTo arc model.status.shields of
+                        [] ->
+                            [ A.disabled True ]
+
+                        _ ->
+                            [ E.onClick StartBalanceFromArc ]
 
                 _ ->
                     [ A.disabled True ]
             )
-            [ text "Balance To All Others" ]
+            [ text "Balance to other Shields" ]
+        , button
+            (case model.partialState of
+                Balancing _ ->
+                    [ E.onClick CancelBalanceFromArc ]
+
+                _ ->
+                    [ A.disabled True ]
+            )
+            [ text "Cancel Balance" ]
+        , button
+            (case Maybe.andThen (\x -> Status.balanceFromArc starship x model.status) (maybeBalancing model.partialState) of
+                Nothing ->
+                    [ A.disabled True ]
+
+                Just arc ->
+                    [ E.onClick AcceptBalanceFromArc ]
+            )
+            [ text "Accept Balance to other Shields" ]
         , button
             (case model.partialState of
                 None ->
