@@ -1,4 +1,4 @@
-module Status exposing (CriticalStatus, PatchableSystem(..), Severity(..), Status, areShieldsFull, balanceEvenly, balanceToAll, damage, damageArc, damageSeverity, damageSystem, divertPowerToShields, getEffectiveCriticalStatus, holdItTogether, maxDivertPowerToShieldPoints, patchCriticalStatus, patchSeverity, patchStatus, pickPatchableSystem, quickFix, tick, tickCriticalStatus, updateCriticalStatus)
+module Status exposing (CriticalStatus, PatchableSystem(..), Severity(..), Status, areShieldsFull, balanceEvenly, balanceFromArc, balanceToAll, canBalanceFromTo, damage, damageArc, damageSeverity, damageSystem, divertPowerToShields, getEffectiveCriticalStatus, holdItTogether, maxDivertPowerToShieldPoints, patchCriticalStatus, patchSeverity, patchStatus, pickPatchableSystem, quickFix, tick, tickCriticalStatus, updateCriticalStatus)
 
 import Arc exposing (AnArc, Arc)
 import Random exposing (Generator)
@@ -393,3 +393,107 @@ divertPowerToShields starship added status =
 areShieldsFull : Starship -> Status -> Bool
 areShieldsFull starship status =
     Arc.sum status.shields >= (extract starship.shields).shieldPoints
+
+
+
+-- Given an arc, we check which arcs it can send shield points to via the
+-- balance action.  At the end of balancing, all arcs must contain at least 10%
+-- of the current total, which means there are three possiblities: we can
+-- balance to any arc, we can balance to exactly one arc in need, or we cannot
+-- balance to any.  In the latter case it may be because the from arc is less
+-- than 10%, because it doesn't have enough to give to put a to arc at or above
+-- 10%, or if there are two or more arcs below 10% we can't satisfy the 10%
+-- minimum rule.  This rule is dumb.
+
+
+canBalanceFromTo : AnArc -> Arc Int -> List AnArc
+canBalanceFromTo from shields =
+    let
+        tenPercent =
+            Arc.sum shields // 10
+
+        -- We determine how many points we can share from the from arc, and
+        -- then which arcs are in need of points to get to 10% (and the number
+        -- of points required to do so)
+        ( sharablePoints, quadrantsInNeed ) =
+            Arc.foldWithAnArc
+                (\arc excess ( sharablePoints_, quadrantsInNeed_ ) ->
+                    if arc == from then
+                        ( excess, quadrantsInNeed_ )
+
+                    else
+                        ( sharablePoints_
+                        , (if excess < 0 then
+                            (::) ( arc, excess )
+
+                           else
+                            identity
+                          )
+                            quadrantsInNeed_
+                        )
+                )
+                ( 0, [] )
+                (Arc.map (\x -> x - tenPercent) shields)
+    in
+    case ( quadrantsInNeed, sharablePoints > 0 ) of
+        -- If the from quadrant exceeds 10% and all other quadrants are not
+        -- below, then we can balance to any arc
+        ( [], True ) ->
+            List.filter ((/=) from)
+                [ Arc.Forward
+                , Arc.Aft
+                , Arc.Port
+                , Arc.Starboard
+                ]
+
+        -- If the from quadrant exceeds 10% and there is exactly one quadrant
+        -- that is below 10% _and_ the from quadrant has sufficient points to
+        -- push it beyond 10%, then we can balance to that quadrant (and _only_
+        -- that quadrant)
+        ( [ ( needArc, needExcess ) ], True ) ->
+            if sharablePoints >= needExcess then
+                [ needArc ]
+
+            else
+                []
+
+        -- In any other case, we cannot balance from this arc at all
+        _ ->
+            []
+
+
+balanceFromArc : Starship -> ( AnArc, AnArc, Int ) -> Status -> Maybe Status
+balanceFromArc starship ( from, to, amount ) status =
+    let
+        tenPercent =
+            Arc.sum status.shields // 10
+
+        asArc =
+            Arc.pureWithAnArc
+                (\arc ->
+                    if arc == from then
+                        -amount
+
+                    else if arc == to then
+                        amount
+
+                    else
+                        0
+                )
+
+        afterBalance =
+            { status | shields = Arc.liftA2 (+) status.shields asArc }
+
+        validFromTo =
+            List.member to (canBalanceFromTo from status.shields)
+
+        allAboveTenPercent =
+            afterBalance.shields
+                |> Arc.map ((<=) tenPercent)
+                |> Arc.all
+    in
+    if validFromTo && allAboveTenPercent then
+        Just afterBalance
+
+    else
+        Nothing
