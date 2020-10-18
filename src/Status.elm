@@ -51,6 +51,11 @@ getEffectiveCriticalStatus cs =
         Just cs.severity
 
 
+
+-- TODO: It takes 2 patches to treat Malfunctioning is Glitching and 3 to treat Wrecked as Malfunctioning
+-- TODO: Patches are not permanent--additional damages clear all previous patchesand increase the severity as if the system had never been patched at all.
+
+
 patchSeverity : Severity -> Maybe Severity
 patchSeverity severity =
     case severity of
