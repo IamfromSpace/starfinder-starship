@@ -17,6 +17,7 @@ type alias CriticalStatus =
     { severity : Severity
     , remainingRounds :
         -- If Nothing, the effect last until repaired
+        -- TODO: This is only via EMP, only applies Glitching, and has no effect on systems that are critically damaged normally
         Maybe Int
     , heldTogether :
         -- Holding together reduces two levels of severity for one round
