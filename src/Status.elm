@@ -1,4 +1,4 @@
-module Status exposing (CriticalStatus, PatchableSystem(..), Severity(..), Status, areShieldsFull, balanceEvenly, balanceFromArc, balanceToAll, canBalanceFromTo, damage, damageArc, damageSeverity, damageSystem, divertPowerToShields, getEffectiveCriticalStatus, holdItTogether, maxDivertPowerToShieldPoints, patchCriticalStatus, patchSeverity, patchStatus, pickPatchableSystem, quickFix, tick, tickCriticalStatus, updateCriticalStatus)
+module Status exposing (CriticalStatus, PatchableSystem(..), Severity(..), Status, areShieldsFull, balanceEvenly, balanceFromArc, balanceToAll, canBalanceFromTo, damage, damageArc, damageSeverity, damageSystem, divertPowerToShields, getEffectiveCriticalStatus, holdItTogether, maxDivertPowerToShieldPoints, patchCriticalStatus, patchStatus, pickPatchableSystem, quickFix, tick, tickCriticalStatus, updateCriticalStatus)
 
 import Arc exposing (AnArc, Arc)
 import Random exposing (Generator)
@@ -19,6 +19,7 @@ type alias CriticalStatus =
         -- If Nothing, the effect last until repaired
         -- TODO: This is only via EMP, only applies Glitching, and has no effect on systems that are critically damaged normally
         Maybe Int
+    , patches : Int
     , heldTogether :
         -- Holding together reduces two levels of severity for one round
         Bool
@@ -39,42 +40,68 @@ type alias Status =
     }
 
 
+applyPatches : Int -> Severity -> Maybe Severity
+applyPatches count severity =
+    case severity of
+        Wrecked ->
+            if count < 3 then
+                Just Wrecked
+
+            else if count < 5 then
+                Just Malfunctioning
+
+            else if count < 6 then
+                Just Glitching
+
+            else
+                Nothing
+
+        Malfunctioning ->
+            if count < 2 then
+                Just Malfunctioning
+
+            else if count < 3 then
+                Just Glitching
+
+            else
+                Nothing
+
+        Glitching ->
+            if count < 1 then
+                Just Glitching
+
+            else
+                Nothing
+
+
+applyHoldTogether : Bool -> Severity -> Maybe Severity
+applyHoldTogether heldTogether severity =
+    case ( heldTogether, severity ) of
+        ( True, Wrecked ) ->
+            Just Glitching
+
+        ( True, _ ) ->
+            Nothing
+
+        ( False, _ ) ->
+            Just severity
+
+
 getEffectiveCriticalStatus : CriticalStatus -> Maybe Severity
 getEffectiveCriticalStatus cs =
     if cs.quickFixed then
         Nothing
 
-    else if cs.heldTogether then
-        patchSeverity cs.severity
-            |> Maybe.andThen patchSeverity
-
     else
-        Just cs.severity
-
-
-
--- TODO: It takes 2 patches to treat Malfunctioning is Glitching and 3 to treat Wrecked as Malfunctioning
--- TODO: Patches are not permanent--additional damages clear all previous patchesand increase the severity as if the system had never been patched at all.
-
-
-patchSeverity : Severity -> Maybe Severity
-patchSeverity severity =
-    case severity of
-        Glitching ->
-            Nothing
-
-        Malfunctioning ->
-            Just Glitching
-
-        Wrecked ->
-            Just Malfunctioning
+        applyPatches cs.patches cs.severity
+            |> Maybe.andThen (applyHoldTogether cs.heldTogether)
 
 
 patchCriticalStatus : CriticalStatus -> Maybe CriticalStatus
 patchCriticalStatus criticalStatus =
     Maybe.map
-        (\newSeverity -> { criticalStatus | severity = newSeverity })
-        (patchSeverity criticalStatus.severity)
+        (always { criticalStatus | patches = criticalStatus.patches + 1 })
+        (getEffectiveCriticalStatus criticalStatus)
 
 
 damageSeverity : Severity -> Severity
@@ -99,11 +126,15 @@ damage rounds mCriticalStatus =
                     criticalStatus
 
                 Nothing ->
-                    { criticalStatus | severity = damageSeverity criticalStatus.severity }
+                    { criticalStatus
+                        | severity = damageSeverity criticalStatus.severity
+                        , patches = 0
+                    }
 
         Nothing ->
             { severity = Glitching
             , remainingRounds = rounds
+            , patches = 0
             , heldTogether = False
             , quickFixed = False
             }
