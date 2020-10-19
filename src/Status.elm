@@ -97,6 +97,13 @@ getEffectiveCriticalStatus cs =
             |> Maybe.andThen (applyHoldTogether cs.heldTogether)
 
 
+
+-- TODO: Engineers can take a harder check to reduce difficulty, but this isn't
+-- as simple as just earning multiple patches (beacuse you can't just
+-- go straight from Malfunctioning -> Nothing by applying 3 patches,
+-- you must pass through each severity)
+
+
 patchCriticalStatus : CriticalStatus -> Maybe CriticalStatus
 patchCriticalStatus criticalStatus =
     Maybe.map
