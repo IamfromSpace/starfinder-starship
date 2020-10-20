@@ -34,12 +34,13 @@ type PatchEffectiveness
     | Triple
 
 
+type CausalSeverity
+    = Emp Int
+    | CriticalDamage Severity
+
+
 type alias CriticalStatus =
-    { severity : Severity
-    , remainingRounds :
-        -- If Nothing, the effect last until repaired
-        -- TODO: This is only via EMP, only applies Glitching, and has no effect on systems that are critically damaged normally
-        Maybe Int
+    { severity : CausalSeverity
     , patches : Patches
     , heldTogether :
         -- Holding together reduces two levels of severity for one round
@@ -162,51 +163,62 @@ patchCriticalStatus pe criticalStatus =
         |> Maybe.withDefault criticalStatus
 
 
-damageSeverity : Severity -> Severity
+damageSeverity : CausalSeverity -> Severity
 damageSeverity severity =
     case severity of
-        Glitching ->
+        Emp _ ->
+            Glitching
+
+        CriticalDamage Glitching ->
             Malfunctioning
 
-        Malfunctioning ->
+        CriticalDamage Malfunctioning ->
             Wrecked
 
-        Wrecked ->
+        CriticalDamage Wrecked ->
             Wrecked
 
 
 damage : Maybe Int -> Maybe CriticalStatus -> CriticalStatus
-damage rounds mCriticalStatus =
-    case mCriticalStatus of
-        Just criticalStatus ->
-            case rounds of
-                Just _ ->
-                    criticalStatus
+damage mEmpRounds mCriticalStatus =
+    case ( mEmpRounds, mCriticalStatus ) of
+        ( Nothing, Just criticalStatus ) ->
+            let
+                severity =
+                    damageSeverity criticalStatus.severity
 
-                Nothing ->
-                    let
-                        severity =
-                            damageSeverity criticalStatus.severity
+                patches =
+                    case severity of
+                        Glitching ->
+                            G R
 
-                        patches =
-                            case severity of
-                                Glitching ->
-                                    G R
+                        Malfunctioning ->
+                            M (M (G R))
 
-                                Malfunctioning ->
-                                    M (M (G R))
+                        Wrecked ->
+                            W (W (W (M (M (G R)))))
+            in
+            { criticalStatus
+                | severity = CriticalDamage severity
+                , patches = patches
+            }
 
-                                Wrecked ->
-                                    W (W (W (M (M (G R)))))
-                    in
+        ( Just empRounds, Just criticalStatus ) ->
+            case criticalStatus.severity of
+                Emp currentEmpRounds ->
                     { criticalStatus
-                        | severity = severity
-                        , patches = patches
+                        | severity = Emp <| max empRounds currentEmpRounds
+                        , patches = G R
                     }
 
-        Nothing ->
-            { severity = Glitching
-            , remainingRounds = rounds
+                _ ->
+                    criticalStatus
+
+        ( _, Nothing ) ->
+            { severity =
+                mEmpRounds
+                    |> Maybe.map Emp
+                    |> Maybe.withDefault (CriticalDamage Glitching)
             , patches = G R
             , heldTogether = False
             , quickFixed = False
@@ -274,8 +286,8 @@ quickFix =
 
 
 damageSystem : Maybe Int -> PatchableSystem -> Status -> Status
-damageSystem rounds =
-    updateCriticalStatus (damage rounds >> Just)
+damageSystem mEmpRounds =
+    updateCriticalStatus (damage mEmpRounds >> Just)
 
 
 tickCriticalStatus : CriticalStatus -> Maybe CriticalStatus
@@ -284,15 +296,15 @@ tickCriticalStatus cs =
         unheld =
             { cs | heldTogether = False }
     in
-    case unheld.remainingRounds of
-        Just x ->
+    case unheld.severity of
+        Emp x ->
             if x > 1 then
-                Just { unheld | remainingRounds = Just (x - 1) }
+                Just { unheld | severity = Emp (x - 1) }
 
             else
                 Nothing
 
-        Nothing ->
+        _ ->
             Just unheld
 
 
