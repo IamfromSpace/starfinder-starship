@@ -119,7 +119,7 @@ type Msg
     | CancelBalanceFromArc
     | AcceptBalanceFromArc
     | BalanceEvenly
-    | Patch PatchableSystem
+    | Patch Status.PatchEffectiveness PatchableSystem
     | HoldItTogether PatchableSystem
     | QuickFix PatchableSystem
     | NextRound
@@ -328,8 +328,8 @@ update starship msg model =
         BalanceEvenly ->
             ( { model | status = Status.balanceEvenly starship model.status }, Cmd.none )
 
-        Patch patchableSystem ->
-            ( { model | status = Status.patchStatus patchableSystem model.status }, Cmd.none )
+        Patch pe patchableSystem ->
+            ( { model | status = Status.patchStatus pe patchableSystem model.status }, Cmd.none )
 
         HoldItTogether patchableSystem ->
             ( { model | status = Status.holdItTogether patchableSystem model.status }, Cmd.none )
@@ -624,11 +624,23 @@ view starship model =
                     )
                 ]
                 [ button
-                    [ A.disabled impacted
-                    , A.title "PATCH: repair one level of severity."
-                    , E.onClick (Patch patchableSystem)
+                    [ A.disabled (Maybe.andThen (Status.basePatchDC Status.Single) status == Nothing)
+                    , A.title "PATCH: apply a single patch towards the repair of one level of severity."
+                    , E.onClick (Patch Status.Single patchableSystem)
                     ]
                     [ text "P" ]
+                , button
+                    [ A.disabled (Maybe.andThen (Status.basePatchDC Status.Double) status == Nothing)
+                    , A.title "PATCH: apply two patches towards the repair of one level of severity."
+                    , E.onClick (Patch Status.Double patchableSystem)
+                    ]
+                    [ text "P+" ]
+                , button
+                    [ A.disabled (Maybe.andThen (Status.basePatchDC Status.Triple) status == Nothing)
+                    , A.title "PATCH: apply three patches towards the repair of one level of severity."
+                    , E.onClick (Patch Status.Triple patchableSystem)
+                    ]
+                    [ text "P++" ]
                 , button
                     [ A.disabled impacted
                     , A.title "HOLD IT TOGETHER: temporarily repair two levels of severtity for a single round."

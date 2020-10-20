@@ -1,4 +1,4 @@
-module Status exposing (CriticalStatus, PatchableSystem(..), Severity(..), Status, areShieldsFull, balanceEvenly, balanceFromArc, balanceToAll, canBalanceFromTo, damage, damageArc, damageSeverity, damageSystem, divertPowerToShields, getEffectiveCriticalStatus, holdItTogether, maxDivertPowerToShieldPoints, patchCriticalStatus, patchStatus, pickPatchableSystem, quickFix, tick, tickCriticalStatus, updateCriticalStatus)
+module Status exposing (CriticalStatus, PatchEffectiveness(..), PatchableSystem(..), Severity(..), Status, areShieldsFull, balanceEvenly, balanceFromArc, balanceToAll, basePatchDC, canBalanceFromTo, damage, damageArc, damageSeverity, damageSystem, divertPowerToShields, getEffectiveCriticalStatus, holdItTogether, maxDivertPowerToShieldPoints, patchCriticalStatus, patchStatus, pickPatchableSystem, quickFix, tick, tickCriticalStatus, updateCriticalStatus)
 
 import Arc exposing (AnArc, Arc)
 import Random exposing (Generator)
@@ -13,13 +13,34 @@ type Severity
     | Wrecked
 
 
+
+-- Patches form a sort of Paneo numeral chain, where the stack is the number of
+-- patches required to move to the next.  So W (M (M (G R))) represents a still
+-- Wrecked condition, but with only one remaining patch left to move to
+-- Malfunctioning.  This is helpful because engineers can take actions that
+-- apply multiple patches, but only to the same level of condition.
+
+
+type Patches
+    = W Patches
+    | M Patches
+    | G Patches
+    | R
+
+
+type PatchEffectiveness
+    = Single
+    | Double
+    | Triple
+
+
 type alias CriticalStatus =
     { severity : Severity
     , remainingRounds :
         -- If Nothing, the effect last until repaired
         -- TODO: This is only via EMP, only applies Glitching, and has no effect on systems that are critically damaged normally
         Maybe Int
-    , patches : Int
+    , patches : Patches
     , heldTogether :
         -- Holding together reduces two levels of severity for one round
         Bool
@@ -40,38 +61,20 @@ type alias Status =
     }
 
 
-applyPatches : Int -> Severity -> Maybe Severity
-applyPatches count severity =
-    case severity of
-        Wrecked ->
-            if count < 3 then
-                Just Wrecked
+applyPatches : Patches -> Maybe Severity
+applyPatches patches =
+    case patches of
+        W _ ->
+            Just Wrecked
 
-            else if count < 5 then
-                Just Malfunctioning
+        M _ ->
+            Just Malfunctioning
 
-            else if count < 6 then
-                Just Glitching
+        G _ ->
+            Just Glitching
 
-            else
-                Nothing
-
-        Malfunctioning ->
-            if count < 2 then
-                Just Malfunctioning
-
-            else if count < 3 then
-                Just Glitching
-
-            else
-                Nothing
-
-        Glitching ->
-            if count < 1 then
-                Just Glitching
-
-            else
-                Nothing
+        R ->
+            Nothing
 
 
 applyHoldTogether : Bool -> Severity -> Maybe Severity
@@ -93,22 +96,70 @@ getEffectiveCriticalStatus cs =
         Nothing
 
     else
-        applyPatches cs.patches cs.severity
+        applyPatches cs.patches
             |> Maybe.andThen (applyHoldTogether cs.heldTogether)
 
 
+basePatchDCPatches : PatchEffectiveness -> Patches -> Maybe Int
+basePatchDCPatches pe patches =
+    case ( pe, patches ) of
+        ( Single, G _ ) ->
+            Just 10
 
--- TODO: Engineers can take a harder check to reduce difficulty, but this isn't
--- as simple as just earning multiple patches (beacuse you can't just
--- go straight from Malfunctioning -> Nothing by applying 3 patches,
--- you must pass through each severity)
+        ( Single, M _ ) ->
+            Just 15
+
+        ( Double, M (M _) ) ->
+            Just 20
+
+        ( Single, W _ ) ->
+            Just 20
+
+        ( Double, W (W _) ) ->
+            Just 25
+
+        ( Triple, W (W (W _)) ) ->
+            Just 30
+
+        _ ->
+            Nothing
 
 
-patchCriticalStatus : CriticalStatus -> Maybe CriticalStatus
-patchCriticalStatus criticalStatus =
-    Maybe.map
-        (always { criticalStatus | patches = criticalStatus.patches + 1 })
-        (getEffectiveCriticalStatus criticalStatus)
+basePatchDC : PatchEffectiveness -> CriticalStatus -> Maybe Int
+basePatchDC pe cs =
+    basePatchDCPatches pe cs.patches
+
+
+patchSeverity : PatchEffectiveness -> Patches -> Maybe Patches
+patchSeverity pe patches =
+    case ( pe, patches ) of
+        ( Single, G x ) ->
+            Just x
+
+        ( Single, M x ) ->
+            Just x
+
+        ( Double, M (M x) ) ->
+            Just x
+
+        ( Single, W x ) ->
+            Just x
+
+        ( Double, W (W x) ) ->
+            Just x
+
+        ( Triple, W (W (W x)) ) ->
+            Just x
+
+        _ ->
+            Nothing
+
+
+patchCriticalStatus : PatchEffectiveness -> CriticalStatus -> CriticalStatus
+patchCriticalStatus pe criticalStatus =
+    patchSeverity pe criticalStatus.patches
+        |> Maybe.map (\p -> { criticalStatus | patches = p })
+        |> Maybe.withDefault criticalStatus
 
 
 damageSeverity : Severity -> Severity
@@ -133,15 +184,30 @@ damage rounds mCriticalStatus =
                     criticalStatus
 
                 Nothing ->
+                    let
+                        severity =
+                            damageSeverity criticalStatus.severity
+
+                        patches =
+                            case severity of
+                                Glitching ->
+                                    G R
+
+                                Malfunctioning ->
+                                    M (M (G R))
+
+                                Wrecked ->
+                                    W (W (W (M (M (G R)))))
+                    in
                     { criticalStatus
-                        | severity = damageSeverity criticalStatus.severity
-                        , patches = 0
+                        | severity = severity
+                        , patches = patches
                     }
 
         Nothing ->
             { severity = Glitching
             , remainingRounds = rounds
-            , patches = 0
+            , patches = G R
             , heldTogether = False
             , quickFixed = False
             }
@@ -192,9 +258,9 @@ updateCriticalStatus fn system status =
             { status | powerCore = fn status.powerCore }
 
 
-patchStatus : PatchableSystem -> Status -> Status
-patchStatus =
-    updateCriticalStatus (Maybe.andThen patchCriticalStatus)
+patchStatus : PatchEffectiveness -> PatchableSystem -> Status -> Status
+patchStatus pe =
+    updateCriticalStatus (Maybe.map (patchCriticalStatus pe))
 
 
 holdItTogether : PatchableSystem -> Status -> Status
