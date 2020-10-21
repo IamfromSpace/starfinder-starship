@@ -1,4 +1,4 @@
-module Status exposing (CriticalStatus, PatchEffectiveness(..), PatchableSystem(..), Severity(..), Status, areShieldsFull, balanceEvenly, balanceFromArc, balanceToAll, basePatchDC, canBalanceFromTo, damage, damageArc, damageSeverity, damageSystem, divertPowerToShields, getEffectiveCriticalStatus, holdItTogether, maxDivertPowerToShieldPoints, patchCriticalStatus, patchStatus, pickPatchableSystem, quickFix, updateCriticalStatus)
+module Status exposing (CriticalStatus, PatchEffectiveness(..), PatchableSystem(..), Severity(..), Status, areShieldsFull, balanceEvenly, balanceFromArc, basePatchDC, canBalanceFromTo, damage, damageArc, damageSeverity, damageSystem, divertPowerToShields, getEffectiveCriticalStatus, holdItTogether, maxDivertPowerToShieldPoints, patchCriticalStatus, patchStatus, pickPatchableSystem, quickFix, updateCriticalStatus)
 
 import Arc exposing (AnArc, Arc)
 import Random exposing (Generator)
@@ -362,16 +362,6 @@ damageArc wasCrit build arc amount status =
         )
 
 
-maxMovableShieldPoints : Starship -> AnArc -> Arc.Arc Int -> Int
-maxMovableShieldPoints starship arc shields =
-    let
-        -- TODO: should this round up or down?
-        minRemaining =
-            round (toFloat (extract starship.shields).shieldPoints * 0.1)
-    in
-    Arc.getArc arc shields - minRemaining
-
-
 balanceEvenly : Starship -> Status -> Status
 balanceEvenly starship ({ shields } as status) =
     let
@@ -392,61 +382,6 @@ balanceEvenly starship ({ shields } as status) =
                 |> Arc.setArc ((+) leftover) Arc.Forward
     in
     { status | shields = newShields }
-
-
-balanceToAll_ : Starship -> AnArc -> Int -> Arc.Arc Int -> Maybe (Arc.Arc Int)
-balanceToAll_ starship arc amount shields =
-    let
-        maxMovable =
-            maxMovableShieldPoints starship arc shields
-
-        leftover =
-            amount - 3 * (amount // 3)
-    in
-    if amount > maxMovable then
-        Nothing
-
-    else
-        shields
-            -- Add 1/3rd of the amount to _each_ arc (cleaned up in the next step)
-            |> Arc.map (\x -> x + amount // 3)
-            -- remove the extra 1/3rd and the target amount from the 'from' arc
-            |> Arc.setArc (\x -> x - amount - amount // 3) arc
-            -- add the leftover to the forward arc
-            |> Arc.setArc (\x -> x + leftover) Arc.Forward
-            |> Just
-
-
-balanceToAll : Starship -> AnArc -> Int -> Status -> Maybe Status
-balanceToAll starship arc amount status =
-    Maybe.map
-        (\shields -> { status | shields = shields })
-        (balanceToAll_ starship arc amount status.shields)
-
-
-moveShieldPoints_ : Starship -> AnArc -> AnArc -> Int -> Arc.Arc Int -> Maybe (Arc.Arc Int)
-moveShieldPoints_ starship from to amount shields =
-    let
-        maxMovable =
-            maxMovableShieldPoints starship from shields
-    in
-    if amount > maxMovable then
-        Nothing
-
-    else
-        shields
-            -- Add 1/3rd of the amount to _each_ arc (cleaned up in the next step)
-            |> Arc.setArc (\x -> x - amount) from
-            -- add the leftover to the forward arc
-            |> Arc.setArc (\x -> x + amount) to
-            |> Just
-
-
-moveShieldPoints : Starship -> AnArc -> AnArc -> Int -> Status -> Maybe Status
-moveShieldPoints starship from to amount status =
-    Maybe.map
-        (\shields -> { status | shields = shields })
-        (moveShieldPoints_ starship from to amount status.shields)
 
 
 maxDivertPowerToShieldPoints_ : Starship -> Arc Int -> Int
