@@ -700,8 +700,8 @@ view starship model =
         , input
             [ A.value (Maybe.map String.fromInt model.damageInput |> Maybe.withDefault "")
             , A.disabled
-                (case model.partialState of
-                    Selected _ ->
+                (case ( model.partialState, Tuple.second model.round ) of
+                    ( Selected _, Gunnery ) ->
                         False
 
                     _ ->
@@ -714,8 +714,8 @@ view starship model =
 
         -- TODO: Allow weapon effects (most notably EMP)
         , button
-            (case ( model.partialState, model.damageInput ) of
-                ( Selected arc, Just damageInput ) ->
+            (case ( model.partialState, model.damageInput, Tuple.second model.round ) of
+                ( Selected arc, Just damageInput, Gunnery ) ->
                     [ E.onClick (Damage damageInput True) ]
 
                 _ ->
