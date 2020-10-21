@@ -627,7 +627,7 @@ view starship model =
                 |> Maybe.map (Status.areShieldsFull starship)
                 |> Maybe.withDefault False
 
-        patchableDisplay name status patchableSystem =
+        patchableDisplay isEngineeringPhase name status patchableSystem =
             let
                 impacted =
                     Maybe.andThen (Status.getEffectiveCriticalStatus model.roundNumber) status == Nothing
@@ -644,31 +644,31 @@ view starship model =
                     )
                 ]
                 [ button
-                    [ A.disabled (Maybe.andThen (Status.basePatchDC Status.Single) status == Nothing)
+                    [ A.disabled (Maybe.andThen (Status.basePatchDC Status.Single) status == Nothing || not isEngineeringPhase)
                     , A.title "PATCH: apply a single patch towards the repair of one level of severity."
                     , E.onClick (Patch Status.Single patchableSystem)
                     ]
                     [ text "P" ]
                 , button
-                    [ A.disabled (Maybe.andThen (Status.basePatchDC Status.Double) status == Nothing)
+                    [ A.disabled (Maybe.andThen (Status.basePatchDC Status.Double) status == Nothing || not isEngineeringPhase)
                     , A.title "PATCH: apply two patches towards the repair of one level of severity."
                     , E.onClick (Patch Status.Double patchableSystem)
                     ]
                     [ text "P+" ]
                 , button
-                    [ A.disabled (Maybe.andThen (Status.basePatchDC Status.Triple) status == Nothing)
+                    [ A.disabled (Maybe.andThen (Status.basePatchDC Status.Triple) status == Nothing || not isEngineeringPhase)
                     , A.title "PATCH: apply three patches towards the repair of one level of severity."
                     , E.onClick (Patch Status.Triple patchableSystem)
                     ]
                     [ text "P++" ]
                 , button
-                    [ A.disabled impacted
+                    [ A.disabled (impacted || not isEngineeringPhase)
                     , A.title "HOLD IT TOGETHER: temporarily repair two levels of severtity for a single round."
                     , E.onClick (HoldItTogether patchableSystem)
                     ]
                     [ text "H" ]
                 , button
-                    [ A.disabled impacted
+                    [ A.disabled (impacted || not isEngineeringPhase)
                     , A.title "QUICK FIX (1RP): Completely ignore all critical damage for this system for 1 hour."
                     , E.onClick (QuickFix patchableSystem)
                     ]
@@ -734,8 +734,8 @@ view starship model =
             )
             [ text "Damage w/Crit" ]
         , button
-            (case ( model.partialState, model.damageInput ) of
-                ( Selected arc, Just damageInput ) ->
+            (case ( model.partialState, model.damageInput, model.phase ) of
+                ( Selected arc, Just damageInput, Gunnery ) ->
                     [ E.onClick (Damage damageInput False) ]
 
                 _ ->
@@ -743,8 +743,8 @@ view starship model =
             )
             [ text "Damage" ]
         , button
-            (case model.partialState of
-                Selected arc ->
+            (case ( model.partialState, model.phase ) of
+                ( Selected arc, Piloting ) ->
                     case Status.canBalanceFromTo arc model.status.shields of
                         [] ->
                             [ A.disabled True ]
@@ -775,8 +775,8 @@ view starship model =
             )
             [ text "Accept Balance to other Shields" ]
         , button
-            (case model.partialState of
-                None ->
+            (case ( model.partialState, model.phase ) of
+                ( None, Piloting ) ->
                     [ E.onClick BalanceEvenly ]
 
                 _ ->
@@ -784,8 +784,8 @@ view starship model =
             )
             [ text "Balance Shields Evenly" ]
         , button
-            (case ( model.partialState, Status.maxDivertPowerToShieldPoints starship model.status <= 0 ) of
-                ( None, False ) ->
+            (case ( model.partialState, Status.maxDivertPowerToShieldPoints starship model.status <= 0, model.phase ) of
+                ( None, False, Engineering ) ->
                     [ E.onClick StartDivertToShields ]
 
                 _ ->
@@ -813,14 +813,14 @@ view starship model =
         , button
             [ E.onClick AcceptAllotmentToShields, A.disabled (not isStillAllotting) ]
             [ text "Accept Allotted Shields" ]
-        , patchableDisplay "Life Support" model.status.lifeSupport LifeSupport
-        , patchableDisplay "Sensors" model.status.sensors Sensors
-        , patchableDisplay "Weapons Array - Forward" model.status.weaponsArray.forward (WeaponsArray Arc.Forward)
-        , patchableDisplay "Weapons Array - Aft" model.status.weaponsArray.aft (WeaponsArray Arc.Aft)
-        , patchableDisplay "Weapons Array - Port" model.status.weaponsArray.portSide (WeaponsArray Arc.Port)
-        , patchableDisplay "Weapons Array - Starboard" model.status.weaponsArray.starboard (WeaponsArray Arc.Starboard)
-        , patchableDisplay "Engines" model.status.engines Engines
-        , patchableDisplay "Power Core" model.status.powerCore PowerCore
+        , patchableDisplay (model.phase == Engineering) "Life Support" model.status.lifeSupport LifeSupport
+        , patchableDisplay (model.phase == Engineering) "Sensors" model.status.sensors Sensors
+        , patchableDisplay (model.phase == Engineering) "Weapons Array - Forward" model.status.weaponsArray.forward (WeaponsArray Arc.Forward)
+        , patchableDisplay (model.phase == Engineering) "Weapons Array - Aft" model.status.weaponsArray.aft (WeaponsArray Arc.Aft)
+        , patchableDisplay (model.phase == Engineering) "Weapons Array - Port" model.status.weaponsArray.portSide (WeaponsArray Arc.Port)
+        , patchableDisplay (model.phase == Engineering) "Weapons Array - Starboard" model.status.weaponsArray.starboard (WeaponsArray Arc.Starboard)
+        , patchableDisplay (model.phase == Engineering) "Engines" model.status.engines Engines
+        , patchableDisplay (model.phase == Engineering) "Power Core" model.status.powerCore PowerCore
         , button
             [ E.onClick NextPhase, A.disabled isStillAllotting ]
             [ text ("PROCEED TO " ++ String.toUpper (phaseToString model.phase) ++ " PHASE") ]
