@@ -1,4 +1,4 @@
-module Status exposing (CriticalStatus, PatchEffectiveness(..), PatchableSystem(..), Severity(..), Status, areShieldsFull, balanceEvenly, balanceFromArc, basePatchDC, canBalanceFromTo, damage, damageArc, damageSeverity, damageSystem, divertPowerToShields, forceAddShields, forceMoveShields, getEffectiveCriticalStatus, holdItTogether, maxDivertPowerToShieldPoints, patchCriticalStatus, patchStatus, pickPatchableSystem, quickFix, updateCriticalStatus)
+module Status exposing (CriticalStatus, PatchEffectiveness(..), PatchableSystem(..), Severity(..), Status, areShieldsFull, balanceEvenly, balanceFromArc, basePatchDC, canBalanceFromTo, damage, damageArc, damageSeverity, damageSystem, divertPowerToShields, forceAddShields, forceMoveShields, getEffectiveCriticalStatus, holdItTogether, maxDivertPowerToShieldPoints, patchCount, patchCriticalStatus, patchStatus, pickPatchableSystem, quickFix, updateCriticalStatus)
 
 import Arc exposing (AnArc, Arc)
 import Random exposing (Generator)
@@ -74,6 +74,36 @@ considerEmp currentRound causalSeverity =
 
         CriticalDamage severity ->
             Just severity
+
+
+patchCount_ : Patches -> Int
+patchCount_ patches =
+    case patches of
+        W (W (W x)) ->
+            0
+
+        W (W (M x)) ->
+            1
+
+        W (M x) ->
+            2
+
+        M (M x) ->
+            0
+
+        M (G x) ->
+            1
+
+        G R ->
+            0
+
+        _ ->
+            0
+
+
+patchCount : CriticalStatus -> Int
+patchCount =
+    patchCount_ << .patches
 
 
 applyPatches : Patches -> Maybe Severity

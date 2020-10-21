@@ -635,6 +635,13 @@ view starship model =
             let
                 impacted =
                     Maybe.andThen (Status.getEffectiveCriticalStatus model.roundNumber) status == Nothing
+
+                patchDisplay =
+                    status
+                        |> Maybe.map Status.patchCount
+                        |> Maybe.withDefault 0
+                        |> (\n -> List.repeat n "✓")
+                        |> String.concat
             in
             div
                 [ A.style
@@ -677,7 +684,7 @@ view starship model =
                     , E.onClick (QuickFix patchableSystem)
                     ]
                     [ text "Q" ]
-                , text name
+                , text (name ++ " " ++ patchDisplay)
                 ]
     in
     div []
