@@ -72,12 +72,31 @@ maybeBalancing ps =
             Nothing
 
 
+type Phase
+    = Engineering
+    | Piloting
+    | Gunnery
+
+
+phaseToString : Phase -> String
+phaseToString phase =
+    case phase of
+        Engineering ->
+            "Engineering"
+
+        Piloting ->
+            "Piloting"
+
+        Gunnery ->
+            "Gunnery"
+
+
 type alias Model =
     { status : Status
     , critsRemaining : Int
     , damageInput : Maybe Int
     , partialState : PartialState
-    , roundNumber : Int
+    , round : ( Int, Phase )
     }
 
 
@@ -95,7 +114,7 @@ init starship =
     , critsRemaining = 0
     , damageInput = Nothing
     , partialState = Allotting (Arc.pure ((extract starship.shields).shieldPoints // 4))
-    , roundNumber = 0
+    , round = ( 0, Engineering )
     }
 
 
@@ -119,7 +138,7 @@ type Msg
     | Patch Status.PatchEffectiveness PatchableSystem
     | HoldItTogether PatchableSystem
     | QuickFix PatchableSystem
-    | NextRound
+    | NextPhase
 
 
 update : Starship -> Msg -> Model -> ( Model, Cmd Msg )
@@ -326,13 +345,26 @@ update starship msg model =
             ( { model | status = Status.patchStatus pe patchableSystem model.status }, Cmd.none )
 
         HoldItTogether patchableSystem ->
-            ( { model | status = Status.holdItTogether model.roundNumber patchableSystem model.status }, Cmd.none )
+            ( { model | status = Status.holdItTogether (Tuple.first model.round) patchableSystem model.status }, Cmd.none )
 
         QuickFix patchableSystem ->
             ( { model | status = Status.quickFix patchableSystem model.status }, Cmd.none )
 
-        NextRound ->
-            ( { model | roundNumber = model.roundNumber + 1 }, Cmd.none )
+        NextPhase ->
+            ( { model
+                | round =
+                    case model.round of
+                        ( i, Engineering ) ->
+                            ( i, Piloting )
+
+                        ( i, Piloting ) ->
+                            ( i, Gunnery )
+
+                        ( i, Gunnery ) ->
+                            ( i + 1, Engineering )
+              }
+            , Cmd.none
+            )
 
 
 colorTransition : Float -> Color
@@ -581,14 +613,14 @@ view starship model =
         patchableDisplay name status patchableSystem =
             let
                 impacted =
-                    Maybe.andThen (Status.getEffectiveCriticalStatus model.roundNumber) status == Nothing
+                    Maybe.andThen (Status.getEffectiveCriticalStatus (Tuple.first model.round)) status == Nothing
             in
             div
                 [ A.style
                     "background-color"
                     (colorToCssRgb <|
                         if damagePercent > 0 then
-                            criticalStatusToRgb model.roundNumber status
+                            criticalStatusToRgb (Tuple.first model.round) status
 
                         else
                             grey
@@ -783,8 +815,8 @@ view starship model =
         , patchableDisplay "Engines" model.status.engines Engines
         , patchableDisplay "Power Core" model.status.powerCore PowerCore
         , button
-            [ E.onClick NextRound ]
-            [ text "NEXT ROUND" ]
+            [ E.onClick NextPhase ]
+            [ text ("PROCEED TO " ++ String.toUpper (phaseToString (Tuple.second model.round)) ++ " PHASE") ]
         ]
 
 
