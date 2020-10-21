@@ -96,7 +96,8 @@ type alias Model =
     , critsRemaining : Int
     , damageInput : Maybe Int
     , partialState : PartialState
-    , round : ( Int, Phase )
+    , roundNumber : Int
+    , phase : Phase
     }
 
 
@@ -114,7 +115,8 @@ init starship =
     , critsRemaining = 0
     , damageInput = Nothing
     , partialState = Allotting (Arc.pure ((extract starship.shields).shieldPoints // 4))
-    , round = ( 0, Engineering )
+    , roundNumber = 0
+    , phase = Engineering
     }
 
 
@@ -345,23 +347,32 @@ update starship msg model =
             ( { model | status = Status.patchStatus pe patchableSystem model.status }, Cmd.none )
 
         HoldItTogether patchableSystem ->
-            ( { model | status = Status.holdItTogether (Tuple.first model.round) patchableSystem model.status }, Cmd.none )
+            ( { model | status = Status.holdItTogether model.roundNumber patchableSystem model.status }, Cmd.none )
 
         QuickFix patchableSystem ->
             ( { model | status = Status.quickFix patchableSystem model.status }, Cmd.none )
 
         NextPhase ->
             ( { model
-                | round =
-                    case model.round of
-                        ( i, Engineering ) ->
-                            ( i, Piloting )
+                | roundNumber =
+                    model.roundNumber
+                        + (case model.phase of
+                            Gunnery ->
+                                1
 
-                        ( i, Piloting ) ->
-                            ( i, Gunnery )
+                            _ ->
+                                0
+                          )
+                , phase =
+                    case model.phase of
+                        Engineering ->
+                            Piloting
 
-                        ( i, Gunnery ) ->
-                            ( i + 1, Engineering )
+                        Piloting ->
+                            Gunnery
+
+                        Gunnery ->
+                            Engineering
               }
             , Cmd.none
             )
@@ -619,14 +630,14 @@ view starship model =
         patchableDisplay name status patchableSystem =
             let
                 impacted =
-                    Maybe.andThen (Status.getEffectiveCriticalStatus (Tuple.first model.round)) status == Nothing
+                    Maybe.andThen (Status.getEffectiveCriticalStatus model.roundNumber) status == Nothing
             in
             div
                 [ A.style
                     "background-color"
                     (colorToCssRgb <|
                         if damagePercent > 0 then
-                            criticalStatusToRgb (Tuple.first model.round) status
+                            criticalStatusToRgb model.roundNumber status
 
                         else
                             grey
@@ -700,7 +711,7 @@ view starship model =
         , input
             [ A.value (Maybe.map String.fromInt model.damageInput |> Maybe.withDefault "")
             , A.disabled
-                (case ( model.partialState, Tuple.second model.round ) of
+                (case ( model.partialState, model.phase ) of
                     ( Selected _, Gunnery ) ->
                         False
 
@@ -714,7 +725,7 @@ view starship model =
 
         -- TODO: Allow weapon effects (most notably EMP)
         , button
-            (case ( model.partialState, model.damageInput, Tuple.second model.round ) of
+            (case ( model.partialState, model.damageInput, model.phase ) of
                 ( Selected arc, Just damageInput, Gunnery ) ->
                     [ E.onClick (Damage damageInput True) ]
 
@@ -812,7 +823,7 @@ view starship model =
         , patchableDisplay "Power Core" model.status.powerCore PowerCore
         , button
             [ E.onClick NextPhase, A.disabled isStillAllotting ]
-            [ text ("PROCEED TO " ++ String.toUpper (phaseToString (Tuple.second model.round)) ++ " PHASE") ]
+            [ text ("PROCEED TO " ++ String.toUpper (phaseToString model.phase) ++ " PHASE") ]
         ]
 
 
