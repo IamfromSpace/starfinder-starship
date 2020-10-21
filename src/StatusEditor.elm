@@ -704,6 +704,8 @@ view starship model =
             , A.type_ "number"
             ]
             []
+
+        -- TODO: Allow weapon effects (most notably EMP)
         , button
             (case ( model.partialState, model.damageInput ) of
                 ( Selected arc, Just damageInput ) ->
@@ -803,8 +805,6 @@ view starship model =
                     [ A.disabled True ]
             )
             [ text "Accept Allotted Shields" ]
-
-        -- TODO: Apply a temporary status to patchable system
         , patchableDisplay "Life Support" model.status.lifeSupport LifeSupport
         , patchableDisplay "Sensors" model.status.sensors Sensors
         , patchableDisplay "Weapons Array - Forward" model.status.weaponsArray.forward (WeaponsArray Arc.Forward)
