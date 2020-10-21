@@ -1,4 +1,4 @@
-module Status exposing (CriticalStatus, PatchEffectiveness(..), PatchableSystem(..), Severity(..), Status, areShieldsFull, balanceEvenly, balanceFromArc, basePatchDC, canBalanceFromTo, damage, damageArc, damageSeverity, damageSystem, divertPowerToShields, getEffectiveCriticalStatus, holdItTogether, maxDivertPowerToShieldPoints, patchCriticalStatus, patchStatus, pickPatchableSystem, quickFix, updateCriticalStatus)
+module Status exposing (CriticalStatus, PatchEffectiveness(..), PatchableSystem(..), Severity(..), Status, areShieldsFull, balanceEvenly, balanceFromArc, basePatchDC, canBalanceFromTo, damage, damageArc, damageSeverity, damageSystem, divertPowerToShields, forceAddShields, forceMoveShields, getEffectiveCriticalStatus, holdItTogether, maxDivertPowerToShieldPoints, patchCriticalStatus, patchStatus, pickPatchableSystem, quickFix, updateCriticalStatus)
 
 import Arc exposing (AnArc, Arc)
 import Random exposing (Generator)
@@ -362,6 +362,11 @@ damageArc wasCrit build arc amount status =
         )
 
 
+forceAddShields : Arc Int -> Status -> Status
+forceAddShields new status =
+    { status | shields = Arc.liftA2 (+) status.shields new }
+
+
 balanceEvenly : Starship -> Status -> Status
 balanceEvenly starship ({ shields } as status) =
     let
@@ -507,12 +512,9 @@ canBalanceFromTo from shields =
             []
 
 
-balanceFromArc : Starship -> ( AnArc, AnArc, Int ) -> Status -> Maybe Status
-balanceFromArc starship ( from, to, amount ) status =
+forceMoveShields : ( AnArc, AnArc, Int ) -> Status -> Status
+forceMoveShields ( from, to, amount ) status =
     let
-        tenPercent =
-            Arc.sum status.shields // 10
-
         asArc =
             Arc.pureWithAnArc
                 (\arc ->
@@ -525,9 +527,18 @@ balanceFromArc starship ( from, to, amount ) status =
                     else
                         0
                 )
+    in
+    forceAddShields asArc status
+
+
+balanceFromArc : Starship -> ( AnArc, AnArc, Int ) -> Status -> Maybe Status
+balanceFromArc starship ( from, to, amount ) status =
+    let
+        tenPercent =
+            Arc.sum status.shields // 10
 
         afterBalance =
-            { status | shields = Arc.liftA2 (+) status.shields asArc }
+            forceMoveShields ( from, to, amount ) status
 
         validFromTo =
             List.member to (canBalanceFromTo from status.shields)

@@ -72,11 +72,6 @@ maybeBalancing ps =
             Nothing
 
 
-areShieldsFullWithAdded : Starship -> Status -> Arc.Arc Int -> Bool
-areShieldsFullWithAdded starship status added =
-    Status.areShieldsFull starship { status | shields = Arc.liftA2 (+) status.shields added }
-
-
 type alias Model =
     { status : Status
     , critsRemaining : Int
@@ -267,11 +262,8 @@ update starship msg model =
             case model.partialState of
                 Allotting allotment ->
                     let
-                        status =
-                            model.status
-
                         newStatus =
-                            { status | shields = Arc.liftA2 (+) model.status.shields allotment }
+                            Status.forceAddShields allotment model.status
                     in
                     ( if Status.areShieldsFull starship newStatus then
                         { model | partialState = None, status = newStatus }
@@ -465,7 +457,7 @@ divertingShieldedFighter : Starship -> Status -> Arc.Arc Int -> Float -> Svg Msg
 divertingShieldedFighter starship status added size =
     let
         statusWithNew =
-            { status | shields = Arc.liftA2 (+) status.shields added }
+            Status.forceAddShields added status
 
         onPlus =
             let
@@ -496,14 +488,8 @@ divertingShieldedFighter starship status added size =
 allottingShieldedFighter : Starship -> Status -> Arc.Arc Int -> Float -> Svg Msg
 allottingShieldedFighter starship status allotment size =
     let
-        -- TODO: Here, we're looking under the hood of the Status type.
-        -- Ideally, adding shield points is hidden within the status module.
-        -- However, the oddity here is that this just isn't an operation that
-        -- makes any sense!  We don't ever just arbitrarily add shield points.
-        -- In this case, the "status" isn't really a status at all, it can't be
-        -- a status until the inital state is determined.
         statusWithAllotted =
-            { status | shields = Arc.liftA2 (+) status.shields allotment }
+            Status.forceAddShields allotment status
 
         onPlus =
             let
@@ -541,25 +527,8 @@ balancingShieldedFighter starship status ( from, to, amount ) size =
         tenPercent =
             Arc.sum status.shields // 10
 
-        -- TODO: Here, we want to use the available utilities from Status so we
-        -- don't have re-implementation or coupling, but they can return a
-        -- maybe in scenarios that are valid to render!  (Just not valid to
-        -- accept)
-        asArc =
-            Arc.pureWithAnArc
-                (\arc ->
-                    if arc == from then
-                        -amount
-
-                    else if arc == to then
-                        amount
-
-                    else
-                        0
-                )
-
         statusWithAltered =
-            { status | shields = Arc.liftA2 (+) status.shields asArc }
+            Status.forceMoveShields ( from, to, amount ) status
 
         validToArcs =
             Status.canBalanceFromTo from status.shields
@@ -794,9 +763,9 @@ view starship model =
             [ text "Accept Divert Power to Shields" ]
         , button
             (case
-                Maybe.map
-                    (areShieldsFullWithAdded starship model.status)
-                    (maybeAllotting model.partialState)
+                maybeAllotting model.partialState
+                    |> Maybe.map (\s -> Status.forceAddShields s model.status)
+                    |> Maybe.map (Status.areShieldsFull starship)
              of
                 Just True ->
                     [ E.onClick AcceptAllotmentToShields ]
