@@ -610,6 +610,12 @@ view starship model =
         damagePercent =
             getDamagePercent starship model.status
 
+        isStillAllotting =
+            maybeAllotting model.partialState
+                |> Maybe.map (\s -> Status.forceAddShields s model.status)
+                |> Maybe.map (Status.areShieldsFull starship)
+                |> Maybe.withDefault False
+
         patchableDisplay name status patchableSystem =
             let
                 impacted =
@@ -794,17 +800,7 @@ view starship model =
             )
             [ text "Accept Divert Power to Shields" ]
         , button
-            (case
-                maybeAllotting model.partialState
-                    |> Maybe.map (\s -> Status.forceAddShields s model.status)
-                    |> Maybe.map (Status.areShieldsFull starship)
-             of
-                Just True ->
-                    [ E.onClick AcceptAllotmentToShields ]
-
-                _ ->
-                    [ A.disabled True ]
-            )
+            [ E.onClick AcceptAllotmentToShields, A.disabled (not isStillAllotting) ]
             [ text "Accept Allotted Shields" ]
         , patchableDisplay "Life Support" model.status.lifeSupport LifeSupport
         , patchableDisplay "Sensors" model.status.sensors Sensors
@@ -815,7 +811,7 @@ view starship model =
         , patchableDisplay "Engines" model.status.engines Engines
         , patchableDisplay "Power Core" model.status.powerCore PowerCore
         , button
-            [ E.onClick NextPhase ]
+            [ E.onClick NextPhase, A.disabled isStillAllotting ]
             [ text ("PROCEED TO " ++ String.toUpper (phaseToString (Tuple.second model.round)) ++ " PHASE") ]
         ]
 
