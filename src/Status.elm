@@ -1,4 +1,4 @@
-module Status exposing (CriticalStatus, PatchEffectiveness(..), PatchableSystem(..), Severity(..), Status, areShieldsFull, balanceEvenly, balanceFromArc, balanceToAll, basePatchDC, canBalanceFromTo, damage, damageArc, damageSeverity, damageSystem, divertPowerToShields, getEffectiveCriticalStatus, holdItTogether, maxDivertPowerToShieldPoints, patchCriticalStatus, patchStatus, pickPatchableSystem, quickFix, tick, tickCriticalStatus, updateCriticalStatus)
+module Status exposing (CriticalStatus, PatchEffectiveness(..), PatchableSystem(..), Severity(..), Status, areShieldsFull, balanceEvenly, balanceFromArc, balanceToAll, basePatchDC, canBalanceFromTo, damage, damageArc, damageSeverity, damageSystem, divertPowerToShields, getEffectiveCriticalStatus, holdItTogether, maxDivertPowerToShieldPoints, patchCriticalStatus, patchStatus, pickPatchableSystem, quickFix, updateCriticalStatus)
 
 import Arc exposing (AnArc, Arc)
 import Random exposing (Generator)
@@ -44,7 +44,7 @@ type alias CriticalStatus =
     , patches : Patches
     , heldTogether :
         -- Holding together reduces two levels of severity for one round
-        Bool
+        Maybe Int
     , quickFixed :
         -- QuickFix ignores this affect for 1 hour (the duration of combat)
         Bool
@@ -60,6 +60,20 @@ type alias Status =
     , engines : Maybe CriticalStatus
     , powerCore : Maybe CriticalStatus
     }
+
+
+considerEmp : Int -> CausalSeverity -> Maybe Severity
+considerEmp currentRound causalSeverity =
+    case causalSeverity of
+        Emp untilRound ->
+            if currentRound <= untilRound then
+                Just Glitching
+
+            else
+                Nothing
+
+        CriticalDamage severity ->
+            Just severity
 
 
 applyPatches : Patches -> Maybe Severity
@@ -78,27 +92,36 @@ applyPatches patches =
             Nothing
 
 
-applyHoldTogether : Bool -> Severity -> Maybe Severity
-applyHoldTogether heldTogether severity =
+applyHoldTogether : Int -> Maybe Int -> Severity -> Maybe Severity
+applyHoldTogether currentRound heldTogether severity =
     case ( heldTogether, severity ) of
-        ( True, Wrecked ) ->
-            Just Glitching
+        ( Just onRound, Wrecked ) ->
+            if onRound == currentRound then
+                Just Glitching
 
-        ( True, _ ) ->
-            Nothing
+            else
+                Just severity
 
-        ( False, _ ) ->
+        ( Just onRound, _ ) ->
+            if onRound == currentRound then
+                Nothing
+
+            else
+                Just severity
+
+        ( Nothing, _ ) ->
             Just severity
 
 
-getEffectiveCriticalStatus : CriticalStatus -> Maybe Severity
-getEffectiveCriticalStatus cs =
+getEffectiveCriticalStatus : Int -> CriticalStatus -> Maybe Severity
+getEffectiveCriticalStatus currentRound cs =
     if cs.quickFixed then
         Nothing
 
     else
-        applyPatches cs.patches
-            |> Maybe.andThen (applyHoldTogether cs.heldTogether)
+        considerEmp currentRound cs.severity
+            |> Maybe.andThen (always (applyPatches cs.patches))
+            |> Maybe.andThen (applyHoldTogether currentRound cs.heldTogether)
 
 
 basePatchDCPatches : PatchEffectiveness -> Patches -> Maybe Int
@@ -180,8 +203,8 @@ damageSeverity severity =
 
 
 damage : Maybe Int -> Maybe CriticalStatus -> CriticalStatus
-damage mEmpRounds mCriticalStatus =
-    case ( mEmpRounds, mCriticalStatus ) of
+damage mEmpUntilRound mCriticalStatus =
+    case ( mEmpUntilRound, mCriticalStatus ) of
         ( Nothing, Just criticalStatus ) ->
             let
                 severity =
@@ -203,11 +226,11 @@ damage mEmpRounds mCriticalStatus =
                 , patches = patches
             }
 
-        ( Just empRounds, Just criticalStatus ) ->
+        ( Just empUntilRound, Just criticalStatus ) ->
             case criticalStatus.severity of
-                Emp currentEmpRounds ->
+                Emp currentEmpUntilRound ->
                     { criticalStatus
-                        | severity = Emp <| max empRounds currentEmpRounds
+                        | severity = Emp <| max empUntilRound currentEmpUntilRound
                         , patches = G R
                     }
 
@@ -216,11 +239,11 @@ damage mEmpRounds mCriticalStatus =
 
         ( _, Nothing ) ->
             { severity =
-                mEmpRounds
+                mEmpUntilRound
                     |> Maybe.map Emp
                     |> Maybe.withDefault (CriticalDamage Glitching)
             , patches = G R
-            , heldTogether = False
+            , heldTogether = Nothing
             , quickFixed = False
             }
 
@@ -275,9 +298,9 @@ patchStatus pe =
     updateCriticalStatus (Maybe.map (patchCriticalStatus pe))
 
 
-holdItTogether : PatchableSystem -> Status -> Status
-holdItTogether =
-    updateCriticalStatus (Maybe.map (\s -> { s | heldTogether = True }))
+holdItTogether : Int -> PatchableSystem -> Status -> Status
+holdItTogether currentRound =
+    updateCriticalStatus (Maybe.map (\s -> { s | heldTogether = Just currentRound }))
 
 
 quickFix : PatchableSystem -> Status -> Status
@@ -286,43 +309,8 @@ quickFix =
 
 
 damageSystem : Maybe Int -> PatchableSystem -> Status -> Status
-damageSystem mEmpRounds =
-    updateCriticalStatus (damage mEmpRounds >> Just)
-
-
-tickCriticalStatus : CriticalStatus -> Maybe CriticalStatus
-tickCriticalStatus cs =
-    let
-        unheld =
-            { cs | heldTogether = False }
-    in
-    case unheld.severity of
-        Emp x ->
-            if x > 1 then
-                Just { unheld | severity = Emp (x - 1) }
-
-            else
-                Nothing
-
-        _ ->
-            Just unheld
-
-
-tick : Status -> Status
-tick status =
-    let
-        update =
-            updateCriticalStatus (Maybe.andThen tickCriticalStatus)
-    in
-    status
-        |> update LifeSupport
-        |> update Sensors
-        |> update (WeaponsArray Arc.Forward)
-        |> update (WeaponsArray Arc.Aft)
-        |> update (WeaponsArray Arc.Starboard)
-        |> update (WeaponsArray Arc.Port)
-        |> update Engines
-        |> update PowerCore
+damageSystem mEmpUntilRound =
+    updateCriticalStatus (damage mEmpUntilRound >> Just)
 
 
 damageArc : Bool -> Starship -> AnArc -> Int -> Status -> ( Int, Status )

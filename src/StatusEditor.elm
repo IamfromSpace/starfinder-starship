@@ -82,6 +82,7 @@ type alias Model =
     , critsRemaining : Int
     , damageInput : Maybe Int
     , partialState : PartialState
+    , roundNumber : Int
     }
 
 
@@ -99,6 +100,7 @@ init starship =
     , critsRemaining = 0
     , damageInput = Nothing
     , partialState = Allotting (Arc.pure ((extract starship.shields).shieldPoints // 4))
+    , roundNumber = 0
     }
 
 
@@ -332,13 +334,13 @@ update starship msg model =
             ( { model | status = Status.patchStatus pe patchableSystem model.status }, Cmd.none )
 
         HoldItTogether patchableSystem ->
-            ( { model | status = Status.holdItTogether patchableSystem model.status }, Cmd.none )
+            ( { model | status = Status.holdItTogether model.roundNumber patchableSystem model.status }, Cmd.none )
 
         QuickFix patchableSystem ->
             ( { model | status = Status.quickFix patchableSystem model.status }, Cmd.none )
 
         NextRound ->
-            ( { model | status = Status.tick model.status }, Cmd.none )
+            ( { model | roundNumber = model.roundNumber + 1 }, Cmd.none )
 
 
 colorTransition : Float -> Color
@@ -374,9 +376,9 @@ maybeSeverityToPercent mSeverity =
                     0.001
 
 
-criticalStatusToRgb : Maybe CriticalStatus -> Color
-criticalStatusToRgb =
-    Maybe.andThen Status.getEffectiveCriticalStatus
+criticalStatusToRgb : Int -> Maybe CriticalStatus -> Color
+criticalStatusToRgb roundNumber =
+    Maybe.andThen (Status.getEffectiveCriticalStatus roundNumber)
         >> maybeSeverityToPercent
         >> colorTransition
 
@@ -610,14 +612,14 @@ view starship model =
         patchableDisplay name status patchableSystem =
             let
                 impacted =
-                    Maybe.andThen Status.getEffectiveCriticalStatus status == Nothing
+                    Maybe.andThen (Status.getEffectiveCriticalStatus model.roundNumber) status == Nothing
             in
             div
                 [ A.style
                     "background-color"
                     (colorToCssRgb <|
                         if damagePercent > 0 then
-                            criticalStatusToRgb status
+                            criticalStatusToRgb model.roundNumber status
 
                         else
                             grey
