@@ -78,6 +78,19 @@ type Phase
     | Gunnery
 
 
+nextPhase : Phase -> Phase
+nextPhase phase =
+    case phase of
+        Engineering ->
+            Piloting
+
+        Piloting ->
+            Gunnery
+
+        Gunnery ->
+            Engineering
+
+
 phaseToString : Phase -> String
 phaseToString phase =
     case phase of
@@ -363,16 +376,7 @@ update starship msg model =
                             _ ->
                                 0
                           )
-                , phase =
-                    case model.phase of
-                        Engineering ->
-                            Piloting
-
-                        Piloting ->
-                            Gunnery
-
-                        Gunnery ->
-                            Engineering
+                , phase = nextPhase model.phase
               }
             , Cmd.none
             )
@@ -823,7 +827,7 @@ view starship model =
         , patchableDisplay (model.phase == Engineering) "Power Core" model.status.powerCore PowerCore
         , button
             [ E.onClick NextPhase, A.disabled isStillAllotting ]
-            [ text ("PROCEED TO " ++ String.toUpper (phaseToString model.phase) ++ " PHASE") ]
+            [ text ("PROCEED TO " ++ String.toUpper (phaseToString (nextPhase model.phase)) ++ " PHASE") ]
         ]
 
 
