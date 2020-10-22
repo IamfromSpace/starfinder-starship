@@ -417,7 +417,7 @@ maybeSeverityToPercent mSeverity =
 
 criticalStatusToRgb : Int -> Maybe CriticalStatus -> Color
 criticalStatusToRgb roundNumber =
-    Maybe.andThen (Status.getEffectiveCriticalStatus roundNumber)
+    Maybe.andThen (Status.getEffectiveSeverity roundNumber)
         >> maybeSeverityToPercent
         >> colorTransition
 
@@ -634,7 +634,7 @@ view starship model =
         patchableDisplay isEngineeringPhase name status patchableSystem =
             let
                 impacted =
-                    Maybe.andThen (Status.getEffectiveCriticalStatus model.roundNumber) status == Nothing
+                    Maybe.andThen (Status.getEffectiveSeverity model.roundNumber) status == Nothing
 
                 patchDisplay =
                     status

@@ -1,4 +1,4 @@
-module Status exposing (CriticalStatus, PatchEffectiveness(..), PatchableSystem(..), Severity(..), Status, areShieldsFull, balanceEvenly, balanceFromArc, basePatchDC, canBalanceFromTo, damage, damageArc, damageSeverity, damageSystem, divertPowerToShields, forceAddShields, forceMoveShields, getEffectiveBonus, getEffectiveCriticalStatus, holdItTogether, maxDivertPowerToShieldPoints, patchCount, patchCriticalStatus, patchStatus, pickPatchableSystem, quickFix, updateCriticalStatus)
+module Status exposing (CriticalStatus, PatchEffectiveness(..), PatchableSystem(..), Severity(..), Status, areShieldsFull, balanceEvenly, balanceFromArc, basePatchDC, canBalanceFromTo, damage, damageArc, damageSeverity, damageSystem, divertPowerToShields, forceAddShields, forceMoveShields, getEffectiveBonus, getEffectiveSeverity, holdItTogether, maxDivertPowerToShieldPoints, patchCount, patchCriticalStatus, patchStatus, pickPatchableSystem, quickFix, updateCriticalStatus)
 
 import Arc exposing (AnArc, Arc)
 import Random exposing (Generator)
@@ -143,8 +143,8 @@ applyHoldTogether currentRound heldTogether severity =
             Just severity
 
 
-getEffectiveCriticalStatus : Int -> CriticalStatus -> Maybe Severity
-getEffectiveCriticalStatus currentRound cs =
+getEffectiveSeverity : Int -> CriticalStatus -> Maybe Severity
+getEffectiveSeverity currentRound cs =
     if cs.quickFixed then
         Nothing
 
@@ -159,7 +159,7 @@ getEffectiveBonus currentRound involvedSystem isPush status =
     let
         bonusBySystem system =
             getCriticalStatus system status
-                |> Maybe.andThen (getEffectiveCriticalStatus currentRound)
+                |> Maybe.andThen (getEffectiveSeverity currentRound)
 
         standardBonus =
             case bonusBySystem involvedSystem of
