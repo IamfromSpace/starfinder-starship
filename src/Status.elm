@@ -1,4 +1,4 @@
-module Status exposing (CriticalStatus, PatchEffectiveness(..), PatchableSystem(..), Severity(..), Status, areShieldsFull, balanceEvenly, balanceFromArc, basePatchDC, canBalanceFromTo, damage, damageArc, damageSeverity, damageSystem, divertPowerToShields, forceAddShields, forceMoveShields, getEffectiveCriticalStatus, holdItTogether, maxDivertPowerToShieldPoints, patchCount, patchCriticalStatus, patchStatus, pickPatchableSystem, quickFix, updateCriticalStatus)
+module Status exposing (CriticalStatus, PatchEffectiveness(..), PatchableSystem(..), Severity(..), Status, areShieldsFull, balanceEvenly, balanceFromArc, basePatchDC, canBalanceFromTo, damage, damageArc, damageSeverity, damageSystem, divertPowerToShields, forceAddShields, forceMoveShields, getEffectiveBonus, getEffectiveCriticalStatus, holdItTogether, maxDivertPowerToShieldPoints, patchCount, patchCriticalStatus, patchStatus, pickPatchableSystem, quickFix, updateCriticalStatus)
 
 import Arc exposing (AnArc, Arc)
 import Random exposing (Generator)
@@ -154,6 +154,53 @@ getEffectiveCriticalStatus currentRound cs =
             |> Maybe.andThen (applyHoldTogether currentRound cs.heldTogether)
 
 
+getEffectiveBonus : Int -> PatchableSystem -> Bool -> Status -> Maybe Int
+getEffectiveBonus currentRound involvedSystem isPush status =
+    let
+        bonusBySystem system =
+            getCriticalStatus system status
+                |> Maybe.andThen (getEffectiveCriticalStatus currentRound)
+
+        standardBonus =
+            case bonusBySystem involvedSystem of
+                Nothing ->
+                    Just 0
+
+                Just Glitching ->
+                    Just -2
+
+                Just Malfunctioning ->
+                    if isPush then
+                        Nothing
+
+                    else
+                        Just -4
+
+                Just Wrecked ->
+                    Nothing
+
+        powerCoreEffectBonus =
+            case bonusBySystem PowerCore of
+                Nothing ->
+                    0
+
+                Just Glitching ->
+                    0
+
+                Just Malfunctioning ->
+                    -2
+
+                Just Wrecked ->
+                    -4
+    in
+    case involvedSystem of
+        PowerCore ->
+            standardBonus
+
+        _ ->
+            Maybe.map ((+) powerCoreEffectBonus) standardBonus
+
+
 basePatchDCPatches : PatchEffectiveness -> Patches -> Maybe Int
 basePatchDCPatches pe patches =
     case ( pe, patches ) of
@@ -304,6 +351,25 @@ pickPatchableSystem =
         , ( 20, Engines )
         , ( 20, PowerCore )
         ]
+
+
+getCriticalStatus : PatchableSystem -> Status -> Maybe CriticalStatus
+getCriticalStatus system =
+    case system of
+        LifeSupport ->
+            .lifeSupport
+
+        Sensors ->
+            .sensors
+
+        WeaponsArray arc ->
+            .weaponsArray >> Arc.getArc arc
+
+        Engines ->
+            .engines
+
+        PowerCore ->
+            .powerCore
 
 
 updateCriticalStatus : (Maybe CriticalStatus -> Maybe CriticalStatus) -> PatchableSystem -> Status -> Status
