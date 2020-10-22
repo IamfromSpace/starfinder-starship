@@ -228,6 +228,8 @@ damageSeverity severity =
         CriticalDamage Malfunctioning ->
             Wrecked
 
+        -- TODO: This causes crew damage, where a crew member randomly takes
+        -- equal damage to what was dealt to the hull.
         CriticalDamage Wrecked ->
             Wrecked
 
