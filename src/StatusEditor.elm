@@ -633,15 +633,32 @@ view starship model =
 
         patchableDisplay isEngineeringPhase name status patchableSystem =
             let
+                effectiveSeverity =
+                    Maybe.andThen (Status.getEffectiveSeverity model.roundNumber) status
+
                 impacted =
-                    Maybe.andThen (Status.getEffectiveSeverity model.roundNumber) status == Nothing
+                    effectiveSeverity == Nothing
+
+                xOfYStr x y =
+                    "(" ++ String.fromInt x ++ "/" ++ String.fromInt y ++ ")"
+
+                patchesNeeded severity =
+                    case severity of
+                        Glitching ->
+                            1
+
+                        Malfunctioning ->
+                            2
+
+                        Wrecked ->
+                            3
 
                 patchDisplay =
                     status
                         |> Maybe.map Status.patchCount
                         |> Maybe.withDefault 0
-                        |> (\n -> List.repeat n "✓")
-                        |> String.concat
+                        |> (\n -> Maybe.map (patchesNeeded >> xOfYStr n) effectiveSeverity)
+                        |> Maybe.withDefault ""
             in
             div
                 [ A.style
@@ -665,13 +682,13 @@ view starship model =
                     , A.title "PATCH: apply two patches towards the repair of one level of severity."
                     , E.onClick (Patch Status.Double patchableSystem)
                     ]
-                    [ text "P+" ]
+                    [ text "Px2" ]
                 , button
                     [ A.disabled (Maybe.andThen (Status.basePatchDC Status.Triple) status == Nothing || not isEngineeringPhase)
                     , A.title "PATCH: apply three patches towards the repair of one level of severity."
                     , E.onClick (Patch Status.Triple patchableSystem)
                     ]
-                    [ text "P++" ]
+                    [ text "Px3" ]
                 , button
                     [ A.disabled (impacted || not isEngineeringPhase)
                     , A.title "HOLD IT TOGETHER: temporarily repair two levels of severtity for a single round."
