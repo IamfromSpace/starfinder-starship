@@ -196,13 +196,22 @@ audaciousGambitBonus =
     standardPilotBonus (\x -> x <= 12) True True
 
 
-
--- TODO: The Engineer's Divert can also add a +2 bonus here
-
-
 standardScienceOfficerBonus : (Int -> Bool) -> Bool -> Bool -> Crewmate -> CrewmateStatus -> Int -> Status -> Maybe Int
-standardScienceOfficerBonus checkQualification =
-    standardBonus Status.Sensors .computersSkillBonus (.computersRanks >> checkQualification)
+standardScienceOfficerBonus checkQualification isPush requiresRP crewmate crewmateStatus currentRound status =
+    let
+        withoutDivertBonus =
+            -- TODO: Second time that we're almost entirely bypassing our
+            -- `standardBonus` abstraction
+            standardBonus Status.Sensors .computersSkillBonus (.computersRanks >> checkQualification) isPush requiresRP crewmate crewmateStatus currentRound status
+
+        bonusFromDivert =
+            if Status.hasExtraPower Status.ScienceEquipment currentRound status then
+                2
+
+            else
+                0
+    in
+    Maybe.map ((+) bonusFromDivert) withoutDivertBonus
 
 
 balanceBonus : Crewmate -> CrewmateStatus -> Int -> Status -> Maybe Int

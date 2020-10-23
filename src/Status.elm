@@ -1,4 +1,4 @@
-module Status exposing (CriticalStatus, PatchEffectiveness(..), PatchableSystem(..), Severity(..), Status, areShieldsFull, balanceEvenly, balanceFromArc, basePatchDC, canBalanceFromTo, damage, damageArc, damageSeverity, damageSystem, divertPowerToShields, forceAddShields, forceMoveShields, getEffectiveBonus, getEffectiveSeverity, holdItTogether, maxDivertPowerToShieldPoints, patchCount, patchCriticalStatus, patchStatus, pickPatchableSystem, quickFix, updateCriticalStatus)
+module Status exposing (CriticalStatus, ExtraPoweredSystem(..), PatchEffectiveness(..), PatchableSystem(..), Severity(..), Status, areShieldsFull, balanceEvenly, balanceFromArc, basePatchDC, canBalanceFromTo, damage, damageArc, damageSeverity, damageSystem, divertPowerToShields, forceAddShields, forceMoveShields, getEffectiveBonus, getEffectiveSeverity, hasExtraPower, holdItTogether, init, maxDivertPowerToShieldPoints, patchCount, patchCriticalStatus, patchStatus, pickPatchableSystem, quickFix, updateCriticalStatus)
 
 import Arc exposing (AnArc, Arc)
 import Random exposing (Generator)
@@ -39,6 +39,18 @@ type CausalSeverity
     | CriticalDamage Severity
 
 
+type ExtraPoweredSystem
+    = EngineSpeed
+    | ScienceEquipment
+    | Weapons
+    | Shields
+
+
+type PowerAction
+    = Divert ExtraPoweredSystem
+    | Overpower (List ExtraPoweredSystem) -- UUUUUUUUGH The Elm maintainers are so stupid sometimes.
+
+
 type alias CriticalStatus =
     { severity : CausalSeverity
     , patches : Patches
@@ -59,7 +71,40 @@ type alias Status =
     , weaponsArray : Arc (Maybe CriticalStatus)
     , engines : Maybe CriticalStatus
     , powerCore : Maybe CriticalStatus
+    , powerAction : ( Int, PowerAction ) -- The most recent round's Power Action
     }
+
+
+init : Status
+init =
+    { damage = 0
+    , shields = Arc.pure 0
+    , lifeSupport = Nothing
+    , sensors = Nothing
+    , weaponsArray = Arc.pure Nothing
+    , engines = Nothing
+    , powerCore = Nothing
+    , powerAction = ( -1, Divert Shields ) -- The -1 round acts as a No-op
+    }
+
+
+hasExtraPower : ExtraPoweredSystem -> Int -> Status -> Bool
+hasExtraPower extraPoweredSystem roundNumber status =
+    let
+        ( effectiveRound, action ) =
+            status.powerAction
+    in
+    if effectiveRound /= roundNumber then
+        False
+
+    else
+        List.member extraPoweredSystem <|
+            case action of
+                Divert x ->
+                    [ x ]
+
+                Overpower s ->
+                    s
 
 
 considerEmp : Int -> CausalSeverity -> Maybe Severity
@@ -531,10 +576,10 @@ divertPowerToShields_ starship added shields =
         Just <| Arc.liftA2 (+) added shields
 
 
-divertPowerToShields : Starship -> Arc Int -> Status -> Maybe Status
-divertPowerToShields starship added status =
+divertPowerToShields : Starship -> Arc Int -> Int -> Status -> Maybe Status
+divertPowerToShields starship added currentRound status =
     Maybe.map
-        (\shields -> { status | shields = shields })
+        (\shields -> { status | shields = shields, powerAction = ( currentRound, Divert Shields ) })
         (divertPowerToShields_ starship added status.shields)
 
 

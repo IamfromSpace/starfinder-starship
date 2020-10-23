@@ -116,15 +116,7 @@ type alias Model =
 
 init : Starship -> Model
 init starship =
-    { status =
-        { damage = 0
-        , shields = Arc.pure 0
-        , lifeSupport = Nothing
-        , sensors = Nothing
-        , weaponsArray = Arc.pure Nothing
-        , engines = Nothing
-        , powerCore = Nothing
-        }
+    { status = Status.init
     , critsRemaining = 0
     , damageInput = Nothing
     , partialState = Allotting (Arc.pure ((extract starship.shields).shieldPoints // 4))
@@ -268,7 +260,7 @@ update starship msg model =
         AcceptDivertToShields ->
             case model.partialState of
                 Diverting added ->
-                    ( Status.divertPowerToShields starship added model.status
+                    ( Status.divertPowerToShields starship added model.roundNumber model.status
                         |> Maybe.map
                             (\newStatus ->
                                 { model | partialState = None, status = newStatus }
@@ -830,7 +822,7 @@ view starship model =
             )
             [ text "Cancel Divert Power to Shields" ]
         , button
-            (case Maybe.andThen (\x -> Status.divertPowerToShields starship x model.status) (maybeDiverting model.partialState) of
+            (case Maybe.andThen (\x -> Status.divertPowerToShields starship x model.roundNumber model.status) (maybeDiverting model.partialState) of
                 Nothing ->
                     [ A.disabled True ]
 
