@@ -60,6 +60,11 @@ baseBonusModifier { demanded, encouraged, taunted } =
 -- these are directly tied together.
 --
 -- TODO: Computer nodes can be consumed to gain additional bonuses
+--
+-- TODO: Bonuses return as Nothing if the action cannot be performed.  If the
+-- action has already been performed this round (for actions that can only be
+-- taken once), should it also return Nothing? Or what if the crewmate has
+-- already taken an action?
 
 
 standardBonus : Status.PatchableSystem -> (Crewmate -> Int) -> (Crewmate -> Bool) -> Bool -> Bool -> Crewmate -> CrewmateStatus -> Int -> Status -> Maybe Int
