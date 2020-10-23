@@ -51,28 +51,29 @@ type PowerAction
     | Overpower (List ExtraPoweredSystem) -- UUUUUUUUGH The Elm maintainers are so stupid sometimes.
 
 
-type SpecialStuntResult
+type SpecialPilotResult
     = MoveForwardOnly
     | MoveForwardAtSpeed
     | MoveForwardAtSpeedThen180Turn
     | MoveBackwardOneHex
     | MoveBackwardOnly
     | SwapPortAndStarboard
-    | NoFreeAttackForEnemy
+    | NoFreeAttackForSingleEnemy
+    | NoFreeAttackForAnyEnemyAndFreeFinalRotation
     | Slide
     | TurnInPlace
 
 
-type alias StuntResult =
+type alias PilotResult =
     { acAndTlBonus : Int
     , speedDelta : Int
     , maneuverabilityDelta : Int
-    , special : Maybe SpecialStuntResult
+    , special : Maybe SpecialPilotResult
     }
 
 
-noStuntResult : StuntResult
-noStuntResult =
+noPilotResult : PilotResult
+noPilotResult =
     { acAndTlBonus = 0
     , speedDelta = 0
     , maneuverabilityDelta = 0
@@ -101,7 +102,7 @@ type alias Status =
     , engines : Maybe CriticalStatus
     , powerCore : Maybe CriticalStatus
     , powerAction : ( Int, PowerAction ) -- The most recent round's Power Action
-    , stuntResult : ( Int, StuntResult )
+    , pilotResult : ( Int, PilotResult )
     }
 
 
@@ -115,7 +116,7 @@ init =
     , engines = Nothing
     , powerCore = Nothing
     , powerAction = ( -1, Divert Shields ) -- The -1 round acts as a No-op
-    , stuntResult = ( -1, noStuntResult ) -- The -1 round acts as a No-op
+    , pilotResult = ( -1, noPilotResult ) -- The -1 round acts as a No-op
     }
 
 
