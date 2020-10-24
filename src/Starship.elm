@@ -14,6 +14,7 @@ import Weapon exposing (Weapon)
 
 type Maneuverability
     = Clumsy
+    | Poor
     | Average
     | Good
     | Perfect

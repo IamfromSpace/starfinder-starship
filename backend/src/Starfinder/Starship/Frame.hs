@@ -9,6 +9,7 @@ import Starfinder.Starship.Arc (Arc)
 
 data Maneuverability
     = Clumsy
+    | Poor
     | Average
     | Good
     | Perfect
