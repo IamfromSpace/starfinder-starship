@@ -52,11 +52,10 @@ type PowerAction
 
 
 type SpecialPilotResult
-    = MoveForwardOnly
-    | MoveForwardAtSpeed
-    | MoveForwardAtSpeedThen180Turn
-    | MoveBackwardOneHex
-    | MoveBackwardOnly
+    = MoveForwardFullSpeed
+    | Turn180AtTheEnd
+    | MoveBackwardExactlyOneHex
+    | MoveBackward
     | SwapPortAndStarboard
     | NoFreeAttackForSingleEnemy
     | NoFreeAttackForAnyEnemyAndFreeFinalRotation
@@ -728,3 +727,217 @@ balanceFromArc starship ( from, to, amount ) status =
 
     else
         Nothing
+
+
+applyPilotResult : (Starship -> PilotResult) -> Starship -> Int -> Status -> Status
+applyPilotResult f starship currentRound status =
+    { status | pilotResult = ( currentRound, f starship ) }
+
+
+reductionToHalfSpeedAndNoTurns : Starship -> ( Int, Int )
+reductionToHalfSpeedAndNoTurns starship =
+    let
+        baseSpeed =
+            extract starship.thrusters
+
+        finalSpeed =
+            baseSpeed // 2
+    in
+    ( finalSpeed - baseSpeed, finalSpeed + 1 )
+
+
+maneuver : Starship -> Int -> Status -> Status
+maneuver =
+    applyPilotResult (always { noPilotResult | maneuverabilityDelta = -1 })
+
+
+backOff : Starship -> Int -> Status -> Status
+backOff =
+    applyPilotResult
+        (\starship ->
+            let
+                ( speedDelta, maneuverabilityDelta ) =
+                    reductionToHalfSpeedAndNoTurns starship
+            in
+            { noPilotResult
+                | maneuverabilityDelta = maneuverabilityDelta
+                , speedDelta = speedDelta
+                , special = Just MoveBackward
+            }
+        )
+
+
+backOffFail : Starship -> Int -> Status -> Status
+backOffFail =
+    applyPilotResult (always { noPilotResult | special = Just MoveBackwardExactlyOneHex })
+
+
+backOffFailBy5OrMore : Starship -> Int -> Status -> Status
+backOffFailBy5OrMore =
+    applyPilotResult
+        (\starship ->
+            { noPilotResult
+                | acAndTlBonus = -4
+                , speedDelta = -(extract starship.thrusters)
+            }
+        )
+
+
+barrelRoll : Starship -> Int -> Status -> Status
+barrelRoll =
+    -- TODO: Only valid for ships Large or smaller
+    applyPilotResult
+        (\starship ->
+            { noPilotResult
+                | speedDelta =
+                    Tuple.first <|
+                        reductionToHalfSpeedAndNoTurns starship
+                , special = Just SwapPortAndStarboard
+            }
+        )
+
+
+barrelRollFail : Starship -> Int -> Status -> Status
+barrelRollFail =
+    -- TODO: Only valid for ships Large or smaller
+    applyPilotResult
+        (\starship ->
+            { noPilotResult
+                | speedDelta =
+                    Tuple.first <|
+                        reductionToHalfSpeedAndNoTurns starship
+            }
+        )
+
+
+barrelRollFailBy5OrMore : Starship -> Int -> Status -> Status
+barrelRollFailBy5OrMore =
+    -- TODO: Only valid for ships Large or smaller
+    applyPilotResult
+        (\starship ->
+            { noPilotResult
+                | acAndTlBonus = -4
+                , speedDelta =
+                    Tuple.first <|
+                        reductionToHalfSpeedAndNoTurns starship
+            }
+        )
+
+
+evade : Starship -> Int -> Status -> Status
+evade =
+    applyPilotResult (always { noPilotResult | acAndTlBonus = 2 })
+
+
+evadeFailBy5OrMore : Starship -> Int -> Status -> Status
+evadeFailBy5OrMore =
+    applyPilotResult (always { noPilotResult | acAndTlBonus = -2 })
+
+
+flipAndBurn : Starship -> Int -> Status -> Status
+flipAndBurn =
+    applyPilotResult
+        (\starship ->
+            let
+                ( speedDelta, maneuverabilityDelta ) =
+                    reductionToHalfSpeedAndNoTurns starship
+            in
+            { noPilotResult
+                | maneuverabilityDelta = maneuverabilityDelta
+                , speedDelta = speedDelta
+                , special = Just Turn180AtTheEnd
+            }
+        )
+
+
+flipAndBurnFail : Starship -> Int -> Status -> Status
+flipAndBurnFail =
+    applyPilotResult
+        (\starship ->
+            let
+                ( speedDelta, maneuverabilityDelta ) =
+                    reductionToHalfSpeedAndNoTurns starship
+            in
+            { noPilotResult
+                | maneuverabilityDelta = maneuverabilityDelta
+                , speedDelta = speedDelta
+                , special = Just MoveForwardFullSpeed
+            }
+        )
+
+
+flyby : Starship -> Int -> Status -> Status
+flyby =
+    applyPilotResult
+        (always { noPilotResult | special = Just NoFreeAttackForSingleEnemy })
+
+
+flybyFail : Starship -> Int -> Status -> Status
+flybyFail =
+    -- Just updates the most recent pilot effect (but has none)
+    applyPilotResult (always noPilotResult)
+
+
+slide : Starship -> Int -> Status -> Status
+slide =
+    applyPilotResult (always { noPilotResult | special = Just Slide })
+
+
+slideFail : Starship -> Int -> Status -> Status
+slideFail =
+    applyPilotResult
+        (\starship ->
+            let
+                ( speedDelta, maneuverabilityDelta ) =
+                    reductionToHalfSpeedAndNoTurns starship
+            in
+            { noPilotResult
+                | maneuverabilityDelta = maneuverabilityDelta
+                , speedDelta = speedDelta
+            }
+        )
+
+
+turnInPlace : Starship -> Int -> Status -> Status
+turnInPlace =
+    applyPilotResult
+        (\starship ->
+            { noPilotResult
+                | acAndTlBonus =
+                    case starship.frame.maneuverability of
+                        Starship.Clumsy ->
+                            -4
+
+                        Starship.Poor ->
+                            -2
+
+                        _ ->
+                            0
+                , speedDelta = -(extract starship.thrusters)
+            }
+        )
+
+
+fullPower : Starship -> Int -> Status -> Status
+fullPower =
+    -- TODO: Also costs a Resolve Point
+    applyPilotResult (\starship -> { noPilotResult | maneuverabilityDelta = 2, speedDelta = extract starship.thrusters // 3 })
+
+
+audaciousGambit : Starship -> Int -> Status -> Status
+audaciousGambit =
+    -- TODO: Also costs a Resolve Point
+    applyPilotResult
+        (always
+            { noPilotResult
+                | maneuverabilityDelta = -2
+                , special = Just NoFreeAttackForAnyEnemyAndFreeFinalRotation
+            }
+        )
+
+
+audaciousGambitFail : Starship -> Int -> Status -> Status
+audaciousGambitFail =
+    -- TODO: Also costs a Resolve Point
+    -- Just updates the most recent pilot effect (but has none)
+    applyPilotResult (always noPilotResult)
