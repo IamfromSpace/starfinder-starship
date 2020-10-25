@@ -570,6 +570,7 @@ maxDivertPowerToShieldPoints_ starship shields =
             starship.powerCoreUnits // 20
 
         maxTotalShieldPoints =
+            -- TODO: this ignores if shields are off
             (extract starship.shields).shieldPoints
 
         currentTotalShieldPoints =
@@ -616,6 +617,7 @@ divertPowerToShields starship added currentRound status =
 
 areShieldsFull : Starship -> Status -> Bool
 areShieldsFull starship status =
+    -- TODO: this ignores if shields are off
     Arc.sum status.shields >= (extract starship.shields).shieldPoints
 
 
@@ -738,6 +740,7 @@ reductionToHalfSpeedAndNoTurns : Starship -> ( Int, Int )
 reductionToHalfSpeedAndNoTurns starship =
     let
         baseSpeed =
+            -- TODO: this ignores if thrusters are off
             extract starship.thrusters
 
         finalSpeed =
@@ -778,6 +781,8 @@ backOffFailBy5OrMore =
         (\starship ->
             { noPilotResult
                 | acAndTlBonus = -4
+
+                -- TODO: this ignores if thrusters are off
                 , speedDelta = -(extract starship.thrusters)
             }
         )
@@ -913,6 +918,8 @@ turnInPlace =
 
                         _ ->
                             0
+
+                -- TODO: this ignores if thrusters are off
                 , speedDelta = -(extract starship.thrusters)
             }
         )
@@ -921,6 +928,7 @@ turnInPlace =
 fullPower : Starship -> Int -> Status -> Status
 fullPower =
     -- TODO: Also costs a Resolve Point
+    -- TODO: this ignores if thrusters are off
     applyPilotResult (\starship -> { noPilotResult | maneuverabilityDelta = 2, speedDelta = extract starship.thrusters // 3 })
 
 
