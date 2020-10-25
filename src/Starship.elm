@@ -1,4 +1,4 @@
-module Starship exposing (BuildError(..), CrewQuarters(..), DriftEngine(..), Frame, Maneuverability(..), Sensor, Shields, Starship, areArcMountPointsValid, areTurretMountPointsValid, areTurretWeaponClassesValid, areWeaponClassesValidForFrame, buildErrorToString, crewQuartersToString, driftEngineToString, getAllOnlineWeapons, getAllWeapons, getAllowedClasses, getArmorBuildPoints, getArmorTargetLockBonus, getCrewQuartersBuildPoints, getDefensiveCountermeasuresBuildPoints, getDefensiveCountermeasuresPowerDraw, getDriftEngineBuildPoints, getFrameBuildPoints, getMaxHitPoints, getMaxPcuPerPowerCore, getMaxPowerCoreCount, getMountPointLimit, getMountPointsBuiltPoints, getMountPointsUsed, getPowerCoreCount, getPowerCoreUnitsBuildPoints, getSensorBuildPoints, getSizeCategory, getStarshipBuildPoints, getStarshipPowerDraw, getThrusterBuildPoints, getThrusterPowerDraw, getTierFromBuildPoints, getTogglablePowerDraw, getWeaponsBuildPoints, getWeaponsPowerDraw, hasEnoughPowerCoresForPcu, hasNoTrackingWeaponLinks, hasSufficientPowerCoreUnits, hasSufficientPowerCoreUnitsForDriftEngine, hasTurretIfHasTurretWeapons, hasValidExpansionBayCount, hasValidPowerCoreCount, isSmallEnoughForDriftEngine, isTrue, isValidSizeForExpansionBays, isValidSpeed, maxiumumSizeForDriftEngine, minimumPowerCoreUnitsForDriftEngine, mountPointCountForGroupIsValid, validateStarship)
+module Starship exposing (BuildError(..), CrewQuarters(..), DriftEngine(..), Frame, Maneuverability(..), Sensor, Shields, Starship, areArcMountPointsValid, areTurretMountPointsValid, areTurretWeaponClassesValid, areWeaponClassesValidForFrame, buildErrorToString, crewQuartersToString, driftEngineToString, getAllOnlineWeapons, getAllWeapons, getAllowedClasses, getArmorBuildPoints, getArmorTargetLockBonus, getCrewQuartersBuildPoints, getDefensiveCountermeasuresBuildPoints, getDefensiveCountermeasuresPowerDraw, getDriftEngineBuildPoints, getFrameBuildPoints, getMaxHitPoints, getMaxPcuPerPowerCore, getMaxPowerCoreCount, getMountPointLimit, getMountPointsBuiltPoints, getMountPointsUsed, getPilotBonus, getPowerCoreCount, getPowerCoreUnitsBuildPoints, getSensorBuildPoints, getSizeCategory, getStarshipBuildPoints, getStarshipPowerDraw, getThrusterBuildPoints, getThrusterPowerDraw, getTierFromBuildPoints, getTogglablePowerDraw, getWeaponsBuildPoints, getWeaponsPowerDraw, hasEnoughPowerCoresForPcu, hasNoTrackingWeaponLinks, hasSufficientPowerCoreUnits, hasSufficientPowerCoreUnitsForDriftEngine, hasTurretIfHasTurretWeapons, hasValidExpansionBayCount, hasValidPowerCoreCount, isSmallEnoughForDriftEngine, isTrue, isValidSizeForExpansionBays, isValidSpeed, maxiumumSizeForDriftEngine, minimumPowerCoreUnitsForDriftEngine, mountPointCountForGroupIsValid, validateStarship)
 
 import Arc exposing (Arc)
 import Computer exposing (Computer)
@@ -18,6 +18,25 @@ type Maneuverability
     | Average
     | Good
     | Perfect
+
+
+getPilotBonusMan_ : Maneuverability -> Int
+getPilotBonusMan_ maneuverability =
+    case maneuverability of
+        Clumsy ->
+            -2
+
+        Poor ->
+            -1
+
+        Average ->
+            0
+
+        Good ->
+            1
+
+        Perfect ->
+            2
 
 
 type alias Frame =
@@ -491,6 +510,37 @@ type alias Starship =
     , turretWeapons : List (LinkAndTogglable Weapon)
     , shields : Togglable Shields
     }
+
+
+getPilotBonusThrusters_ : Togglable Int -> Int
+getPilotBonusThrusters_ thrusters =
+    let
+        effectiveSpeed =
+            if meta thrusters == Switch.Off then
+                0
+
+            else
+                extract thrusters
+    in
+    if effectiveSpeed < 4 then
+        2
+
+    else if effectiveSpeed < 6 then
+        1
+
+    else if effectiveSpeed < 10 then
+        0
+
+    else if effectiveSpeed < 12 then
+        1
+
+    else
+        2
+
+
+getPilotBonus : Starship -> Int
+getPilotBonus { thrusters, frame } =
+    getPilotBonusThrusters_ thrusters + getPilotBonusMan_ frame.maneuverability
 
 
 getTogglablePowerDraw : (a -> Int) -> Togglable a -> Int

@@ -176,29 +176,34 @@ preciseTargetingBonus =
     standardGunnerBonus (\x -> x >= 12) False True 0
 
 
-standardPilotBonus : (Int -> Bool) -> Bool -> Bool -> Crewmate -> CrewmateStatus -> Int -> Status -> Maybe Int
-standardPilotBonus checkQualification =
-    -- TODO: Top speed of a ship influences the bonus (faster ships are harder to pilot)
-    -- TODO: Maneuverability of a ship influences the bonus (less agile ships are harder to pilot)
-    standardBonus Status.Engines .pilotingSkillBonus (.pilotingRanks >> checkQualification)
+standardPilotBonus : (Int -> Bool) -> Bool -> Bool -> Starship -> Crewmate -> CrewmateStatus -> Int -> Status -> Maybe Int
+standardPilotBonus checkQualification isPush requiresRP starship crewmate crewmateStatus rountNumber status =
+    let
+        starshipBonus =
+            Starship.getPilotBonus starship
+
+        standardBonus_ =
+            standardBonus Status.Engines .pilotingSkillBonus (.pilotingRanks >> checkQualification) isPush requiresRP crewmate crewmateStatus rountNumber status
+    in
+    Maybe.map ((+) starshipBonus) standardBonus_
 
 
-maneuverBonus : Crewmate -> CrewmateStatus -> Int -> Status -> Maybe Int
+maneuverBonus : Starship -> Crewmate -> CrewmateStatus -> Int -> Status -> Maybe Int
 maneuverBonus =
     standardPilotBonus (always True) False False
 
 
-stuntBonus : Crewmate -> CrewmateStatus -> Int -> Status -> Maybe Int
+stuntBonus : Starship -> Crewmate -> CrewmateStatus -> Int -> Status -> Maybe Int
 stuntBonus =
     standardPilotBonus (always True) True False
 
 
-fullPowerBonus : Crewmate -> CrewmateStatus -> Int -> Status -> Maybe Int
+fullPowerBonus : Starship -> Crewmate -> CrewmateStatus -> Int -> Status -> Maybe Int
 fullPowerBonus =
     standardPilotBonus (\x -> x <= 6) True True
 
 
-audaciousGambitBonus : Crewmate -> CrewmateStatus -> Int -> Status -> Maybe Int
+audaciousGambitBonus : Starship -> Crewmate -> CrewmateStatus -> Int -> Status -> Maybe Int
 audaciousGambitBonus =
     standardPilotBonus (\x -> x <= 12) True True
 
@@ -207,7 +212,7 @@ standardScienceOfficerBonus : (Int -> Bool) -> Bool -> Bool -> Crewmate -> Crewm
 standardScienceOfficerBonus checkQualification isPush requiresRP crewmate crewmateStatus currentRound status =
     let
         withoutDivertBonus =
-            -- TODO: Second time that we're almost entirely bypassing our
+            -- TODO: Third time that we're almost entirely bypassing our
             -- `standardBonus` abstraction
             standardBonus Status.Sensors .computersSkillBonus (.computersRanks >> checkQualification) isPush requiresRP crewmate crewmateStatus currentRound status
 
