@@ -178,6 +178,8 @@ preciseTargetingBonus =
 
 standardPilotBonus : (Int -> Bool) -> Bool -> Bool -> Crewmate -> CrewmateStatus -> Int -> Status -> Maybe Int
 standardPilotBonus checkQualification =
+    -- TODO: Top speed of a ship influences the bonus (faster ships are harder to pilot)
+    -- TODO: Maneuverability of a ship influences the bonus (less agile ships are harder to pilot)
     standardBonus Status.Engines .pilotingSkillBonus (.pilotingRanks >> checkQualification)
 
 
