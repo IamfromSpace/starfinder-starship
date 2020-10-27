@@ -135,6 +135,7 @@ type Msg
     | EditDivertToShields AnArc (Int -> Int)
     | CancelDivertToShields
     | AcceptDivertToShields
+    | DivertToEngines
     | EditAllotmentToShields AnArc (Int -> Int)
     | AcceptAllotmentToShields
     | StartBalanceFromArc
@@ -266,6 +267,21 @@ update starship msg model =
                                 { model | partialState = None, status = newStatus }
                             )
                         |> Maybe.withDefault model
+                    , Cmd.none
+                    )
+
+                _ ->
+                    ( model, Cmd.none )
+
+        -- TODO: You're only allowed to route extra power to one system via
+        -- divert or three via overpower
+        DivertToEngines ->
+            case model.partialState of
+                None ->
+                    ( { model
+                        | status =
+                            Status.divertPowerToEngines starship model.roundNumber model.status
+                      }
                     , Cmd.none
                     )
 
@@ -837,6 +853,15 @@ view starship model =
                     [ E.onClick AcceptDivertToShields ]
             )
             [ text "Accept Divert Power to Shields" ]
+        , button
+            (case ( model.partialState, model.phase ) of
+                ( None, Engineering ) ->
+                    [ E.onClick DivertToEngines ]
+
+                _ ->
+                    [ A.disabled True ]
+            )
+            [ text "Divert Power to Engines" ]
         , button
             [ E.onClick AcceptAllotmentToShields, A.disabled (not isStillAllotting) ]
             [ text "Accept Allotted Shields" ]

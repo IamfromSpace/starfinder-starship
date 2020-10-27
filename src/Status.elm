@@ -1,4 +1,4 @@
-module Status exposing (Assignments, CriticalStatus, ExtraPoweredSystem(..), PatchEffectiveness(..), PatchableSystem(..), Severity(..), Status, areShieldsFull, balanceEvenly, balanceFromArc, basePatchDC, canBalanceFromTo, damage, damageArc, damageSeverity, damageSystem, divertPowerToShields, forceAddShields, forceMoveShields, getEffectiveAcAndTl, getEffectiveBonus, getEffectiveDistanceBetweenTurns, getEffectiveSeverity, getEffectiveSpeed, hasExtraPower, holdItTogether, init, maxDivertPowerToShieldPoints, patchCount, patchCriticalStatus, patchStatus, pickPatchableSystem, quickFix, updateCriticalStatus)
+module Status exposing (Assignments, CriticalStatus, ExtraPoweredSystem(..), PatchEffectiveness(..), PatchableSystem(..), Severity(..), Status, areShieldsFull, balanceEvenly, balanceFromArc, basePatchDC, canBalanceFromTo, damage, damageArc, damageSeverity, damageSystem, divertPowerToEngines, divertPowerToShields, forceAddShields, forceMoveShields, getEffectiveAcAndTl, getEffectiveBonus, getEffectiveDistanceBetweenTurns, getEffectiveSeverity, getEffectiveSpeed, hasExtraPower, holdItTogether, init, maxDivertPowerToShieldPoints, patchCount, patchCriticalStatus, patchStatus, pickPatchableSystem, quickFix, updateCriticalStatus)
 
 import Arc exposing (AnArc, Arc)
 import Crewmate exposing (Crewmate)
@@ -678,6 +678,11 @@ divertPowerToShields starship added currentRound status =
     Maybe.map
         (\shields -> { status | shields = shields, powerAction = ( currentRound, Divert Shields ) })
         (divertPowerToShields_ starship added status.shields)
+
+
+divertPowerToEngines : Starship -> Int -> Status -> Status
+divertPowerToEngines starship currentRound status =
+    { status | powerAction = ( currentRound, Divert EngineSpeed ) }
 
 
 areShieldsFull : Starship -> Status -> Bool
