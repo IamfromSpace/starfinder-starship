@@ -1,6 +1,8 @@
-module Status exposing (CriticalStatus, ExtraPoweredSystem(..), PatchEffectiveness(..), PatchableSystem(..), Severity(..), Status, areShieldsFull, balanceEvenly, balanceFromArc, basePatchDC, canBalanceFromTo, damage, damageArc, damageSeverity, damageSystem, divertPowerToShields, forceAddShields, forceMoveShields, getEffectiveBonus, getEffectiveSeverity, hasExtraPower, holdItTogether, init, maxDivertPowerToShieldPoints, patchCount, patchCriticalStatus, patchStatus, pickPatchableSystem, quickFix, updateCriticalStatus)
+module Status exposing (Assignments, CriticalStatus, ExtraPoweredSystem(..), PatchEffectiveness(..), PatchableSystem(..), Severity(..), Status, areShieldsFull, balanceEvenly, balanceFromArc, basePatchDC, canBalanceFromTo, damage, damageArc, damageSeverity, damageSystem, divertPowerToShields, forceAddShields, forceMoveShields, getEffectiveBonus, getEffectiveSeverity, hasExtraPower, holdItTogether, init, maxDivertPowerToShieldPoints, patchCount, patchCriticalStatus, patchStatus, pickPatchableSystem, quickFix, updateCriticalStatus)
 
 import Arc exposing (AnArc, Arc)
+import Crewmate exposing (Crewmate)
+import Dict exposing (Dict)
 import Random exposing (Generator)
 import Starship exposing (Starship)
 import Switch exposing (Switch(..))
@@ -92,6 +94,16 @@ type alias CriticalStatus =
     }
 
 
+type alias Assignments a =
+    { captain : Maybe a
+    , pilot : Maybe a
+    , engineers : List a
+    , scienceOfficers : List a
+    , gunners : List a
+    }
+
+
+
 -- TODO: There's mounting evidence that there are multiple status layers.
 -- There's a Build, then a Starship with things that persist from battle to
 -- battle (hulle damage, crew, critical systems) and then there are things that
@@ -109,6 +121,14 @@ type alias Status =
     , powerCore : Maybe CriticalStatus
     , powerAction : ( Int, PowerAction ) -- The most recent round's Power Action
     , pilotResult : ( Int, PilotResult )
+
+    -- TODO: Ideally CrewId (or just an "assignable thing") isn't a String, but
+    -- a parameterized type so that it can be any identifier, or a
+    -- CrewmateStatus, or a (Crewmate, CrewmateStatus), or something else.
+    -- However, this parameterization gets _everywhere_, so it's a bit of apain
+    -- to do now.
+    , crew : Dict String Crewmate
+    , assignments : Assignments String
     }
 
 
@@ -123,6 +143,14 @@ init =
     , powerCore = Nothing
     , powerAction = ( -1, Divert Shields ) -- The -1 round acts as a No-op
     , pilotResult = ( -1, noPilotResult ) -- The -1 round acts as a No-op
+    , crew = Dict.empty
+    , assignments =
+        { captain = Nothing
+        , pilot = Nothing
+        , scienceOfficers = []
+        , engineers = []
+        , gunners = []
+        }
     }
 
 

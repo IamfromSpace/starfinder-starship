@@ -1,8 +1,5 @@
 module Crewmate exposing (Crewmate)
 
-import Starship exposing (Starship)
-import Status exposing (Status)
-
 
 type alias Crewmate =
     { level : Int
