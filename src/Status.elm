@@ -113,6 +113,11 @@ type alias Assignments a =
 -- actions)
 
 
+type Taunted
+    = Push
+    | NotPush
+
+
 type alias Status =
     { damage : Int
     , shields : Arc Int
@@ -131,6 +136,7 @@ type alias Status =
     -- to do now.
     , crew : Dict String Crewmate
     , assignments : Assignments String
+    , tauntedBy : Dict String ( Int, Taunted )
     }
 
 
@@ -153,6 +159,7 @@ init =
         , engineers = []
         , gunners = []
         }
+    , tauntedBy = Dict.empty
     }
 
 
@@ -305,13 +312,34 @@ getEffectiveBonus currentRound involvedSystem isPush status =
 
                 Just Wrecked ->
                     -4
-    in
-    case involvedSystem of
-        PowerCore ->
-            standardBonus
 
-        _ ->
-            Maybe.map ((+) powerCoreEffectBonus) standardBonus
+        tauntedByBonus =
+            status.tauntedBy
+                |> Dict.values
+                |> List.map
+                    (\( effectiveUntil, push ) ->
+                        if currentRound <= effectiveUntil then
+                            0
+
+                        else
+                            case push of
+                                Push ->
+                                    -4
+
+                                NotPush ->
+                                    -2
+                    )
+                |> List.sum
+
+        conditionallyIncludePowerCorEffects =
+            case involvedSystem of
+                PowerCore ->
+                    identity
+
+                _ ->
+                    (+) powerCoreEffectBonus
+    in
+    Maybe.map ((+) tauntedByBonus >> conditionallyIncludePowerCorEffects) standardBonus
 
 
 basePatchDCPatches : PatchEffectiveness -> Patches -> Maybe Int

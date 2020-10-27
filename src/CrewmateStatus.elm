@@ -6,16 +6,10 @@ import Starship exposing (Starship)
 import Status exposing (Status)
 
 
-type Taunted
-    = Push
-    | NotPush
-
-
 type alias CrewmateStatus =
     { resolvePoints : Int
     , demanded : Bool
     , encouraged : Bool
-    , taunted : Maybe Taunted
     , ordered : Bool
     , moved : Bool
     , staminaPoints : Int
@@ -24,7 +18,7 @@ type alias CrewmateStatus =
 
 
 baseBonusModifier : CrewmateStatus -> Int
-baseBonusModifier { demanded, encouraged, taunted } =
+baseBonusModifier { demanded, encouraged } =
     let
         d =
             if demanded then
@@ -39,19 +33,8 @@ baseBonusModifier { demanded, encouraged, taunted } =
 
             else
                 0
-
-        t =
-            case taunted of
-                Just Push ->
-                    -4
-
-                Just NotPush ->
-                    -2
-
-                Nothing ->
-                    0
     in
-    d + e + t
+    d + e
 
 
 
