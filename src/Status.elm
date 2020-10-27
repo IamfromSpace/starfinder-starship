@@ -1,4 +1,4 @@
-module Status exposing (Assignments, CriticalStatus, ExtraPoweredSystem(..), PatchEffectiveness(..), PatchableSystem(..), Severity(..), Status, areShieldsFull, balanceEvenly, balanceFromArc, basePatchDC, canBalanceFromTo, damage, damageArc, damageSeverity, damageSystem, divertPowerToEngines, divertPowerToShields, forceAddShields, forceMoveShields, getEffectiveAcAndTl, getEffectiveBonus, getEffectiveDistanceBetweenTurns, getEffectiveSeverity, getEffectiveSpeed, hasExtraPower, holdItTogether, init, maxDivertPowerToShieldPoints, patchCount, patchCriticalStatus, patchStatus, pickPatchableSystem, quickFix, updateCriticalStatus)
+module Status exposing (Assignments, CriticalStatus, ExtraPoweredSystem(..), PatchEffectiveness(..), PatchableSystem(..), Severity(..), Status, areShieldsFull, balanceEvenly, balanceFromArc, basePatchDC, canBalanceFromTo, damage, damageArc, damageSeverity, damageSystem, divertPowerToEngines, divertPowerToShields, forceAddShields, forceMoveShields, getEffectiveAcAndTl, getEffectiveBonus, getEffectiveDistanceBetweenTurns, getEffectiveSeverity, getEffectiveSpeed, hasExtraPower, holdItTogether, init, maxDivertPowerToShieldPoints, patchCount, patchCriticalStatus, patchProgress, patchStatus, pickPatchableSystem, quickFix, updateCriticalStatus)
 
 import Arc exposing (AnArc, Arc)
 import Crewmate exposing (Crewmate)
@@ -224,6 +224,31 @@ patchCount_ patches =
 patchCount : CriticalStatus -> Int
 patchCount =
     patchCount_ << .patches
+
+
+patchProgress : Patches -> ( Int, Int )
+patchProgress patches =
+    case patches of
+        W (W (W x)) ->
+            ( 3, 3 )
+
+        W (W (M x)) ->
+            ( 2, 3 )
+
+        W (M x) ->
+            ( 1, 3 )
+
+        M (M x) ->
+            ( 2, 2 )
+
+        M (G x) ->
+            ( 1, 2 )
+
+        G R ->
+            ( 0, 1 )
+
+        _ ->
+            ( 0, 0 )
 
 
 applyPatches : Patches -> Maybe Severity

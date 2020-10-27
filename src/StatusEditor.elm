@@ -650,25 +650,15 @@ view starship model =
                 impacted =
                     effectiveSeverity == Nothing
 
-                xOfYStr x y =
+                xOfYStr ( x, y ) =
                     "(" ++ String.fromInt x ++ "/" ++ String.fromInt y ++ ")"
 
-                patchesNeeded severity =
-                    case severity of
-                        Glitching ->
-                            1
-
-                        Malfunctioning ->
-                            2
-
-                        Wrecked ->
-                            3
-
+                -- TODO: This helpful when Held Together (patches will be
+                -- useful next round) but not so helpful when quickfixed
+                -- (patches accomplish nothing).
                 patchDisplay =
                     status
-                        |> Maybe.map Status.patchCount
-                        |> Maybe.withDefault 0
-                        |> (\n -> Maybe.map (patchesNeeded >> xOfYStr n) effectiveSeverity)
+                        |> Maybe.map (.patches >> Status.patchProgress >> xOfYStr)
                         |> Maybe.withDefault ""
             in
             div
