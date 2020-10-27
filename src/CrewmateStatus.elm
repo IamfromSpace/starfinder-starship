@@ -8,7 +8,7 @@ import Status exposing (Status)
 
 type alias CrewmateStatus =
     { resolvePoints : Int
-    , demanded : Bool
+    , demanded : Bool -- TODO: Can only be demanded by one PC one time
     , encouraged : Bool
     , ordered : Bool
     , moved : Bool
