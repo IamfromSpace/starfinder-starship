@@ -1018,10 +1018,15 @@ getEffectiveAcAndTl starship currentRound status =
                 |> Maybe.map DefenseLevel.toBonus
                 |> Maybe.withDefault 0
 
+        armorTlPenalty =
+            starship.armor
+                |> Maybe.map DefenseLevel.toTlPenalty
+                |> Maybe.withDefault 0
+
         countermeasuresBonus =
             starship.defensiveCountermeasures
                 -- TODO: These have to be on
                 |> Maybe.map (DefenseLevel.toBonus << extract)
                 |> Maybe.withDefault 0
     in
-    ( baseValue + armorBonus, baseValue + countermeasuresBonus )
+    ( baseValue + armorBonus, baseValue + armorTlPenalty + countermeasuresBonus )
