@@ -623,6 +623,9 @@ view starship model =
                 |> Maybe.map (Status.areShieldsFull starship)
                 |> Maybe.withDefault False
 
+        ( effectiveAc, effectiveTl ) =
+            Status.getEffectiveAcAndTl starship model.roundNumber model.status
+
         patchableDisplay isEngineeringPhase name status patchableSystem =
             let
                 effectiveSeverity =
@@ -728,6 +731,10 @@ view starship model =
                 Balancing balance ->
                     balancingShieldedFighter starship model.status balance size
             ]
+        , div [] [ text ("AC: " ++ String.fromInt effectiveAc) ]
+        , div [] [ text ("TL: " ++ String.fromInt effectiveTl) ]
+        , div [] [ text ("Speed (hexes): " ++ String.fromInt (Status.getEffectiveSpeed starship model.roundNumber model.status)) ]
+        , div [] [ text ("Turn: " ++ String.fromInt (Status.getEffectiveDistanceBetweenTurns starship model.roundNumber model.status)) ]
         , input
             [ A.value (Maybe.map String.fromInt model.damageInput |> Maybe.withDefault "")
             , A.disabled
