@@ -92,6 +92,13 @@ type alias CriticalStatus =
     }
 
 
+-- TODO: There's mounting evidence that there are multiple status layers.
+-- There's a Build, then a Starship with things that persist from battle to
+-- battle (hulle damage, crew, critical systems) and then there are things that
+-- only last during a battle or even a single round (pilot results, power
+-- actions)
+
+
 type alias Status =
     { damage : Int
     , shields : Arc Int
