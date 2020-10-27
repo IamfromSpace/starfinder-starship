@@ -1,9 +1,11 @@
-module Status exposing (Assignments, CriticalStatus, ExtraPoweredSystem(..), PatchEffectiveness(..), PatchableSystem(..), Severity(..), Status, areShieldsFull, balanceEvenly, balanceFromArc, basePatchDC, canBalanceFromTo, damage, damageArc, damageSeverity, damageSystem, divertPowerToShields, forceAddShields, forceMoveShields, getEffectiveBonus, getEffectiveSeverity, hasExtraPower, holdItTogether, init, maxDivertPowerToShieldPoints, patchCount, patchCriticalStatus, patchStatus, pickPatchableSystem, quickFix, updateCriticalStatus)
+module Status exposing (Assignments, CriticalStatus, ExtraPoweredSystem(..), PatchEffectiveness(..), PatchableSystem(..), Severity(..), Status, areShieldsFull, balanceEvenly, balanceFromArc, basePatchDC, canBalanceFromTo, damage, damageArc, damageSeverity, damageSystem, divertPowerToShields, forceAddShields, forceMoveShields, getEffectiveAcAndTl, getEffectiveBonus, getEffectiveSeverity, hasExtraPower, holdItTogether, init, maxDivertPowerToShieldPoints, patchCount, patchCriticalStatus, patchStatus, pickPatchableSystem, quickFix, updateCriticalStatus)
 
 import Arc exposing (AnArc, Arc)
 import Crewmate exposing (Crewmate)
+import DefenseLevel
 import Dict exposing (Dict)
 import Random exposing (Generator)
+import Size
 import Starship exposing (Starship)
 import Switch exposing (Switch(..))
 import Togglable exposing (extract, meta)
@@ -984,3 +986,42 @@ audaciousGambitFail =
     -- TODO: Also costs a Resolve Point
     -- Just updates the most recent pilot effect (but has none)
     applyPilotResult (always noPilotResult)
+
+
+getEffectiveAcAndTl : Starship -> Int -> Status -> ( Int, Int )
+getEffectiveAcAndTl starship currentRound status =
+    let
+        pilotsPilotRanks =
+            status.assignments.pilot
+                |> Maybe.andThen (\id -> Dict.get id status.crew)
+                |> Maybe.map .pilotingRanks
+                |> Maybe.withDefault 0
+
+        sizeBonus =
+            Size.acAndTlBonus starship.frame.size
+
+        ( pilotResultRound, pilotResult ) =
+            status.pilotResult
+
+        pilotResultBonus =
+            if currentRound == pilotResultRound then
+                pilotResult.acAndTlBonus
+
+            else
+                0
+
+        baseValue =
+            10 + pilotsPilotRanks + sizeBonus + pilotResultBonus
+
+        armorBonus =
+            starship.armor
+                |> Maybe.map DefenseLevel.toBonus
+                |> Maybe.withDefault 0
+
+        countermeasuresBonus =
+            starship.defensiveCountermeasures
+                -- TODO: These have to be on
+                |> Maybe.map (DefenseLevel.toBonus << extract)
+                |> Maybe.withDefault 0
+    in
+    ( baseValue + armorBonus, baseValue + countermeasuresBonus )

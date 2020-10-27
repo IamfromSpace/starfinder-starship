@@ -1,4 +1,4 @@
-module Size exposing (Size(..), toString, topSpeed)
+module Size exposing (Size(..), acAndTlBonus, toString, topSpeed)
 
 
 type Size
@@ -31,6 +31,31 @@ topSpeed size =
 
         _ ->
             8
+
+
+acAndTlBonus : Size -> Int
+acAndTlBonus size =
+    case size of
+        Tiny ->
+            2
+
+        Small ->
+            1
+
+        Medium ->
+            0
+
+        Large ->
+            -1
+
+        Huge ->
+            -2
+
+        Gargantuan ->
+            -4
+
+        Colossal ->
+            -8
 
 
 toString : Size -> String

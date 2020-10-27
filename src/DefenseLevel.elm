@@ -1,4 +1,4 @@
-module DefenseLevel exposing (DefenseLevel(..), decDefenseLevel, getDefenseLevelSeq, incDefenseLevel, toString)
+module DefenseLevel exposing (DefenseLevel(..), decDefenseLevel, getDefenseLevelSeq, incDefenseLevel, toBonus, toString)
 
 
 type DefenseLevel
@@ -17,6 +17,55 @@ type DefenseLevel
     | Mk13
     | Mk14
     | Mk15
+
+
+toBonus : DefenseLevel -> Int
+toBonus defenseLevel =
+    case defenseLevel of
+        Mk1 ->
+            1
+
+        Mk2 ->
+            2
+
+        Mk3 ->
+            3
+
+        Mk4 ->
+            4
+
+        Mk5 ->
+            5
+
+        Mk6 ->
+            6
+
+        Mk7 ->
+            7
+
+        Mk8 ->
+            8
+
+        Mk9 ->
+            9
+
+        Mk10 ->
+            10
+
+        Mk11 ->
+            11
+
+        Mk12 ->
+            12
+
+        Mk13 ->
+            13
+
+        Mk14 ->
+            14
+
+        Mk15 ->
+            15
 
 
 toString : DefenseLevel -> String
