@@ -1,5 +1,7 @@
 module DefenseLevel exposing (DefenseLevel(..), decDefenseLevel, getDefenseLevelSeq, incDefenseLevel, toBonus, toString, toTlPenalty)
 
+-- TODO: Armor also decreases maneuverability
+
 
 type DefenseLevel
     = Mk1
