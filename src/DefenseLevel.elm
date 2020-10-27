@@ -1,4 +1,4 @@
-module DefenseLevel exposing (DefenseLevel(..), decDefenseLevel, getDefenseLevelSeq, incDefenseLevel, toBonus, toString, toTlPenalty)
+module DefenseLevel exposing (DefenseLevel(..), decDefenseLevel, getDefenseLevelSeq, incDefenseLevel, toBonus, toManeuverabilityPenalty, toString, toTlPenalty)
 
 -- TODO: Armor also decreases maneuverability
 
@@ -117,6 +117,34 @@ toBonus defenseLevel =
 
         Mk15 ->
             15
+
+
+toManeuverabilityPenalty : DefenseLevel -> Int
+toManeuverabilityPenalty defenseLevel =
+    case defenseLevel of
+        Mk9 ->
+            1
+
+        Mk10 ->
+            1
+
+        Mk11 ->
+            1
+
+        Mk12 ->
+            2
+
+        Mk13 ->
+            2
+
+        Mk14 ->
+            2
+
+        Mk15 ->
+            3
+
+        _ ->
+            0
 
 
 toString : DefenseLevel -> String

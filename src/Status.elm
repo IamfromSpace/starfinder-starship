@@ -1,4 +1,4 @@
-module Status exposing (Assignments, CriticalStatus, ExtraPoweredSystem(..), PatchEffectiveness(..), PatchableSystem(..), Severity(..), Status, areShieldsFull, balanceEvenly, balanceFromArc, basePatchDC, canBalanceFromTo, damage, damageArc, damageSeverity, damageSystem, divertPowerToShields, forceAddShields, forceMoveShields, getEffectiveAcAndTl, getEffectiveBonus, getEffectiveSeverity, getEffectiveSpeed, hasExtraPower, holdItTogether, init, maxDivertPowerToShieldPoints, patchCount, patchCriticalStatus, patchStatus, pickPatchableSystem, quickFix, updateCriticalStatus)
+module Status exposing (Assignments, CriticalStatus, ExtraPoweredSystem(..), PatchEffectiveness(..), PatchableSystem(..), Severity(..), Status, areShieldsFull, balanceEvenly, balanceFromArc, basePatchDC, canBalanceFromTo, damage, damageArc, damageSeverity, damageSystem, divertPowerToShields, forceAddShields, forceMoveShields, getEffectiveAcAndTl, getEffectiveBonus, getEffectiveDistanceBetweenTurns, getEffectiveSeverity, getEffectiveSpeed, hasExtraPower, holdItTogether, init, maxDivertPowerToShieldPoints, patchCount, patchCriticalStatus, patchStatus, pickPatchableSystem, quickFix, updateCriticalStatus)
 
 import Arc exposing (AnArc, Arc)
 import Crewmate exposing (Crewmate)
@@ -1055,3 +1055,41 @@ getEffectiveSpeed starship currentRound status =
     in
     -- TODO: These have to be on
     extract starship.thrusters + engineeringBonus + pilotBonus
+
+
+getEffectiveDistanceBetweenTurns : Starship -> Int -> Status -> Int
+getEffectiveDistanceBetweenTurns starship currentRound status =
+    let
+        baseValue =
+            case starship.frame.maneuverability of
+                Starship.Clumsy ->
+                    4
+
+                Starship.Poor ->
+                    3
+
+                Starship.Average ->
+                    2
+
+                Starship.Good ->
+                    1
+
+                Starship.Perfect ->
+                    0
+
+        armorManeuverabilityEffect =
+            starship.armor
+                |> Maybe.map DefenseLevel.toManeuverabilityPenalty
+                |> Maybe.withDefault 0
+
+        ( pilotResultRound, pilotResult ) =
+            status.pilotResult
+
+        pilotEffect =
+            if currentRound == pilotResultRound then
+                pilotResult.maneuverabilityDelta
+
+            else
+                0
+    in
+    max 0 (baseValue + armorManeuverabilityEffect + pilotEffect)
