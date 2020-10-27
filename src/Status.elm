@@ -811,7 +811,10 @@ reductionToHalfSpeedAndNoTurns starship =
         finalSpeed =
             baseSpeed // 2
     in
-    ( finalSpeed - baseSpeed, finalSpeed + 1 )
+    -- TODO: This also considers if power has been diverted to the engines (by
+    -- adding 3 instead of 1) but ultimately this should just be represented as
+    -- a Maybe or something.
+    ( finalSpeed - baseSpeed, finalSpeed + 3 )
 
 
 maneuver : Starship -> Int -> Status -> Status
