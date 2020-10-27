@@ -1,4 +1,4 @@
-module Status exposing (Assignments, CriticalStatus, ExtraPoweredSystem(..), PatchEffectiveness(..), PatchableSystem(..), Severity(..), Status, areShieldsFull, balanceEvenly, balanceFromArc, basePatchDC, canBalanceFromTo, damage, damageArc, damageSeverity, damageSystem, divertPowerToShields, forceAddShields, forceMoveShields, getEffectiveAcAndTl, getEffectiveBonus, getEffectiveSeverity, hasExtraPower, holdItTogether, init, maxDivertPowerToShieldPoints, patchCount, patchCriticalStatus, patchStatus, pickPatchableSystem, quickFix, updateCriticalStatus)
+module Status exposing (Assignments, CriticalStatus, ExtraPoweredSystem(..), PatchEffectiveness(..), PatchableSystem(..), Severity(..), Status, areShieldsFull, balanceEvenly, balanceFromArc, basePatchDC, canBalanceFromTo, damage, damageArc, damageSeverity, damageSystem, divertPowerToShields, forceAddShields, forceMoveShields, getEffectiveAcAndTl, getEffectiveBonus, getEffectiveSeverity, getEffectiveSpeed, hasExtraPower, holdItTogether, init, maxDivertPowerToShieldPoints, patchCount, patchCriticalStatus, patchStatus, pickPatchableSystem, quickFix, updateCriticalStatus)
 
 import Arc exposing (AnArc, Arc)
 import Crewmate exposing (Crewmate)
@@ -1030,3 +1030,28 @@ getEffectiveAcAndTl starship currentRound status =
                 |> Maybe.withDefault 0
     in
     ( baseValue + armorBonus, baseValue + armorTlPenalty + countermeasuresBonus )
+
+
+getEffectiveSpeed : Starship -> Int -> Status -> Int
+getEffectiveSpeed starship currentRound status =
+    -- TODO: Do we multiply from stunts or add from engineer actions first?
+    let
+        engineeringBonus =
+            if hasExtraPower EngineSpeed currentRound status then
+                2
+
+            else
+                0
+
+        ( pilotResultRound, pilotResult ) =
+            status.pilotResult
+
+        pilotBonus =
+            if currentRound == pilotResultRound then
+                pilotResult.speedDelta
+
+            else
+                0
+    in
+    -- TODO: These have to be on
+    extract starship.thrusters + engineeringBonus + pilotBonus
