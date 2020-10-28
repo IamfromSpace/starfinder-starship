@@ -2,6 +2,7 @@ module CrewmateStatus exposing (CrewmateStatus)
 
 import Arc exposing (AnArc)
 import Crewmate exposing (Crewmate)
+import PatchableSystems exposing (PatchableSystem(..))
 import Starship exposing (Starship)
 import Status exposing (Status)
 
@@ -50,7 +51,7 @@ baseBonusModifier { demanded, encouraged } =
 -- already taken an action?
 
 
-standardBonus : Status.PatchableSystem -> (Crewmate -> Int) -> (Crewmate -> Bool) -> Bool -> Bool -> Crewmate -> CrewmateStatus -> Int -> Status -> Maybe Int
+standardBonus : PatchableSystem -> (Crewmate -> Int) -> (Crewmate -> Bool) -> Bool -> Bool -> Crewmate -> CrewmateStatus -> Int -> Status -> Maybe Int
 standardBonus involvedSystem getApplicableSkillBonus checkQualifications isPush requiresRP crewmate crewmateStatus currentRound status =
     if checkQualifications crewmate && (crewmateStatus.resolvePoints > 0 || not requiresRP) then
         Status.getEffectiveBonus currentRound involvedSystem isPush status
@@ -62,7 +63,7 @@ standardBonus involvedSystem getApplicableSkillBonus checkQualifications isPush 
 
 standardCaptainBonus : (Int -> Bool) -> Bool -> Bool -> Crewmate -> CrewmateStatus -> Int -> Status -> Maybe Int
 standardCaptainBonus checkQualification =
-    standardBonus Status.LifeSupport .diplomacySkillBonus (.level >> checkQualification)
+    standardBonus LifeSupport .diplomacySkillBonus (.level >> checkQualification)
 
 
 demandBonus : Crewmate -> CrewmateStatus -> Int -> Status -> Maybe Int
@@ -92,7 +93,7 @@ movingSpeechBonus =
 
 standardEngineerBonus : (Int -> Bool) -> Bool -> Bool -> Crewmate -> CrewmateStatus -> Int -> Status -> Maybe Int
 standardEngineerBonus checkQualification =
-    standardBonus Status.PowerCore .engineeringSkillBonus (.engineeringRanks >> checkQualification)
+    standardBonus PowerCore .engineeringSkillBonus (.engineeringRanks >> checkQualification)
 
 
 divertBonus : Crewmate -> CrewmateStatus -> Int -> Status -> Maybe Int
@@ -134,7 +135,7 @@ standardGunnerBonus checkQualification isPush requiresRP otherBonus arc crewmate
                 + max cm.baseAttackBonus cm.pilotingSkillBonus
 
         beforeOtherBonus =
-            standardBonus (Status.WeaponsArray arc) associatedSkill (.level >> checkQualification) isPush requiresRP crewmate crewmateStatus currentRound status
+            standardBonus (WeaponsArray arc) associatedSkill (.level >> checkQualification) isPush requiresRP crewmate crewmateStatus currentRound status
     in
     Maybe.map ((+) otherBonus) beforeOtherBonus
 
@@ -166,7 +167,7 @@ standardPilotBonus checkQualification isPush requiresRP starship crewmate crewma
             Starship.getPilotBonus starship
 
         standardBonus_ =
-            standardBonus Status.Engines .pilotingSkillBonus (.pilotingRanks >> checkQualification) isPush requiresRP crewmate crewmateStatus rountNumber status
+            standardBonus Engines .pilotingSkillBonus (.pilotingRanks >> checkQualification) isPush requiresRP crewmate crewmateStatus rountNumber status
     in
     Maybe.map ((+) starshipBonus) standardBonus_
 
@@ -197,7 +198,7 @@ standardScienceOfficerBonus checkQualification isPush requiresRP crewmate crewma
         withoutDivertBonus =
             -- TODO: Third time that we're almost entirely bypassing our
             -- `standardBonus` abstraction
-            standardBonus Status.Sensors .computersSkillBonus (.computersRanks >> checkQualification) isPush requiresRP crewmate crewmateStatus currentRound status
+            standardBonus Sensors .computersSkillBonus (.computersRanks >> checkQualification) isPush requiresRP crewmate crewmateStatus currentRound status
 
         bonusFromDivert =
             if Status.hasExtraPower Status.ScienceEquipment currentRound status then

@@ -1,11 +1,11 @@
-module Status exposing (Assignments, ExtraPoweredSystem(..), PatchableSystem(..), Status, areShieldsFull, balanceEvenly, balanceFromArc, basePatchDC, canBalanceFromTo, damageArc, damageSystem, divertPowerToEngines, divertPowerToShields, forceAddShields, forceMoveShields, getEffectiveAcAndTl, getEffectiveBonus, getEffectiveDistanceBetweenTurns, getEffectiveSpeed, hasExtraPower, holdItTogether, init, maxDivertPowerToShieldPoints, patch, pickPatchableSystem, quickFix, updateCriticalStatus)
+module Status exposing (Assignments, ExtraPoweredSystem(..), Status, areShieldsFull, balanceEvenly, balanceFromArc, basePatchDC, canBalanceFromTo, damageArc, damageSystem, divertPowerToEngines, divertPowerToShields, forceAddShields, forceMoveShields, getEffectiveAcAndTl, getEffectiveBonus, getEffectiveDistanceBetweenTurns, getEffectiveSpeed, hasExtraPower, holdItTogether, init, maxDivertPowerToShieldPoints, patch, quickFix)
 
 import Arc exposing (AnArc, Arc)
 import Crewmate exposing (Crewmate)
 import CriticalStatus as CS exposing (CriticalStatus, PatchEffectiveness(..), Severity(..))
 import DefenseLevel
 import Dict exposing (Dict)
-import Random exposing (Generator)
+import PatchableSystems as PS exposing (PatchableSystem(..), PatchableSystems)
 import Size
 import Starship exposing (Starship)
 import Switch exposing (Switch(..))
@@ -78,11 +78,7 @@ type Taunted
 type alias Status =
     { damage : Int
     , shields : Arc Int
-    , lifeSupport : Maybe CriticalStatus
-    , sensors : Maybe CriticalStatus
-    , weaponsArray : Arc (Maybe CriticalStatus)
-    , engines : Maybe CriticalStatus
-    , powerCore : Maybe CriticalStatus
+    , systems : PS.PatchableSystems (Maybe CriticalStatus)
     , powerAction : ( Int, PowerAction ) -- The most recent round's Power Action
     , pilotResult : ( Int, PilotResult )
 
@@ -101,11 +97,7 @@ init : Status
 init =
     { damage = 0
     , shields = Arc.pure 0
-    , lifeSupport = Nothing
-    , sensors = Nothing
-    , weaponsArray = Arc.pure Nothing
-    , engines = Nothing
-    , powerCore = Nothing
+    , systems = PS.pure Nothing
     , powerAction = ( -1, Divert Shields ) -- The -1 round acts as a No-op
     , pilotResult = ( -1, noPilotResult ) -- The -1 round acts as a No-op
     , crew = Dict.empty
@@ -143,7 +135,7 @@ getEffectiveBonus : Int -> PatchableSystem -> Bool -> Status -> Maybe Int
 getEffectiveBonus currentRound involvedSystem isPush status =
     let
         bonusBySystem system =
-            getCriticalStatus system status
+            PS.getPatchableSystem system status.systems
                 |> Maybe.andThen (CS.getEffectiveSeverity currentRound)
 
         standardBonus =
@@ -209,71 +201,17 @@ getEffectiveBonus currentRound involvedSystem isPush status =
 
 basePatchDC : PatchEffectiveness -> PatchableSystem -> Status -> Maybe Int
 basePatchDC pe ps s =
-    Maybe.andThen (CS.basePatchDC pe) (getCriticalStatus ps s)
+    Maybe.andThen (CS.basePatchDC pe) (PS.getPatchableSystem ps s.systems)
 
 
-type PatchableSystem
-    = LifeSupport
-    | Sensors
-    | WeaponsArray AnArc
-    | Engines
-    | PowerCore
-
-
-
--- A generator that picks a system to damage based on the odds
--- of impacting that system.
-
-
-pickPatchableSystem : Generator PatchableSystem
-pickPatchableSystem =
-    Random.weighted ( 10, LifeSupport )
-        [ ( 20, Sensors )
-        , ( 7.5, WeaponsArray Arc.Forward )
-        , ( 7.5, WeaponsArray Arc.Aft )
-        , ( 7.5, WeaponsArray Arc.Port )
-        , ( 7.5, WeaponsArray Arc.Starboard )
-        , ( 20, Engines )
-        , ( 20, PowerCore )
-        ]
-
-
-getCriticalStatus : PatchableSystem -> Status -> Maybe CriticalStatus
-getCriticalStatus system =
-    case system of
-        LifeSupport ->
-            .lifeSupport
-
-        Sensors ->
-            .sensors
-
-        WeaponsArray arc ->
-            .weaponsArray >> Arc.getArc arc
-
-        Engines ->
-            .engines
-
-        PowerCore ->
-            .powerCore
+updateSystems : (PatchableSystems (Maybe CriticalStatus) -> PatchableSystems (Maybe CriticalStatus)) -> Status -> Status
+updateSystems f status =
+    { status | systems = f status.systems }
 
 
 updateCriticalStatus : (Maybe CriticalStatus -> Maybe CriticalStatus) -> PatchableSystem -> Status -> Status
-updateCriticalStatus fn system status =
-    case system of
-        LifeSupport ->
-            { status | lifeSupport = fn status.lifeSupport }
-
-        Sensors ->
-            { status | sensors = fn status.sensors }
-
-        WeaponsArray arc ->
-            { status | weaponsArray = Arc.updateArc fn arc status.weaponsArray }
-
-        Engines ->
-            { status | engines = fn status.engines }
-
-        PowerCore ->
-            { status | powerCore = fn status.powerCore }
+updateCriticalStatus f =
+    PS.updatePatchableSystem f >> updateSystems
 
 
 patch : PatchEffectiveness -> PatchableSystem -> Status -> Status

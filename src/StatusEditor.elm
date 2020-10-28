@@ -11,6 +11,7 @@ import Fighter
 import Html exposing (Html, button, div, input, text)
 import Html.Attributes as A
 import Html.Events as E
+import PatchableSystems as PS exposing (PatchableSystem(..))
 import Platform.Cmd exposing (Cmd)
 import Platform.Sub
 import Random
@@ -18,7 +19,7 @@ import ShieldArc
 import Shielded
 import ShipAssets exposing (..)
 import Starship exposing (Starship)
-import Status exposing (PatchableSystem(..), Status)
+import Status exposing (Status)
 import Svg exposing (Svg)
 import Svg.Attributes as SA
 import Switch exposing (Switch(..))
@@ -128,7 +129,7 @@ init starship =
 
 type Msg
     = Damage Int Bool
-    | ApplyCrit Status.PatchableSystem
+    | ApplyCrit PatchableSystem
     | SelectSheildArc AnArc
     | DeselectSheildArc
     | ChangeDamageInput (Maybe Int)
@@ -176,7 +177,7 @@ update starship msg model =
                     , Cmd.batch
                         (List.repeat critCount
                             (Random.generate ApplyCrit
-                                Status.pickPatchableSystem
+                                PS.pickPatchableSystem
                             )
                         )
                     )
@@ -856,14 +857,14 @@ view starship model =
         , button
             [ E.onClick AcceptAllotmentToShields, A.disabled (not isStillAllotting) ]
             [ text "Accept Allotted Shields" ]
-        , patchableDisplay (model.phase == Engineering) "Life Support" model.status.lifeSupport LifeSupport
-        , patchableDisplay (model.phase == Engineering) "Sensors" model.status.sensors Sensors
-        , patchableDisplay (model.phase == Engineering) "Weapons Array - Forward" model.status.weaponsArray.forward (WeaponsArray Arc.Forward)
-        , patchableDisplay (model.phase == Engineering) "Weapons Array - Aft" model.status.weaponsArray.aft (WeaponsArray Arc.Aft)
-        , patchableDisplay (model.phase == Engineering) "Weapons Array - Port" model.status.weaponsArray.portSide (WeaponsArray Arc.Port)
-        , patchableDisplay (model.phase == Engineering) "Weapons Array - Starboard" model.status.weaponsArray.starboard (WeaponsArray Arc.Starboard)
-        , patchableDisplay (model.phase == Engineering) "Engines" model.status.engines Engines
-        , patchableDisplay (model.phase == Engineering) "Power Core" model.status.powerCore PowerCore
+        , patchableDisplay (model.phase == Engineering) "Life Support" model.status.systems.lifeSupport LifeSupport
+        , patchableDisplay (model.phase == Engineering) "Sensors" model.status.systems.sensors Sensors
+        , patchableDisplay (model.phase == Engineering) "Weapons Array - Forward" model.status.systems.weaponsArray.forward (WeaponsArray Arc.Forward)
+        , patchableDisplay (model.phase == Engineering) "Weapons Array - Aft" model.status.systems.weaponsArray.aft (WeaponsArray Arc.Aft)
+        , patchableDisplay (model.phase == Engineering) "Weapons Array - Port" model.status.systems.weaponsArray.portSide (WeaponsArray Arc.Port)
+        , patchableDisplay (model.phase == Engineering) "Weapons Array - Starboard" model.status.systems.weaponsArray.starboard (WeaponsArray Arc.Starboard)
+        , patchableDisplay (model.phase == Engineering) "Engines" model.status.systems.engines Engines
+        , patchableDisplay (model.phase == Engineering) "Power Core" model.status.systems.powerCore PowerCore
         , button
             [ E.onClick NextPhase, A.disabled isStillAllotting ]
             [ text ("PROCEED TO " ++ String.toUpper (phaseToString (nextPhase model.phase)) ++ " PHASE") ]
