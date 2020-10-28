@@ -6,6 +6,7 @@ import Color exposing (Color, blue, green, grey, red, yellow)
 import Color.Convert exposing (colorToCssRgb)
 import Color.Manipulate exposing (weightedMix)
 import CounterArc
+import CriticalStatus as CS exposing (CriticalStatus, Severity(..))
 import Fighter
 import Html exposing (Html, button, div, input, text)
 import Html.Attributes as A
@@ -17,7 +18,7 @@ import ShieldArc
 import Shielded
 import ShipAssets exposing (..)
 import Starship exposing (Starship)
-import Status exposing (CriticalStatus, PatchableSystem(..), Severity(..), Status)
+import Status exposing (PatchableSystem(..), Status)
 import Svg exposing (Svg)
 import Svg.Attributes as SA
 import Switch exposing (Switch(..))
@@ -143,7 +144,7 @@ type Msg
     | CancelBalanceFromArc
     | AcceptBalanceFromArc
     | BalanceEvenly
-    | Patch Status.PatchEffectiveness PatchableSystem
+    | Patch CS.PatchEffectiveness PatchableSystem
     | HoldItTogether PatchableSystem
     | QuickFix PatchableSystem
     | NextPhase
@@ -365,7 +366,7 @@ update starship msg model =
             ( { model | status = Status.balanceEvenly starship model.status }, Cmd.none )
 
         Patch pe patchableSystem ->
-            ( { model | status = Status.patchStatus pe patchableSystem model.status }, Cmd.none )
+            ( { model | status = Status.patch pe patchableSystem model.status }, Cmd.none )
 
         HoldItTogether patchableSystem ->
             ( { model | status = Status.holdItTogether model.roundNumber patchableSystem model.status }, Cmd.none )
@@ -425,7 +426,7 @@ maybeSeverityToPercent mSeverity =
 
 criticalStatusToRgb : Int -> Maybe CriticalStatus -> Color
 criticalStatusToRgb roundNumber =
-    Maybe.andThen (Status.getEffectiveSeverity roundNumber)
+    Maybe.andThen (CS.getEffectiveSeverity roundNumber)
         >> maybeSeverityToPercent
         >> colorTransition
 
@@ -645,7 +646,7 @@ view starship model =
         patchableDisplay isEngineeringPhase name status patchableSystem =
             let
                 effectiveSeverity =
-                    Maybe.andThen (Status.getEffectiveSeverity model.roundNumber) status
+                    Maybe.andThen (CS.getEffectiveSeverity model.roundNumber) status
 
                 impacted =
                     effectiveSeverity == Nothing
@@ -658,7 +659,7 @@ view starship model =
                 -- (patches accomplish nothing).
                 patchDisplay =
                     status
-                        |> Maybe.map (.patches >> Status.patchProgress >> xOfYStr)
+                        |> Maybe.map (.patches >> CS.patchProgress >> xOfYStr)
                         |> Maybe.withDefault ""
             in
             div
@@ -673,21 +674,21 @@ view starship model =
                     )
                 ]
                 [ button
-                    [ A.disabled (Maybe.andThen (Status.basePatchDC Status.Single) status == Nothing || not isEngineeringPhase)
+                    [ A.disabled (Maybe.andThen (CS.basePatchDC CS.Single) status == Nothing || not isEngineeringPhase)
                     , A.title "PATCH: apply a single patch towards the repair of one level of severity."
-                    , E.onClick (Patch Status.Single patchableSystem)
+                    , E.onClick (Patch CS.Single patchableSystem)
                     ]
                     [ text "P" ]
                 , button
-                    [ A.disabled (Maybe.andThen (Status.basePatchDC Status.Double) status == Nothing || not isEngineeringPhase)
+                    [ A.disabled (Maybe.andThen (CS.basePatchDC CS.Double) status == Nothing || not isEngineeringPhase)
                     , A.title "PATCH: apply two patches towards the repair of one level of severity."
-                    , E.onClick (Patch Status.Double patchableSystem)
+                    , E.onClick (Patch CS.Double patchableSystem)
                     ]
                     [ text "Px2" ]
                 , button
-                    [ A.disabled (Maybe.andThen (Status.basePatchDC Status.Triple) status == Nothing || not isEngineeringPhase)
+                    [ A.disabled (Maybe.andThen (CS.basePatchDC CS.Triple) status == Nothing || not isEngineeringPhase)
                     , A.title "PATCH: apply three patches towards the repair of one level of severity."
-                    , E.onClick (Patch Status.Triple patchableSystem)
+                    , E.onClick (Patch CS.Triple patchableSystem)
                     ]
                     [ text "Px3" ]
                 , button
