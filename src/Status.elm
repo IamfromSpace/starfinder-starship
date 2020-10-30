@@ -6,6 +6,7 @@ import CriticalStatus as CS exposing (CriticalStatus, PatchEffectiveness(..), Se
 import DefenseLevel
 import Dict exposing (Dict)
 import PatchableSystems as PS exposing (PatchableSystem(..), PatchableSystems)
+import PilotResult exposing (PilotResult, noPilotResult)
 import Size
 import Starship exposing (Starship)
 import Switch exposing (Switch(..))
@@ -22,35 +23,6 @@ type ExtraPoweredSystem
 type PowerAction
     = Divert ExtraPoweredSystem
     | Overpower (List ExtraPoweredSystem) -- UUUUUUUUGH The Elm maintainers are so stupid sometimes.
-
-
-type SpecialPilotResult
-    = MoveForwardFullSpeed
-    | Turn180AtTheEnd
-    | MoveBackwardExactlyOneHex
-    | MoveBackward
-    | SwapPortAndStarboard
-    | NoFreeAttackForSingleEnemy
-    | NoFreeAttackForAnyEnemyAndFreeFinalRotation
-    | Slide
-    | TurnInPlace
-
-
-type alias PilotResult =
-    { acAndTlBonus : Int
-    , speedDelta : Int
-    , maneuverabilityDelta : Int
-    , special : Maybe SpecialPilotResult
-    }
-
-
-noPilotResult : PilotResult
-noPilotResult =
-    { acAndTlBonus = 0
-    , speedDelta = 0
-    , maneuverabilityDelta = 0
-    , special = Nothing
-    }
 
 
 type alias Assignments a =
@@ -488,222 +460,105 @@ applyPilotResult f starship currentRound status =
     { status | pilotResult = ( currentRound, f starship ) }
 
 
-reductionToHalfSpeedAndNoTurns : Starship -> ( Int, Int )
-reductionToHalfSpeedAndNoTurns starship =
-    let
-        baseSpeed =
-            -- TODO: this ignores if thrusters are off
-            extract starship.thrusters
-
-        finalSpeed =
-            baseSpeed // 2
-    in
-    -- TODO: This also considers if power has been diverted to the engines (by
-    -- adding 3 instead of 1) but ultimately this should just be represented as
-    -- a Maybe or something.
-    ( finalSpeed - baseSpeed, finalSpeed + 3 )
-
-
 maneuver : Starship -> Int -> Status -> Status
 maneuver =
-    applyPilotResult (always { noPilotResult | maneuverabilityDelta = -1 })
+    applyPilotResult (always PilotResult.maneuver)
 
 
 backOff : Starship -> Int -> Status -> Status
 backOff =
-    applyPilotResult
-        (\starship ->
-            let
-                ( speedDelta, maneuverabilityDelta ) =
-                    reductionToHalfSpeedAndNoTurns starship
-            in
-            { noPilotResult
-                | maneuverabilityDelta = maneuverabilityDelta
-                , speedDelta = speedDelta
-                , special = Just MoveBackward
-            }
-        )
+    applyPilotResult PilotResult.backOff
 
 
 backOffFail : Starship -> Int -> Status -> Status
 backOffFail =
-    applyPilotResult (always { noPilotResult | special = Just MoveBackwardExactlyOneHex })
+    applyPilotResult (always PilotResult.backOffFail)
 
 
 backOffFailBy5OrMore : Starship -> Int -> Status -> Status
 backOffFailBy5OrMore =
-    applyPilotResult
-        (\starship ->
-            { noPilotResult
-                | acAndTlBonus = -4
-
-                -- TODO: this ignores if thrusters are off
-                , speedDelta = -(extract starship.thrusters)
-            }
-        )
+    applyPilotResult PilotResult.backOffFailBy5OrMore
 
 
 barrelRoll : Starship -> Int -> Status -> Status
 barrelRoll =
     -- TODO: Only valid for ships Large or smaller
-    applyPilotResult
-        (\starship ->
-            { noPilotResult
-                | speedDelta =
-                    Tuple.first <|
-                        reductionToHalfSpeedAndNoTurns starship
-                , special = Just SwapPortAndStarboard
-            }
-        )
+    applyPilotResult PilotResult.barrelRoll
 
 
 barrelRollFail : Starship -> Int -> Status -> Status
 barrelRollFail =
     -- TODO: Only valid for ships Large or smaller
-    applyPilotResult
-        (\starship ->
-            { noPilotResult
-                | speedDelta =
-                    Tuple.first <|
-                        reductionToHalfSpeedAndNoTurns starship
-            }
-        )
+    applyPilotResult PilotResult.barrelRollFail
 
 
 barrelRollFailBy5OrMore : Starship -> Int -> Status -> Status
 barrelRollFailBy5OrMore =
     -- TODO: Only valid for ships Large or smaller
-    applyPilotResult
-        (\starship ->
-            { noPilotResult
-                | acAndTlBonus = -4
-                , speedDelta =
-                    Tuple.first <|
-                        reductionToHalfSpeedAndNoTurns starship
-            }
-        )
+    applyPilotResult PilotResult.barrelRollFailBy5OrMore
 
 
 evade : Starship -> Int -> Status -> Status
 evade =
-    applyPilotResult (always { noPilotResult | acAndTlBonus = 2 })
+    applyPilotResult (always PilotResult.evade)
 
 
 evadeFailBy5OrMore : Starship -> Int -> Status -> Status
 evadeFailBy5OrMore =
-    applyPilotResult (always { noPilotResult | acAndTlBonus = -2 })
+    applyPilotResult (always PilotResult.evadeFailBy5OrMore)
 
 
 flipAndBurn : Starship -> Int -> Status -> Status
 flipAndBurn =
-    applyPilotResult
-        (\starship ->
-            let
-                ( speedDelta, maneuverabilityDelta ) =
-                    reductionToHalfSpeedAndNoTurns starship
-            in
-            { noPilotResult
-                | maneuverabilityDelta = maneuverabilityDelta
-                , speedDelta = speedDelta
-                , special = Just Turn180AtTheEnd
-            }
-        )
+    applyPilotResult PilotResult.flipAndBurn
 
 
 flipAndBurnFail : Starship -> Int -> Status -> Status
 flipAndBurnFail =
-    applyPilotResult
-        (\starship ->
-            let
-                ( speedDelta, maneuverabilityDelta ) =
-                    reductionToHalfSpeedAndNoTurns starship
-            in
-            { noPilotResult
-                | maneuverabilityDelta = maneuverabilityDelta
-                , speedDelta = speedDelta
-                , special = Just MoveForwardFullSpeed
-            }
-        )
+    applyPilotResult PilotResult.flipAndBurnFail
 
 
 flyby : Starship -> Int -> Status -> Status
 flyby =
-    applyPilotResult
-        (always { noPilotResult | special = Just NoFreeAttackForSingleEnemy })
+    applyPilotResult (always PilotResult.flyby)
 
 
 flybyFail : Starship -> Int -> Status -> Status
 flybyFail =
-    -- Just updates the most recent pilot effect (but has none)
-    applyPilotResult (always noPilotResult)
+    applyPilotResult (always PilotResult.flybyFail)
 
 
 slide : Starship -> Int -> Status -> Status
 slide =
-    applyPilotResult (always { noPilotResult | special = Just Slide })
+    applyPilotResult (always PilotResult.slide)
 
 
 slideFail : Starship -> Int -> Status -> Status
 slideFail =
-    applyPilotResult
-        (\starship ->
-            let
-                ( speedDelta, maneuverabilityDelta ) =
-                    reductionToHalfSpeedAndNoTurns starship
-            in
-            { noPilotResult
-                | maneuverabilityDelta = maneuverabilityDelta
-                , speedDelta = speedDelta
-            }
-        )
+    applyPilotResult PilotResult.slideFail
 
 
 turnInPlace : Starship -> Int -> Status -> Status
 turnInPlace =
-    applyPilotResult
-        (\starship ->
-            { noPilotResult
-                | acAndTlBonus =
-                    case starship.frame.maneuverability of
-                        Starship.Clumsy ->
-                            -4
-
-                        Starship.Poor ->
-                            -2
-
-                        _ ->
-                            0
-
-                -- TODO: this ignores if thrusters are off
-                , speedDelta = -(extract starship.thrusters)
-            }
-        )
+    applyPilotResult PilotResult.turnInPlace
 
 
 fullPower : Starship -> Int -> Status -> Status
 fullPower =
     -- TODO: Also costs a Resolve Point
-    -- TODO: this ignores if thrusters are off
-    applyPilotResult (\starship -> { noPilotResult | maneuverabilityDelta = 2, speedDelta = extract starship.thrusters // 3 })
+    applyPilotResult PilotResult.fullPower
 
 
 audaciousGambit : Starship -> Int -> Status -> Status
 audaciousGambit =
-    -- TODO: Also costs a Resolve Point
-    applyPilotResult
-        (always
-            { noPilotResult
-                | maneuverabilityDelta = -2
-                , special = Just NoFreeAttackForAnyEnemyAndFreeFinalRotation
-            }
-        )
+    applyPilotResult (always PilotResult.audaciousGambit)
 
 
 audaciousGambitFail : Starship -> Int -> Status -> Status
 audaciousGambitFail =
     -- TODO: Also costs a Resolve Point
     -- Just updates the most recent pilot effect (but has none)
-    applyPilotResult (always noPilotResult)
+    applyPilotResult (always PilotResult.audaciousGambitFail)
 
 
 getEffectiveAcAndTl : Starship -> Int -> Status -> ( Int, Int )
@@ -721,15 +576,17 @@ getEffectiveAcAndTl starship currentRound status =
         ( pilotResultRound, pilotResult ) =
             status.pilotResult
 
-        pilotResultBonus =
+        ( pilotAcBonus, pilotTlBonus ) =
             if currentRound == pilotResultRound then
-                pilotResult.acAndTlBonus
+                ( PilotResult.getAcModifier pilotResult
+                , PilotResult.getTlModifier pilotResult
+                )
 
             else
-                0
+                ( 0, 0 )
 
         baseValue =
-            10 + pilotsPilotRanks + sizeBonus + pilotResultBonus
+            10 + pilotsPilotRanks + sizeBonus
 
         armorBonus =
             starship.armor
@@ -747,7 +604,9 @@ getEffectiveAcAndTl starship currentRound status =
                 |> Maybe.map (DefenseLevel.toBonus << extract)
                 |> Maybe.withDefault 0
     in
-    ( baseValue + armorBonus, baseValue + armorTlPenalty + countermeasuresBonus )
+    ( baseValue + pilotAcBonus + armorBonus
+    , baseValue + pilotTlBonus + armorTlPenalty + countermeasuresBonus
+    )
 
 
 getEffectiveSpeed : Starship -> Int -> Status -> Int
@@ -766,7 +625,7 @@ getEffectiveSpeed starship currentRound status =
 
         pilotBonus =
             if currentRound == pilotResultRound then
-                pilotResult.speedDelta
+                PilotResult.getSpeedModifier pilotResult
 
             else
                 0
@@ -805,7 +664,7 @@ getEffectiveDistanceBetweenTurns starship currentRound status =
 
         pilotEffect =
             if currentRound == pilotResultRound then
-                pilotResult.maneuverabilityDelta
+                PilotResult.getDistanceBetweenTurnsModifier pilotResult
 
             else
                 0
