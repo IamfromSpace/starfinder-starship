@@ -571,12 +571,6 @@ getEffectiveAcAndTl starship currentRound status =
                 |> Maybe.map .pilotingRanks
                 |> Maybe.withDefault 0
 
-        sizeAcBonus =
-            Frame.getAcModifier starship.frame
-
-        sizeTlBonus =
-            Frame.getTlModifier starship.frame
-
         ( pilotResultRound, pilotResult ) =
             status.pilotResult
 
@@ -591,25 +585,9 @@ getEffectiveAcAndTl starship currentRound status =
 
         baseValue =
             10 + pilotsPilotRanks
-
-        armorBonus =
-            starship.armor
-                |> Maybe.map DefenseLevel.toBonus
-                |> Maybe.withDefault 0
-
-        armorTlPenalty =
-            starship.armor
-                |> Maybe.map DefenseLevel.toTlPenalty
-                |> Maybe.withDefault 0
-
-        countermeasuresBonus =
-            starship.defensiveCountermeasures
-                -- TODO: These have to be on
-                |> Maybe.map (DefenseLevel.toBonus << extract)
-                |> Maybe.withDefault 0
     in
-    ( baseValue + sizeAcBonus + pilotAcBonus + armorBonus
-    , baseValue + sizeTlBonus + pilotTlBonus + armorTlPenalty + countermeasuresBonus
+    ( baseValue + pilotAcBonus + Starship.getAcModifier starship
+    , baseValue + pilotTlBonus + Starship.getTlModifier starship
     )
 
 

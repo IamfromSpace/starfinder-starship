@@ -1,4 +1,4 @@
-module Starship exposing (BuildError(..), CrewQuarters(..), DriftEngine(..), Sensor, Shields, Starship, areArcMountPointsValid, areTurretMountPointsValid, areTurretWeaponClassesValid, areWeaponClassesValidForFrame, buildErrorToString, crewQuartersToString, driftEngineToString, getAllOnlineWeapons, getAllWeapons, getAllowedClasses, getArmorBuildPoints, getArmorTargetLockBonus, getCrewQuartersBuildPoints, getDefensiveCountermeasuresBuildPoints, getDefensiveCountermeasuresPowerDraw, getDriftEngineBuildPoints, getMaxHitPoints, getMaxPcuPerPowerCore, getMaxPowerCoreCount, getMountPointLimit, getMountPointsBuiltPoints, getMountPointsUsed, getPilotBonus, getPowerCoreCount, getPowerCoreUnitsBuildPoints, getSensorBuildPoints, getSizeCategory, getStarshipBuildPoints, getStarshipPowerDraw, getThrusterBuildPoints, getThrusterPowerDraw, getTierFromBuildPoints, getTogglablePowerDraw, getWeaponsBuildPoints, getWeaponsPowerDraw, hasEnoughPowerCoresForPcu, hasNoTrackingWeaponLinks, hasSufficientPowerCoreUnits, hasSufficientPowerCoreUnitsForDriftEngine, hasTurretIfHasTurretWeapons, hasValidExpansionBayCount, hasValidPowerCoreCount, isSmallEnoughForDriftEngine, isTrue, isValidSizeForExpansionBays, isValidSpeed, maxiumumSizeForDriftEngine, minimumPowerCoreUnitsForDriftEngine, mountPointCountForGroupIsValid, validateStarship)
+module Starship exposing (BuildError(..), CrewQuarters(..), DriftEngine(..), Sensor, Shields, Starship, areArcMountPointsValid, areTurretMountPointsValid, areTurretWeaponClassesValid, areWeaponClassesValidForFrame, buildErrorToString, crewQuartersToString, driftEngineToString, getAcModifier, getAllOnlineWeapons, getAllWeapons, getAllowedClasses, getArmorBuildPoints, getArmorTargetLockBonus, getCrewQuartersBuildPoints, getDefensiveCountermeasuresBuildPoints, getDefensiveCountermeasuresPowerDraw, getDriftEngineBuildPoints, getMaxHitPoints, getMaxPcuPerPowerCore, getMaxPowerCoreCount, getMountPointLimit, getMountPointsBuiltPoints, getMountPointsUsed, getPilotBonus, getPowerCoreCount, getPowerCoreUnitsBuildPoints, getSensorBuildPoints, getSizeCategory, getStarshipBuildPoints, getStarshipPowerDraw, getThrusterBuildPoints, getThrusterPowerDraw, getTierFromBuildPoints, getTlModifier, getTogglablePowerDraw, getWeaponsBuildPoints, getWeaponsPowerDraw, hasEnoughPowerCoresForPcu, hasNoTrackingWeaponLinks, hasSufficientPowerCoreUnits, hasSufficientPowerCoreUnitsForDriftEngine, hasTurretIfHasTurretWeapons, hasValidExpansionBayCount, hasValidPowerCoreCount, isSmallEnoughForDriftEngine, isTrue, isValidSizeForExpansionBays, isValidSpeed, maxiumumSizeForDriftEngine, minimumPowerCoreUnitsForDriftEngine, mountPointCountForGroupIsValid, validateStarship)
 
 import Arc exposing (Arc)
 import Computer exposing (Computer)
@@ -960,3 +960,37 @@ validateStarship =
         >> isTrue isSmallEnoughForDriftEngine ShipToLargeForDriftEngine
         >> isTrue isValidSpeed SpeedTooFastForSizeOrLessThan1
         >> Tuple.first
+
+
+getAcModifier : Starship -> Int
+getAcModifier starship =
+    let
+        sizeAcBonus =
+            Frame.getAcModifier starship.frame
+
+        armorBonus =
+            starship.armor
+                |> Maybe.map DefenseLevel.toBonus
+                |> Maybe.withDefault 0
+    in
+    sizeAcBonus + armorBonus
+
+
+getTlModifier : Starship -> Int
+getTlModifier starship =
+    let
+        sizeTlBonus =
+            Frame.getTlModifier starship.frame
+
+        armorTlPenalty =
+            starship.armor
+                |> Maybe.map DefenseLevel.toTlPenalty
+                |> Maybe.withDefault 0
+
+        countermeasuresBonus =
+            starship.defensiveCountermeasures
+                -- TODO: These have to be on
+                |> Maybe.map (DefenseLevel.toBonus << extract)
+                |> Maybe.withDefault 0
+    in
+    sizeTlBonus + armorTlPenalty + countermeasuresBonus
