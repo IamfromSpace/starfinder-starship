@@ -1,4 +1,4 @@
-module Crewmate exposing (Crewmate)
+module Crewmate exposing (Crewmate, getAcModifier, getTlModifier)
 
 
 type alias Crewmate =
@@ -18,3 +18,13 @@ type alias Crewmate =
     , initialStaminaPoints : Int
     , initialHitPoints : Int
     }
+
+
+getAcModifier : Crewmate -> Int
+getAcModifier =
+    .pilotingRanks
+
+
+getTlModifier : Crewmate -> Int
+getTlModifier =
+    .pilotingRanks

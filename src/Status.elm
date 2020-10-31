@@ -565,16 +565,24 @@ audaciousGambitFail =
 getEffectiveAcAndTl : Starship -> Int -> Status -> ( Int, Int )
 getEffectiveAcAndTl starship currentRound status =
     let
-        pilotsPilotRanks =
+        pilot =
             status.assignments.pilot
                 |> Maybe.andThen (\id -> Dict.get id status.crew)
-                |> Maybe.map .pilotingRanks
+
+        pilotAcBonus =
+            pilot
+                |> Maybe.map Crewmate.getAcModifier
+                |> Maybe.withDefault 0
+
+        pilotTlBonus =
+            pilot
+                |> Maybe.map Crewmate.getTlModifier
                 |> Maybe.withDefault 0
 
         ( pilotResultRound, pilotResult ) =
             status.pilotResult
 
-        ( pilotAcBonus, pilotTlBonus ) =
+        ( pilotResultAcBonus, pilotResultTlBonus ) =
             if currentRound == pilotResultRound then
                 ( PilotResult.getAcModifier pilotResult
                 , PilotResult.getTlModifier pilotResult
@@ -584,10 +592,10 @@ getEffectiveAcAndTl starship currentRound status =
                 ( 0, 0 )
 
         baseValue =
-            10 + pilotsPilotRanks
+            10
     in
-    ( baseValue + pilotAcBonus + Starship.getAcModifier starship
-    , baseValue + pilotTlBonus + Starship.getTlModifier starship
+    ( baseValue + pilotAcBonus + pilotResultAcBonus + Starship.getAcModifier starship
+    , baseValue + pilotTlBonus + pilotResultTlBonus + Starship.getTlModifier starship
     )
 
 
