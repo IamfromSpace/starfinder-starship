@@ -620,8 +620,7 @@ getEffectiveSpeed starship currentRound status =
             else
                 0
     in
-    -- TODO: These have to be on
-    extract starship.thrusters + engineeringBonus + pilotBonus
+    Starship.getSpeedModifier starship + engineeringBonus + pilotBonus
 
 
 getEffectiveDistanceBetweenTurns : Starship -> Int -> Status -> Int
