@@ -5,7 +5,6 @@ import Crewmate exposing (Crewmate)
 import CriticalStatus as CS exposing (CriticalStatus, PatchEffectiveness(..), Severity(..))
 import DefenseLevel
 import Dict exposing (Dict)
-import Frame
 import PatchableSystems as PS exposing (PatchableSystem(..), PatchableSystems)
 import PilotResult exposing (PilotResult, noPilotResult)
 import Size
@@ -626,13 +625,8 @@ getEffectiveSpeed starship currentRound status =
 getEffectiveDistanceBetweenTurns : Starship -> Int -> Status -> Int
 getEffectiveDistanceBetweenTurns starship currentRound status =
     let
-        baseValue =
-            Frame.getDistanceBetweenTurnsModifier starship.frame
-
-        armorManeuverabilityEffect =
-            starship.armor
-                |> Maybe.map DefenseLevel.toManeuverabilityPenalty
-                |> Maybe.withDefault 0
+        starshipModifier =
+            Starship.getDistanceBetweenTurnsModifier starship
 
         ( pilotResultRound, pilotResult ) =
             status.pilotResult
@@ -644,4 +638,4 @@ getEffectiveDistanceBetweenTurns starship currentRound status =
             else
                 0
     in
-    max 0 (baseValue + armorManeuverabilityEffect + pilotEffect)
+    max 0 (starshipModifier + pilotEffect)
