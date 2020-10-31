@@ -1,4 +1,4 @@
-module Size exposing (Size(..), acAndTlBonus, toString, topSpeed)
+module Size exposing (Size(..), getAcModifier, getTlModifier, toString, topSpeed)
 
 
 type Size
@@ -56,6 +56,16 @@ acAndTlBonus size =
 
         Colossal ->
             -8
+
+
+getAcModifier : Size -> Int
+getAcModifier =
+    acAndTlBonus
+
+
+getTlModifier : Size -> Int
+getTlModifier =
+    acAndTlBonus
 
 
 toString : Size -> String
