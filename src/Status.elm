@@ -5,6 +5,7 @@ import Crewmate exposing (Crewmate)
 import CriticalStatus as CS exposing (CriticalStatus, PatchEffectiveness(..), Severity(..))
 import DefenseLevel
 import Dict exposing (Dict)
+import Frame exposing (Maneuverability(..))
 import PatchableSystems as PS exposing (PatchableSystem(..), PatchableSystems)
 import PilotResult exposing (PilotResult, noPilotResult)
 import Size
@@ -639,19 +640,19 @@ getEffectiveDistanceBetweenTurns starship currentRound status =
     let
         baseValue =
             case starship.frame.maneuverability of
-                Starship.Clumsy ->
+                Clumsy ->
                     4
 
-                Starship.Poor ->
+                Poor ->
                     3
 
-                Starship.Average ->
+                Average ->
                     2
 
-                Starship.Good ->
+                Good ->
                     1
 
-                Starship.Perfect ->
+                Perfect ->
                     0
 
         armorManeuverabilityEffect =

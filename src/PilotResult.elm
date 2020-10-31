@@ -1,5 +1,6 @@
 module PilotResult exposing (PilotResult, SpecialPilotResult(..), audaciousGambit, audaciousGambitFail, backOff, backOffFail, backOffFailBy5OrMore, barrelRoll, barrelRollFail, barrelRollFailBy5OrMore, evade, evadeFailBy5OrMore, flipAndBurn, flipAndBurnFail, flyby, flybyFail, fullPower, getAcModifier, getDistanceBetweenTurnsModifier, getSpeedModifier, getTlModifier, maneuver, noPilotResult, slide, slideFail, turnInPlace)
 
+import Frame exposing (Maneuverability(..))
 import Starship exposing (Starship)
 import Togglable exposing (extract)
 
@@ -202,10 +203,10 @@ turnInPlace starship =
     { noPilotResult
         | acAndTlBonus =
             case starship.frame.maneuverability of
-                Starship.Clumsy ->
+                Clumsy ->
                     -4
 
-                Starship.Poor ->
+                Poor ->
                     -2
 
                 _ ->

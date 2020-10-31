@@ -2,6 +2,7 @@ module ShipAssets exposing (blackwindSepulcher, frames, mediumTransport, norikam
 
 import DefenseLevel exposing (..)
 import ExpansionBay exposing (..)
+import Frame exposing (Frame, Maneuverability(..))
 import KeyedSet as KS exposing (KeyedSet)
 import LinkAndTogglable as LT exposing (LinkAndTogglable)
 import Size exposing (..)

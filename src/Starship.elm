@@ -1,70 +1,16 @@
-module Starship exposing (BuildError(..), CrewQuarters(..), DriftEngine(..), Frame, Maneuverability(..), Sensor, Shields, Starship, areArcMountPointsValid, areTurretMountPointsValid, areTurretWeaponClassesValid, areWeaponClassesValidForFrame, buildErrorToString, crewQuartersToString, driftEngineToString, getAllOnlineWeapons, getAllWeapons, getAllowedClasses, getArmorBuildPoints, getArmorTargetLockBonus, getCrewQuartersBuildPoints, getDefensiveCountermeasuresBuildPoints, getDefensiveCountermeasuresPowerDraw, getDriftEngineBuildPoints, getFrameBuildPoints, getMaxHitPoints, getMaxPcuPerPowerCore, getMaxPowerCoreCount, getMountPointLimit, getMountPointsBuiltPoints, getMountPointsUsed, getPilotBonus, getPowerCoreCount, getPowerCoreUnitsBuildPoints, getSensorBuildPoints, getSizeCategory, getStarshipBuildPoints, getStarshipPowerDraw, getThrusterBuildPoints, getThrusterPowerDraw, getTierFromBuildPoints, getTogglablePowerDraw, getWeaponsBuildPoints, getWeaponsPowerDraw, hasEnoughPowerCoresForPcu, hasNoTrackingWeaponLinks, hasSufficientPowerCoreUnits, hasSufficientPowerCoreUnitsForDriftEngine, hasTurretIfHasTurretWeapons, hasValidExpansionBayCount, hasValidPowerCoreCount, isSmallEnoughForDriftEngine, isTrue, isValidSizeForExpansionBays, isValidSpeed, maxiumumSizeForDriftEngine, minimumPowerCoreUnitsForDriftEngine, mountPointCountForGroupIsValid, validateStarship)
+module Starship exposing (BuildError(..), CrewQuarters(..), DriftEngine(..), Sensor, Shields, Starship, areArcMountPointsValid, areTurretMountPointsValid, areTurretWeaponClassesValid, areWeaponClassesValidForFrame, buildErrorToString, crewQuartersToString, driftEngineToString, getAllOnlineWeapons, getAllWeapons, getAllowedClasses, getArmorBuildPoints, getArmorTargetLockBonus, getCrewQuartersBuildPoints, getDefensiveCountermeasuresBuildPoints, getDefensiveCountermeasuresPowerDraw, getDriftEngineBuildPoints, getMaxHitPoints, getMaxPcuPerPowerCore, getMaxPowerCoreCount, getMountPointLimit, getMountPointsBuiltPoints, getMountPointsUsed, getPilotBonus, getPowerCoreCount, getPowerCoreUnitsBuildPoints, getSensorBuildPoints, getSizeCategory, getStarshipBuildPoints, getStarshipPowerDraw, getThrusterBuildPoints, getThrusterPowerDraw, getTierFromBuildPoints, getTogglablePowerDraw, getWeaponsBuildPoints, getWeaponsPowerDraw, hasEnoughPowerCoresForPcu, hasNoTrackingWeaponLinks, hasSufficientPowerCoreUnits, hasSufficientPowerCoreUnitsForDriftEngine, hasTurretIfHasTurretWeapons, hasValidExpansionBayCount, hasValidPowerCoreCount, isSmallEnoughForDriftEngine, isTrue, isValidSizeForExpansionBays, isValidSpeed, maxiumumSizeForDriftEngine, minimumPowerCoreUnitsForDriftEngine, mountPointCountForGroupIsValid, validateStarship)
 
 import Arc exposing (Arc)
 import Computer exposing (Computer)
 import DefenseLevel exposing (..)
 import ExpansionBay exposing (ExpansionBay)
+import Frame exposing (Frame)
 import Link exposing (..)
 import LinkAndTogglable as LT exposing (LinkAndTogglable)
 import Size exposing (..)
 import Switch exposing (..)
 import Togglable exposing (..)
 import Weapon exposing (Weapon)
-
-
-type Maneuverability
-    = Clumsy
-    | Poor
-    | Average
-    | Good
-    | Perfect
-
-
-getPilotBonusMan_ : Maneuverability -> Int
-getPilotBonusMan_ maneuverability =
-    case maneuverability of
-        Clumsy ->
-            -2
-
-        Poor ->
-            -1
-
-        Average ->
-            0
-
-        Good ->
-            1
-
-        Perfect ->
-            2
-
-
-type alias Frame =
-    { name : String
-    , size : Size
-    , maneuverability : Maneuverability
-    , baseHitPoints : Int
-    , hitPointsIncrement : Int
-    , damageThreshold : Int
-    , arcMounts : Arc (List Weapon.Class)
-    , turretMounts : List Weapon.Class
-    , expansionBays : Int
-    , minimumCrew : Int
-    , maximumCrew : Int
-    , listedBuildPoints : Int
-    }
-
-
-getFrameBuildPoints : Frame -> Int
-getFrameBuildPoints { listedBuildPoints, arcMounts, turretMounts } =
-    let
-        arcCosts =
-            List.map Weapon.getArcMountPointBuiltPoints (Arc.concat arcMounts)
-
-        turretCosts =
-            List.map Weapon.getTurretMountPointBuiltPoints turretMounts
-    in
-    listedBuildPoints - List.sum (arcCosts ++ turretCosts)
 
 
 getThrusterPowerDraw : Starship -> Int
@@ -540,7 +486,7 @@ getPilotBonusThrusters_ thrusters =
 
 getPilotBonus : Starship -> Int
 getPilotBonus { thrusters, frame } =
-    getPilotBonusThrusters_ thrusters + getPilotBonusMan_ frame.maneuverability
+    getPilotBonusThrusters_ thrusters + Frame.getPilotBonus frame.maneuverability
 
 
 getTogglablePowerDraw : (a -> Int) -> Togglable a -> Int
@@ -575,7 +521,7 @@ getStarshipBuildPoints ship =
         shields =
             extract ship.shields
     in
-    getFrameBuildPoints ship.frame
+    Frame.getBuildPoints ship.frame
         + getPowerCoreUnitsBuildPoints ship.powerCoreUnits
         + getThrusterBuildPoints ship
         + (ship.armor
