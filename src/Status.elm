@@ -2,6 +2,7 @@ module Status exposing (Assignments, ExtraPoweredSystem(..), Status, areShieldsF
 
 import Arc exposing (AnArc, Arc)
 import Crewmate exposing (Crewmate)
+import CrewmateStatus exposing (CrewmateStatus)
 import CriticalStatus as CS exposing (CriticalStatus, PatchEffectiveness(..), Severity(..))
 import DefenseLevel
 import Dict exposing (Dict)
@@ -60,6 +61,7 @@ type alias Status =
     -- However, this parameterization gets _everywhere_, so it's a bit of apain
     -- to do now.
     , crew : Dict String Crewmate
+    , crewStatus : Dict String CrewmateStatus
     , assignments : Assignments String
     , tauntedBy : Dict String ( Int, Taunted ) --TODO: affects one phase (over multiple rounds)
     }
@@ -73,6 +75,7 @@ init =
     , powerAction = ( -1, Divert Shields ) -- The -1 round acts as a No-op
     , pilotResult = ( -1, noPilotResult ) -- The -1 round acts as a No-op
     , crew = Dict.empty
+    , crewStatus = Dict.empty
     , assignments =
         { captain = Nothing
         , pilot = Nothing
@@ -103,8 +106,8 @@ hasExtraPower extraPoweredSystem roundNumber status =
                     s
 
 
-getEffectiveBonus : Int -> PatchableSystem -> Bool -> Status -> Maybe Int
-getEffectiveBonus currentRound involvedSystem isPush status =
+getEffectiveBonus : Int -> PatchableSystem -> Status -> Int
+getEffectiveBonus currentRound involvedSystem status =
     let
         bonusBySystem system =
             PS.getPatchableSystem system status.systems
@@ -113,20 +116,18 @@ getEffectiveBonus currentRound involvedSystem isPush status =
         standardBonus =
             case bonusBySystem involvedSystem of
                 Nothing ->
-                    Just 0
+                    0
 
                 Just Glitching ->
-                    Just -2
+                    -2
 
                 Just Malfunctioning ->
-                    if isPush then
-                        Nothing
-
-                    else
-                        Just -4
+                    -- Or Impossible if a Push action
+                    -4
 
                 Just Wrecked ->
-                    Nothing
+                    -- Not actually possible
+                    0
 
         powerCoreEffectBonus =
             case bonusBySystem PowerCore of
@@ -160,15 +161,15 @@ getEffectiveBonus currentRound involvedSystem isPush status =
                     )
                 |> List.sum
 
-        conditionallyIncludePowerCorEffects =
+        effectivePowerCoreEffectBonus =
             case involvedSystem of
                 PowerCore ->
-                    identity
+                    0
 
                 _ ->
-                    (+) powerCoreEffectBonus
+                    powerCoreEffectBonus
     in
-    Maybe.map ((+) tauntedByBonus >> conditionallyIncludePowerCorEffects) standardBonus
+    standardBonus + tauntedByBonus + effectivePowerCoreEffectBonus
 
 
 basePatchDC : PatchEffectiveness -> PatchableSystem -> Status -> Maybe Int
@@ -639,3 +640,235 @@ getEffectiveDistanceBetweenTurns starship currentRound status =
                 0
     in
     max 0 (starshipModifier + pilotEffect)
+
+
+
+-- TODO: Sometimes bonuses reduce DC--but mathematically this is the same
+-- thing.  Perhaps a Bonus could be a complex type that indicates if it
+-- modifies the roll or the DC.
+--
+-- TODO: Computer nodes can be consumed to gain additional bonuses
+--
+-- TODO: Need to determine if the check _can_ be peformed (qualified, done
+-- before, too damaged, sufficient RP, etc)
+
+
+getXSkillModifier : (Crewmate -> Int) -> (CrewmateStatus -> Int) -> ( String, Status ) -> Int
+getXSkillModifier f g ( crewId, status ) =
+    let
+        cMod =
+            Dict.get crewId status.crew
+                |> Maybe.map f
+                |> Maybe.withDefault 0
+
+        csMod =
+            Dict.get crewId status.crewStatus
+                |> Maybe.map g
+                |> Maybe.withDefault 0
+    in
+    cMod + csMod
+
+
+getDiplomacySkillModifier : ( String, Status ) -> Int
+getDiplomacySkillModifier =
+    getXSkillModifier
+        Crewmate.getDiplomacySkillModifier
+        CrewmateStatus.getDiplomacySkillModifier
+
+
+getIntimidateSkillModifier : ( String, Status ) -> Int
+getIntimidateSkillModifier =
+    getXSkillModifier
+        Crewmate.getIntimidateSkillModifier
+        CrewmateStatus.getIntimidateSkillModifier
+
+
+getBluffSkillModifier : ( String, Status ) -> Int
+getBluffSkillModifier =
+    getXSkillModifier
+        Crewmate.getBluffSkillModifier
+        CrewmateStatus.getBluffSkillModifier
+
+
+getEngineeringSkillModifier : ( String, Status ) -> Int
+getEngineeringSkillModifier =
+    getXSkillModifier
+        Crewmate.getEngineeringSkillModifier
+        CrewmateStatus.getEngineeringSkillModifier
+
+
+getGunningModifier : ( String, Status ) -> Int
+getGunningModifier =
+    getXSkillModifier
+        Crewmate.getGunningModifier
+        CrewmateStatus.getGunningModifier
+
+
+getPilotingSkillModifier : ( String, Status ) -> Int
+getPilotingSkillModifier =
+    getXSkillModifier
+        Crewmate.getPilotingSkillModifier
+        CrewmateStatus.getPilotingSkillModifier
+
+
+getComputersSkillModifier : ( Int, String, Status ) -> Int
+getComputersSkillModifier ( currentRound, crewId, status ) =
+    let
+        base =
+            getXSkillModifier
+                Crewmate.getComputersSkillModifier
+                CrewmateStatus.getComputersSkillModifier
+                ( crewId, status )
+
+        dMod =
+            if hasExtraPower ScienceEquipment currentRound status then
+                2
+
+            else
+                0
+    in
+    base + dMod
+
+
+demandBonus : ( Int, String, Status ) -> Int
+demandBonus ( currentRound, crewId, status ) =
+    getIntimidateSkillModifier ( crewId, status )
+        + getEffectiveBonus currentRound LifeSupport status
+
+
+
+-- TODO: Encourage is interesting, because you can essentially get a +5 (DC
+-- reduced by 5) for using the associated skill instead of diplomacy
+
+
+tauntBonus : ( Int, String, Status ) -> Int
+tauntBonus ( currentRound, crewId, status ) =
+    getEffectiveBonus currentRound LifeSupport status
+        + max
+            (getBluffSkillModifier ( crewId, status ))
+            (getIntimidateSkillModifier ( crewId, status ))
+
+
+
+-- TODO: Orders is interesting, because you need to use the skill that target
+-- character will use
+
+
+movingSpeechBonus : ( Int, String, Status ) -> Int
+movingSpeechBonus ( currentRound, crewId, status ) =
+    getDiplomacySkillModifier ( crewId, status )
+        + getEffectiveBonus currentRound LifeSupport status
+
+
+divertBonus : ( Int, String, Status ) -> Int
+divertBonus ( currentRound, crewId, status ) =
+    getEngineeringSkillModifier ( crewId, status )
+        + getEffectiveBonus currentRound PowerCore status
+
+
+holdItTogetherBonus : ( Int, String, Status ) -> Int
+holdItTogetherBonus ( _, crewId, status ) =
+    getEngineeringSkillModifier ( crewId, status )
+
+
+patchBonus : ( Int, String, Status ) -> Int
+patchBonus ( _, crewId, status ) =
+    getEngineeringSkillModifier ( crewId, status )
+
+
+overpowerBonus : ( Int, String, Status ) -> Int
+overpowerBonus ( currentRound, crewId, status ) =
+    getEngineeringSkillModifier ( crewId, status )
+        + getEffectiveBonus currentRound PowerCore status
+
+
+quickFixBonus : ( Int, String, Status ) -> Int
+quickFixBonus ( currentRound, crewId, status ) =
+    getEngineeringSkillModifier ( crewId, status )
+        + getEffectiveBonus currentRound PowerCore status
+
+
+
+-- TODO: The science officer's "lock-on" grants a +2 bonus to the enemy target
+-- TODO: Range penalties are unique by both weapon and distance
+-- TODO: Turrets are affect by ALL Arcs
+
+
+fireAtWillBonus : ( Int, ( String, AnArc ), Status ) -> Int
+fireAtWillBonus ( currentRound, ( crewId, arc ), status ) =
+    getEffectiveBonus currentRound (WeaponsArray arc) status
+        + getGunningModifier ( crewId, status )
+        - 4
+
+
+shootBonus : ( Int, ( String, AnArc ), Status ) -> Int
+shootBonus ( currentRound, ( crewId, arc ), status ) =
+    getEffectiveBonus currentRound (WeaponsArray arc) status
+        + getGunningModifier ( crewId, status )
+
+
+broadsideBonus : ( Int, ( String, AnArc ), Status ) -> Int
+broadsideBonus ( currentRound, ( crewId, arc ), status ) =
+    getEffectiveBonus currentRound (WeaponsArray arc) status
+        + getGunningModifier ( crewId, status )
+        - 2
+
+
+preciseTargetingBonus : ( Int, ( String, AnArc ), Status ) -> Int
+preciseTargetingBonus ( currentRound, ( crewId, arc ), status ) =
+    getEffectiveBonus currentRound (WeaponsArray arc) status
+        + getGunningModifier ( crewId, status )
+
+
+maneuverBonus : ( Int, String, Status ) -> Int
+maneuverBonus ( currentRound, crewId, status ) =
+    getPilotingSkillModifier ( crewId, status )
+        + getEffectiveBonus currentRound Engines status
+
+
+stuntBonus : ( Int, String, Status ) -> Int
+stuntBonus ( currentRound, crewId, status ) =
+    getPilotingSkillModifier ( crewId, status )
+        + getEffectiveBonus currentRound Engines status
+
+
+fullPowerBonus : ( Int, String, Status ) -> Int
+fullPowerBonus ( currentRound, crewId, status ) =
+    getPilotingSkillModifier ( crewId, status )
+        + getEffectiveBonus currentRound Engines status
+
+
+audaciousGambitBonus : ( Int, String, Status ) -> Int
+audaciousGambitBonus ( currentRound, crewId, status ) =
+    getPilotingSkillModifier ( crewId, status )
+        + getEffectiveBonus currentRound Engines status
+
+
+balanceBonus : ( Int, String, Status ) -> Int
+balanceBonus ( currentRound, crewId, status ) =
+    getComputersSkillModifier ( currentRound, crewId, status )
+        + getEffectiveBonus currentRound Sensors status
+
+
+scanBonus : ( Int, String, Status ) -> Int
+scanBonus ( currentRound, crewId, status ) =
+    getComputersSkillModifier ( currentRound, crewId, status )
+        + getEffectiveBonus currentRound Sensors status
+
+
+targetSystemBonus : ( Int, String, Status ) -> Int
+targetSystemBonus ( currentRound, crewId, status ) =
+    getComputersSkillModifier ( currentRound, crewId, status )
+        + getEffectiveBonus currentRound Sensors status
+
+
+lockOnBonus : ( Int, String, Status ) -> Int
+lockOnBonus ( currentRound, crewId, status ) =
+    getComputersSkillModifier ( currentRound, crewId, status )
+        + getEffectiveBonus currentRound Sensors status
+
+
+improveCountermeasuresBonus : ( Int, String, Status ) -> Int
+improveCountermeasuresBonus ( currentRound, crewId, status ) =
+    getComputersSkillModifier ( currentRound, crewId, status )
+        + getEffectiveBonus currentRound Sensors status

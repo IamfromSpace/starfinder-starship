@@ -1,4 +1,4 @@
-module Crewmate exposing (Crewmate, getAcModifier, getTlModifier)
+module Crewmate exposing (Crewmate, getAcModifier, getBluffSkillModifier, getComputersSkillModifier, getDiplomacySkillModifier, getEngineeringSkillModifier, getGunningModifier, getIntimidateSkillModifier, getPilotingSkillModifier, getTlModifier)
 
 
 type alias Crewmate =
@@ -28,3 +28,38 @@ getAcModifier =
 getTlModifier : Crewmate -> Int
 getTlModifier =
     .pilotingRanks
+
+
+getGunningModifier : Crewmate -> Int
+getGunningModifier cm =
+    max cm.baseAttackBonus cm.pilotingSkillBonus
+
+
+getPilotingSkillModifier : Crewmate -> Int
+getPilotingSkillModifier =
+    .pilotingSkillBonus
+
+
+getEngineeringSkillModifier : Crewmate -> Int
+getEngineeringSkillModifier =
+    .engineeringSkillBonus
+
+
+getComputersSkillModifier : Crewmate -> Int
+getComputersSkillModifier =
+    .computersSkillBonus
+
+
+getDiplomacySkillModifier : Crewmate -> Int
+getDiplomacySkillModifier =
+    .diplomacySkillBonus
+
+
+getIntimidateSkillModifier : Crewmate -> Int
+getIntimidateSkillModifier =
+    .intimidateSkillBonus
+
+
+getBluffSkillModifier : Crewmate -> Int
+getBluffSkillModifier =
+    .bluffSkillBonus
