@@ -61,7 +61,7 @@ type alias Status =
     -- to do now.
     , crew : Dict String Crewmate
     , assignments : Assignments String
-    , tauntedBy : Dict String ( Int, Taunted )
+    , tauntedBy : Dict String ( Int, Taunted ) --TODO: affects one phase (over multiple rounds)
     }
 
 
