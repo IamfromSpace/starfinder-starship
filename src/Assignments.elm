@@ -10,8 +10,8 @@ type alias Assignments a =
     }
 
 
-mapAssignments : (a -> b) -> Assignments a -> Assignments b
-mapAssignments f a =
+map : (a -> b) -> Assignments a -> Assignments b
+map f a =
     { captain = Maybe.map f a.captain
     , pilot = Maybe.map f a.pilot
     , engineers = List.map f a.engineers
@@ -20,8 +20,8 @@ mapAssignments f a =
     }
 
 
-traverseAssignmentsMaybe : (a -> Maybe b) -> Assignments a -> Maybe (Assignments b)
-traverseAssignmentsMaybe f a =
+traverseMaybe : (a -> Maybe b) -> Assignments a -> Maybe (Assignments b)
+traverseMaybe f a =
     Maybe.map5
         (\c p es sos gs ->
             { captain = c
