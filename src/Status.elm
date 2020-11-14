@@ -639,6 +639,9 @@ getEffectiveDistanceBetweenTurns starship currentRound status =
 -- thing.  Perhaps a Bonus could be a complex type that indicates if it
 -- modifies the roll or the DC.
 --
+-- TODO: It may also make sense to model "take best roll of two" or "take worst
+-- roll of two" as a bonus as well.
+--
 -- TODO: Computer nodes can be consumed to gain additional bonuses
 --
 -- TODO: Need to determine if the check _can_ be peformed (qualified, done
