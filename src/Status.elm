@@ -1,6 +1,7 @@
-module Status exposing (Assignments, ExtraPoweredSystem(..), Status, areShieldsFull, balanceEvenly, balanceFromArc, basePatchDC, canBalanceFromTo, damageArc, damageSystem, divertPowerToEngines, divertPowerToShields, forceAddShields, forceMoveShields, getEffectiveAcAndTl, getEffectiveBonus, getEffectiveDistanceBetweenTurns, getEffectiveSpeed, hasExtraPower, holdItTogether, init, maxDivertPowerToShieldPoints, patch, quickFix)
+module Status exposing (ExtraPoweredSystem(..), Status, areShieldsFull, balanceEvenly, balanceFromArc, basePatchDC, canBalanceFromTo, damageArc, damageSystem, divertPowerToEngines, divertPowerToShields, forceAddShields, forceMoveShields, getEffectiveAcAndTl, getEffectiveBonus, getEffectiveDistanceBetweenTurns, getEffectiveSpeed, hasExtraPower, holdItTogether, init, maxDivertPowerToShieldPoints, patch, quickFix)
 
 import Arc exposing (AnArc, Arc)
+import Assignments exposing (Assignments)
 import Crewmate exposing (Crewmate)
 import CrewmateStatus exposing (CrewmateStatus)
 import CriticalStatus as CS exposing (CriticalStatus, PatchEffectiveness(..), Severity(..))
@@ -24,15 +25,6 @@ type ExtraPoweredSystem
 type PowerAction
     = Divert ExtraPoweredSystem
     | Overpower (List ExtraPoweredSystem) -- UUUUUUUUGH The Elm maintainers are so stupid sometimes.
-
-
-type alias Assignments a =
-    { captain : Maybe a
-    , pilot : Maybe a
-    , engineers : List a
-    , scienceOfficers : List a
-    , gunners : List a
-    }
 
 
 
