@@ -164,6 +164,24 @@ getEffectiveBonus currentRound involvedSystem status =
     standardBonus + tauntedByBonus + effectivePowerCoreEffectBonus
 
 
+canUse : Bool -> Int -> PatchableSystem -> Status -> Bool
+canUse isPush currentRound involvedSystem status =
+    let
+        bonusBySystem system =
+            PS.getPatchableSystem system status.systems
+                |> Maybe.andThen (CS.getEffectiveSeverity currentRound)
+    in
+    case bonusBySystem involvedSystem of
+        Just Malfunctioning ->
+            not isPush
+
+        Just Wrecked ->
+            False
+
+        _ ->
+            True
+
+
 basePatchDC : PatchEffectiveness -> PatchableSystem -> Status -> Maybe Int
 basePatchDC pe ps s =
     Maybe.andThen (CS.basePatchDC pe) (PS.getPatchableSystem ps s.systems)
@@ -731,9 +749,92 @@ demandBonus ( currentRound, crewId, status ) =
         + getEffectiveBonus currentRound LifeSupport status
 
 
+demandSource : Status -> { a | currentRound : Int, target : String } -> Maybe Status
+demandSource status ({ currentRound, target } as reader) =
+    let
+        updateCaptain captain =
+            Dict.get captain status.crewStatus
+                |> Maybe.andThen
+                    (\ccs -> CrewmateStatus.demandSource ccs reader)
+                |> Maybe.map
+                    (\ccs ->
+                        { status
+                            | crewStatus =
+                                Dict.insert
+                                    captain
+                                    ccs
+                                    status.crewStatus
+                        }
+                    )
+    in
+    if canUse False currentRound LifeSupport status then
+        status.assignments.captain
+            |> Maybe.andThen updateCaptain
+
+    else
+        Nothing
+
+
+demandTarget : Status -> { a | currentRound : Int, target : String } -> Maybe Status
+demandTarget status { currentRound, target } =
+    Dict.get target status.crewStatus
+        |> Maybe.map
+            (\tcs ->
+                let
+                    cs =
+                        Dict.insert
+                            target
+                            (CrewmateStatus.demandTarget tcs)
+                            status.crewStatus
+                in
+                { status | crewStatus = cs }
+            )
+
+
 
 -- TODO: Encourage is interesting, because you can essentially get a +5 (DC
 -- reduced by 5) for using the associated skill instead of diplomacy
+
+
+encourageSource : Status -> { a | currentRound : Int, target : String } -> Maybe Status
+encourageSource status ({ currentRound, target } as reader) =
+    let
+        updateCaptain captain =
+            Dict.get captain status.crewStatus
+                |> Maybe.andThen CrewmateStatus.encourageSource
+                |> Maybe.map
+                    (\ccs ->
+                        { status
+                            | crewStatus =
+                                Dict.insert
+                                    captain
+                                    ccs
+                                    status.crewStatus
+                        }
+                    )
+    in
+    if canUse False currentRound LifeSupport status then
+        status.assignments.captain
+            |> Maybe.andThen updateCaptain
+
+    else
+        Nothing
+
+
+encourageTarget : Status -> { a | currentRound : Int, target : String } -> Maybe Status
+encourageTarget status { currentRound, target } =
+    Dict.get target status.crewStatus
+        |> Maybe.map
+            (\tcs ->
+                let
+                    cs =
+                        Dict.insert
+                            target
+                            (CrewmateStatus.encourageTarget tcs)
+                            status.crewStatus
+                in
+                { status | crewStatus = cs }
+            )
 
 
 tauntBonus : ( Int, String, Status ) -> Int
@@ -744,15 +845,132 @@ tauntBonus ( currentRound, crewId, status ) =
             (getIntimidateSkillModifier ( crewId, status ))
 
 
+tauntSource : Status -> { a | currentRound : Int } -> Maybe Status
+tauntSource status { currentRound } =
+    let
+        updateCaptain captain =
+            Dict.get captain status.crewStatus
+                |> Maybe.andThen CrewmateStatus.movingSpeechSource
+                |> Maybe.map (\cs -> Dict.insert captain cs status.crewStatus)
+    in
+    if canUse True currentRound LifeSupport status then
+        status.assignments.captain
+            |> Maybe.andThen updateCaptain
+            |> Maybe.map (\cs -> { status | crewStatus = cs })
+
+    else
+        Nothing
+
+
+tauntTarget : Status -> { a | source : String, currentRound : Int, taunted : Taunted } -> Maybe Status
+tauntTarget status { source, currentRound, taunted } =
+    if Dict.member source status.tauntedBy then
+        Nothing
+
+    else
+        Just { status | tauntedBy = Dict.insert source ( currentRound, taunted ) status.tauntedBy }
+
+
 
 -- TODO: Orders is interesting, because you need to use the skill that target
 -- character will use
+
+
+ordersSource : Status -> { a | currentRound : Int } -> Maybe Status
+ordersSource status { currentRound } =
+    let
+        updateCrew captain =
+            Dict.get captain status.crew
+                |> Maybe.andThen Crewmate.ordersSource
+                |> Maybe.map (\cm -> Dict.insert captain cm status.crew)
+
+        updateCrewStatus captain =
+            Dict.get captain status.crewStatus
+                |> Maybe.andThen CrewmateStatus.ordersSource
+                |> Maybe.map (\cs -> Dict.insert captain cs status.crewStatus)
+
+        mNewCrew =
+            status.assignments.captain
+                |> Maybe.andThen updateCrew
+
+        mNewCrewStatus =
+            status.assignments.captain
+                |> Maybe.andThen updateCrewStatus
+    in
+    if canUse True currentRound LifeSupport status then
+        Maybe.map2
+            (\c cs ->
+                { status
+                    | crewStatus = cs
+                    , crew = c
+                }
+            )
+            mNewCrew
+            mNewCrewStatus
+
+    else
+        Nothing
+
+
+ordersTarget : Status -> Status
+ordersTarget status =
+    { status | crewStatus = Dict.map (always CrewmateStatus.ordersTarget) status.crewStatus }
 
 
 movingSpeechBonus : ( Int, String, Status ) -> Int
 movingSpeechBonus ( currentRound, crewId, status ) =
     getDiplomacySkillModifier ( crewId, status )
         + getEffectiveBonus currentRound LifeSupport status
+
+
+
+-- TODO: Should bonuses also have this source/target behaviour?  Should the
+-- corresponding bonuses be calculated simultaneously?  Some sort of State
+-- monad with bonus as the output?
+--
+-- TODO: This is similar to orders, like _really_ similar, but the true
+-- abstraction just doesn't quite seem obvious
+
+
+movingSpeechSource : Status -> { a | currentRound : Int } -> Maybe Status
+movingSpeechSource status { currentRound } =
+    let
+        updateCrew captain =
+            Dict.get captain status.crew
+                |> Maybe.andThen Crewmate.movingSpeechSource
+                |> Maybe.map (\cm -> Dict.insert captain cm status.crew)
+
+        updateCrewStatus captain =
+            Dict.get captain status.crewStatus
+                |> Maybe.andThen CrewmateStatus.movingSpeechSource
+                |> Maybe.map (\cs -> Dict.insert captain cs status.crewStatus)
+
+        mNewCrew =
+            status.assignments.captain
+                |> Maybe.andThen updateCrew
+
+        mNewCrewStatus =
+            status.assignments.captain
+                |> Maybe.andThen updateCrewStatus
+    in
+    if canUse True currentRound LifeSupport status then
+        Maybe.map2
+            (\c cs ->
+                { status
+                    | crewStatus = cs
+                    , crew = c
+                }
+            )
+            mNewCrew
+            mNewCrewStatus
+
+    else
+        Nothing
+
+
+movingSpeechTarget : Status -> Status
+movingSpeechTarget status =
+    { status | crewStatus = Dict.map (always CrewmateStatus.movingSpeechTarget) status.crewStatus }
 
 
 divertBonus : ( Int, String, Status ) -> Int
