@@ -1,4 +1,4 @@
-module Status exposing (ExtraPoweredSystem(..), Status, areShieldsFull, balanceEvenly, balanceFromArc, basePatchDC, canBalanceFromTo, damageArc, damageSystem, divertPowerToEngines, divertPowerToShields, forceAddShields, forceMoveShields, getEffectiveAcAndTl, getEffectiveBonus, getEffectiveDistanceBetweenTurns, getEffectiveSpeed, hasExtraPower, holdItTogether, init, maxDivertPowerToShieldPoints, patch, quickFix)
+module Status exposing (ExtraPoweredSystem(..), Status, areShieldsFull, balanceEvenly, balanceFromArc, basePatchDC, canBalanceFromTo, damageArc, damageSystem, divertPowerToEngines, divertPowerToShields, forceAddShields, forceMoveShields, getEffectiveAcAndTl, getEffectiveBonusOld, getEffectiveDistanceBetweenTurns, getEffectiveSpeed, hasExtraPower, holdItTogether, init, maxDivertPowerToShieldPoints, movingSpeechSource, movingSpeechTarget, patch, quickFix)
 
 import Arc exposing (AnArc, Arc)
 import Assignments exposing (Assignments)
@@ -98,8 +98,8 @@ hasExtraPower extraPoweredSystem roundNumber status =
                     s
 
 
-getEffectiveBonus : Int -> PatchableSystem -> Status -> Int
-getEffectiveBonus currentRound involvedSystem status =
+getEffectiveBonus : Bool -> Int -> PatchableSystem -> Status -> Maybe Int
+getEffectiveBonus isPush currentRound involvedSystem status =
     let
         bonusBySystem system =
             PS.getPatchableSystem system status.systems
@@ -108,18 +108,20 @@ getEffectiveBonus currentRound involvedSystem status =
         standardBonus =
             case bonusBySystem involvedSystem of
                 Nothing ->
-                    0
+                    Just 0
 
                 Just Glitching ->
-                    -2
+                    Just -2
 
                 Just Malfunctioning ->
-                    -- Or Impossible if a Push action
-                    -4
+                    if isPush then
+                        Nothing
+
+                    else
+                        Just -4
 
                 Just Wrecked ->
-                    -- Not actually possible
-                    0
+                    Nothing
 
         powerCoreEffectBonus =
             case bonusBySystem PowerCore of
@@ -161,7 +163,14 @@ getEffectiveBonus currentRound involvedSystem status =
                 _ ->
                     powerCoreEffectBonus
     in
-    standardBonus + tauntedByBonus + effectivePowerCoreEffectBonus
+    Maybe.map
+        (\sb -> sb + tauntedByBonus + effectivePowerCoreEffectBonus)
+        standardBonus
+
+
+getEffectiveBonusOld : Int -> PatchableSystem -> Status -> Int
+getEffectiveBonusOld currentRound involvedSystem =
+    getEffectiveBonus False currentRound involvedSystem >> Maybe.withDefault 0
 
 
 canUse : Bool -> Int -> PatchableSystem -> Status -> Bool
@@ -743,13 +752,7 @@ getComputersSkillModifier ( currentRound, crewId, status ) =
     base + dMod
 
 
-demandBonus : ( Int, String, Status ) -> Int
-demandBonus ( currentRound, crewId, status ) =
-    getIntimidateSkillModifier ( crewId, status )
-        + getEffectiveBonus currentRound LifeSupport status
-
-
-demandSource : Status -> { a | currentRound : Int, target : String } -> Maybe Status
+demandSource : Status -> { a | currentRound : Int, target : String } -> Maybe ( Status, Int )
 demandSource status ({ currentRound, target } as reader) =
     let
         updateCaptain captain =
@@ -767,15 +770,12 @@ demandSource status ({ currentRound, target } as reader) =
                         }
                     )
     in
-    if canUse False currentRound LifeSupport status then
-        status.assignments.captain
-            |> Maybe.andThen updateCaptain
-
-    else
-        Nothing
+    Maybe.map2 (\a b -> ( a, b ))
+        (Maybe.andThen updateCaptain status.assignments.captain)
+        (getEffectiveBonus False currentRound LifeSupport status)
 
 
-demandTarget : Status -> { a | currentRound : Int, target : String } -> Maybe Status
+demandTarget : Status -> { a | currentRound : Int, target : String } -> Maybe ( Status, Int )
 demandTarget status { currentRound, target } =
     Dict.get target status.crewStatus
         |> Maybe.map
@@ -787,7 +787,7 @@ demandTarget status { currentRound, target } =
                             (CrewmateStatus.demandTarget tcs)
                             status.crewStatus
                 in
-                { status | crewStatus = cs }
+                ( { status | crewStatus = cs }, 0 )
             )
 
 
@@ -837,38 +837,37 @@ encourageTarget status { currentRound, target } =
             )
 
 
-tauntBonus : ( Int, String, Status ) -> Int
-tauntBonus ( currentRound, crewId, status ) =
-    getEffectiveBonus currentRound LifeSupport status
-        + max
-            (getBluffSkillModifier ( crewId, status ))
-            (getIntimidateSkillModifier ( crewId, status ))
-
-
-tauntSource : Status -> { a | currentRound : Int } -> Maybe Status
+tauntSource : Status -> { a | currentRound : Int } -> Maybe ( Status, Int )
 tauntSource status { currentRound } =
     let
         updateCaptain captain =
             Dict.get captain status.crewStatus
                 |> Maybe.andThen CrewmateStatus.movingSpeechSource
                 |> Maybe.map (\cs -> Dict.insert captain cs status.crewStatus)
+                |> Maybe.map (\cs -> { status | crewStatus = cs })
+
+        captainBonus captain =
+            max
+                (getBluffSkillModifier ( captain, status ))
+                (getIntimidateSkillModifier ( captain, status ))
+
+        captainResult =
+            Maybe.map2 (\a b -> ( a, b ))
+                (Maybe.andThen updateCaptain status.assignments.captain)
+                (Maybe.map captainBonus status.assignments.captain)
     in
-    if canUse True currentRound LifeSupport status then
-        status.assignments.captain
-            |> Maybe.andThen updateCaptain
-            |> Maybe.map (\cs -> { status | crewStatus = cs })
-
-    else
-        Nothing
+    Maybe.map2 (\( s, b ) b2 -> ( s, b + b2 ))
+        captainResult
+        (getEffectiveBonus True currentRound LifeSupport status)
 
 
-tauntTarget : Status -> { a | source : String, currentRound : Int, taunted : Taunted } -> Maybe Status
+tauntTarget : Status -> { a | source : String, currentRound : Int, taunted : Taunted } -> Maybe ( Status, Int )
 tauntTarget status { source, currentRound, taunted } =
     if Dict.member source status.tauntedBy then
         Nothing
 
     else
-        Just { status | tauntedBy = Dict.insert source ( currentRound, taunted ) status.tauntedBy }
+        Just ( { status | tauntedBy = Dict.insert source ( currentRound, taunted ) status.tauntedBy }, 0 )
 
 
 
@@ -917,22 +916,12 @@ ordersTarget status =
     { status | crewStatus = Dict.map (always CrewmateStatus.ordersTarget) status.crewStatus }
 
 
-movingSpeechBonus : ( Int, String, Status ) -> Int
-movingSpeechBonus ( currentRound, crewId, status ) =
-    getDiplomacySkillModifier ( crewId, status )
-        + getEffectiveBonus currentRound LifeSupport status
 
-
-
--- TODO: Should bonuses also have this source/target behaviour?  Should the
--- corresponding bonuses be calculated simultaneously?  Some sort of State
--- monad with bonus as the output?
---
 -- TODO: This is similar to orders, like _really_ similar, but the true
 -- abstraction just doesn't quite seem obvious
 
 
-movingSpeechSource : Status -> { a | currentRound : Int } -> Maybe Status
+movingSpeechSource : Status -> { a | currentRound : Int } -> Maybe ( Status, Int )
 movingSpeechSource status { currentRound } =
     let
         updateCrew captain =
@@ -952,31 +941,40 @@ movingSpeechSource status { currentRound } =
         mNewCrewStatus =
             status.assignments.captain
                 |> Maybe.andThen updateCrewStatus
+
+        newState =
+            Maybe.map2
+                (\c cs ->
+                    { status
+                        | crewStatus = cs
+                        , crew = c
+                    }
+                )
+                mNewCrew
+                mNewCrewStatus
+
+        captainBonus =
+            status.assignments.captain
+                |> Maybe.map (\cap -> getDiplomacySkillModifier ( cap, status ))
+
+        systemBonus =
+            getEffectiveBonus True currentRound LifeSupport status
+
+        bonus =
+            Maybe.map2 (+) captainBonus systemBonus
     in
-    if canUse True currentRound LifeSupport status then
-        Maybe.map2
-            (\c cs ->
-                { status
-                    | crewStatus = cs
-                    , crew = c
-                }
-            )
-            mNewCrew
-            mNewCrewStatus
-
-    else
-        Nothing
+    Maybe.map2 (\a b -> ( a, b )) newState bonus
 
 
-movingSpeechTarget : Status -> Status
+movingSpeechTarget : Status -> ( Status, Int )
 movingSpeechTarget status =
-    { status | crewStatus = Dict.map (always CrewmateStatus.movingSpeechTarget) status.crewStatus }
+    ( { status | crewStatus = Dict.map (always CrewmateStatus.movingSpeechTarget) status.crewStatus }, 0 )
 
 
 divertBonus : ( Int, String, Status ) -> Int
 divertBonus ( currentRound, crewId, status ) =
     getEngineeringSkillModifier ( crewId, status )
-        + getEffectiveBonus currentRound PowerCore status
+        + getEffectiveBonusOld currentRound PowerCore status
 
 
 holdItTogetherBonus : ( Int, String, Status ) -> Int
@@ -992,13 +990,13 @@ patchBonus ( _, crewId, status ) =
 overpowerBonus : ( Int, String, Status ) -> Int
 overpowerBonus ( currentRound, crewId, status ) =
     getEngineeringSkillModifier ( crewId, status )
-        + getEffectiveBonus currentRound PowerCore status
+        + getEffectiveBonusOld currentRound PowerCore status
 
 
 quickFixBonus : ( Int, String, Status ) -> Int
 quickFixBonus ( currentRound, crewId, status ) =
     getEngineeringSkillModifier ( crewId, status )
-        + getEffectiveBonus currentRound PowerCore status
+        + getEffectiveBonusOld currentRound PowerCore status
 
 
 
@@ -1009,79 +1007,79 @@ quickFixBonus ( currentRound, crewId, status ) =
 
 fireAtWillBonus : ( Int, ( String, AnArc ), Status ) -> Int
 fireAtWillBonus ( currentRound, ( crewId, arc ), status ) =
-    getEffectiveBonus currentRound (WeaponsArray arc) status
+    getEffectiveBonusOld currentRound (WeaponsArray arc) status
         + getGunningModifier ( crewId, status )
         - 4
 
 
 shootBonus : ( Int, ( String, AnArc ), Status ) -> Int
 shootBonus ( currentRound, ( crewId, arc ), status ) =
-    getEffectiveBonus currentRound (WeaponsArray arc) status
+    getEffectiveBonusOld currentRound (WeaponsArray arc) status
         + getGunningModifier ( crewId, status )
 
 
 broadsideBonus : ( Int, ( String, AnArc ), Status ) -> Int
 broadsideBonus ( currentRound, ( crewId, arc ), status ) =
-    getEffectiveBonus currentRound (WeaponsArray arc) status
+    getEffectiveBonusOld currentRound (WeaponsArray arc) status
         + getGunningModifier ( crewId, status )
         - 2
 
 
 preciseTargetingBonus : ( Int, ( String, AnArc ), Status ) -> Int
 preciseTargetingBonus ( currentRound, ( crewId, arc ), status ) =
-    getEffectiveBonus currentRound (WeaponsArray arc) status
+    getEffectiveBonusOld currentRound (WeaponsArray arc) status
         + getGunningModifier ( crewId, status )
 
 
 maneuverBonus : ( Int, String, Status ) -> Int
 maneuverBonus ( currentRound, crewId, status ) =
     getPilotingSkillModifier ( crewId, status )
-        + getEffectiveBonus currentRound Engines status
+        + getEffectiveBonusOld currentRound Engines status
 
 
 stuntBonus : ( Int, String, Status ) -> Int
 stuntBonus ( currentRound, crewId, status ) =
     getPilotingSkillModifier ( crewId, status )
-        + getEffectiveBonus currentRound Engines status
+        + getEffectiveBonusOld currentRound Engines status
 
 
 fullPowerBonus : ( Int, String, Status ) -> Int
 fullPowerBonus ( currentRound, crewId, status ) =
     getPilotingSkillModifier ( crewId, status )
-        + getEffectiveBonus currentRound Engines status
+        + getEffectiveBonusOld currentRound Engines status
 
 
 audaciousGambitBonus : ( Int, String, Status ) -> Int
 audaciousGambitBonus ( currentRound, crewId, status ) =
     getPilotingSkillModifier ( crewId, status )
-        + getEffectiveBonus currentRound Engines status
+        + getEffectiveBonusOld currentRound Engines status
 
 
 balanceBonus : ( Int, String, Status ) -> Int
 balanceBonus ( currentRound, crewId, status ) =
     getComputersSkillModifier ( currentRound, crewId, status )
-        + getEffectiveBonus currentRound Sensors status
+        + getEffectiveBonusOld currentRound Sensors status
 
 
 scanBonus : ( Int, String, Status ) -> Int
 scanBonus ( currentRound, crewId, status ) =
     getComputersSkillModifier ( currentRound, crewId, status )
-        + getEffectiveBonus currentRound Sensors status
+        + getEffectiveBonusOld currentRound Sensors status
 
 
 targetSystemBonus : ( Int, String, Status ) -> Int
 targetSystemBonus ( currentRound, crewId, status ) =
     getComputersSkillModifier ( currentRound, crewId, status )
-        + getEffectiveBonus currentRound Sensors status
+        + getEffectiveBonusOld currentRound Sensors status
 
 
 lockOnBonus : ( Int, String, Status ) -> Int
 lockOnBonus ( currentRound, crewId, status ) =
     getComputersSkillModifier ( currentRound, crewId, status )
-        + getEffectiveBonus currentRound Sensors status
+        + getEffectiveBonusOld currentRound Sensors status
 
 
 improveCountermeasuresBonus : ( Int, String, Status ) -> Int
 improveCountermeasuresBonus ( currentRound, crewId, status ) =
     getComputersSkillModifier ( currentRound, crewId, status )
-        + getEffectiveBonus currentRound Sensors status
+        + getEffectiveBonusOld currentRound Sensors status
