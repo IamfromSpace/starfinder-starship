@@ -1,4 +1,4 @@
-module Crewmate exposing (Crewmate, getAcModifier, getBluffSkillModifier, getComputersSkillModifier, getDiplomacySkillModifier, getEngineeringSkillModifier, getGunningModifier, getIntimidateSkillModifier, getPilotingSkillModifier, getTlModifier, movingSpeechSource, ordersSource)
+module Crewmate exposing (Crewmate, getAcModifier, getBluffSkillModifier, getComputersSkillModifier, getDiplomacySkillModifier, getEngineeringSkillModifier, getGunningModifier, getIntimidateSkillModifier, getPilotingSkillModifier, getTlModifier, init, movingSpeechSource, ordersSource)
 
 
 type alias Crewmate =
@@ -17,6 +17,26 @@ type alias Crewmate =
     , bluffSkillBonus : Int
     , initialStaminaPoints : Int
     , initialHitPoints : Int
+    }
+
+
+init : Crewmate
+init =
+    { level = 1
+    , baseAttackBonus = 0
+    , dexterityBonus = 0
+    , reflexSave = 0
+    , pilotingRanks = 0
+    , pilotingSkillBonus = 0
+    , engineeringRanks = 0
+    , engineeringSkillBonus = 0
+    , computersRanks = 0
+    , computersSkillBonus = 0
+    , diplomacySkillBonus = 0
+    , intimidateSkillBonus = 0
+    , bluffSkillBonus = 0
+    , initialStaminaPoints = 0
+    , initialHitPoints = 0
     }
 
 
