@@ -1,4 +1,4 @@
-module CrewmateEditor exposing (view)
+module CrewmateEditor exposing (Msg, init, update, view, view_)
 
 import Browser exposing (element)
 import Crewmate exposing (Crewmate)
