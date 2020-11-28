@@ -68,59 +68,64 @@ incDecView desc f x =
 
 
 view : Model -> Html Msg
-view { crewmate } =
+view =
+    Html.map UpdateCrewmate << view_ << .crewmate
+
+
+view_ : Crewmate -> Html Crewmate
+view_ crewmate =
     div []
         [ incDecView
             "Level: "
-            (\x -> UpdateCrewmate { crewmate | level = x })
+            (\x -> { crewmate | level = x })
             crewmate.level
         , incDecView
             "Base Attack Bonus: "
-            (\x -> UpdateCrewmate { crewmate | baseAttackBonus = x })
+            (\x -> { crewmate | baseAttackBonus = x })
             crewmate.baseAttackBonus
         , incDecView
             "Dexterity Bonus: "
-            (\x -> UpdateCrewmate { crewmate | dexterityBonus = x })
+            (\x -> { crewmate | dexterityBonus = x })
             crewmate.dexterityBonus
         , incDecView
             "Reflex Save: "
-            (\x -> UpdateCrewmate { crewmate | reflexSave = x })
+            (\x -> { crewmate | reflexSave = x })
             crewmate.reflexSave
         , incDecView
             "Piloting Skill RANKS: "
-            (\x -> UpdateCrewmate { crewmate | pilotingRanks = x })
+            (\x -> { crewmate | pilotingRanks = x })
             crewmate.pilotingRanks
         , incDecView
             "Engineering Skill RANKS: "
-            (\x -> UpdateCrewmate { crewmate | engineeringRanks = x })
+            (\x -> { crewmate | engineeringRanks = x })
             crewmate.engineeringRanks
         , incDecView
             "Computers Skill RANKS: "
-            (\x -> UpdateCrewmate { crewmate | computersRanks = x })
+            (\x -> { crewmate | computersRanks = x })
             crewmate.computersRanks
         , incDecView
             "Piloting Skill Total Bonus: "
-            (\x -> UpdateCrewmate { crewmate | pilotingSkillBonus = x })
+            (\x -> { crewmate | pilotingSkillBonus = x })
             crewmate.pilotingSkillBonus
         , incDecView
             "Engineering Skill Total Bonus: "
-            (\x -> UpdateCrewmate { crewmate | engineeringSkillBonus = x })
+            (\x -> { crewmate | engineeringSkillBonus = x })
             crewmate.engineeringSkillBonus
         , incDecView
             "Computers Skill Total Bonus: "
-            (\x -> UpdateCrewmate { crewmate | computersSkillBonus = x })
+            (\x -> { crewmate | computersSkillBonus = x })
             crewmate.computersSkillBonus
         , incDecView
             "Diplomacy Skill Total Bonus: "
-            (\x -> UpdateCrewmate { crewmate | diplomacySkillBonus = x })
+            (\x -> { crewmate | diplomacySkillBonus = x })
             crewmate.diplomacySkillBonus
         , incDecView
             "Intimidate Skill Total Bonus: "
-            (\x -> UpdateCrewmate { crewmate | intimidateSkillBonus = x })
+            (\x -> { crewmate | intimidateSkillBonus = x })
             crewmate.intimidateSkillBonus
         , incDecView
             "Bluff Skill Total Bonus: "
-            (\x -> UpdateCrewmate { crewmate | bluffSkillBonus = x })
+            (\x -> { crewmate | bluffSkillBonus = x })
             crewmate.bluffSkillBonus
 
         -- TODO: Stamina and HP, still not really sure these are even part of
