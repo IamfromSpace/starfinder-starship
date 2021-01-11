@@ -1,4 +1,12 @@
-module Assignments exposing (Assignments)
+module Assignments exposing (Assignment(..), Assignments, allInEngineering, empty, move, toList)
+
+
+type Assignment
+    = Captain
+    | Pilot
+    | Engineer
+    | ScienceOfficer
+    | Gunner
 
 
 type alias Assignments a =
@@ -7,6 +15,93 @@ type alias Assignments a =
     , engineers : List a
     , scienceOfficers : List a
     , gunners : List a
+    }
+
+
+toList : Assignments a -> List ( a, Assignment )
+toList { captain, pilot, engineers, scienceOfficers, gunners } =
+    let
+        addCaptain =
+            Maybe.map ((::) << (\x -> ( x, Captain ))) captain
+                |> Maybe.withDefault identity
+
+        addPilot =
+            Maybe.map ((::) << (\x -> ( x, Pilot ))) pilot
+                |> Maybe.withDefault identity
+
+        support =
+            List.map (\x -> ( x, ScienceOfficer )) scienceOfficers
+                ++ List.map (\x -> ( x, Engineer )) engineers
+                ++ List.map (\x -> ( x, Gunner )) gunners
+    in
+    addCaptain (addPilot support)
+
+
+move : a -> Assignment -> Assignments a -> Maybe (Assignments a)
+move a to current =
+    let
+        withoutA =
+            { captain =
+                if current.captain == Just a then
+                    Nothing
+
+                else
+                    current.captain
+            , pilot =
+                if current.pilot == Just a then
+                    Nothing
+
+                else
+                    current.pilot
+            , engineers = List.filter ((/=) a) current.engineers
+            , scienceOfficers = List.filter ((/=) a) current.scienceOfficers
+            , gunners = List.filter ((/=) a) current.gunners
+            }
+    in
+    case to of
+        Captain ->
+            case withoutA.captain of
+                Just _ ->
+                    Nothing
+
+                Nothing ->
+                    Just { withoutA | captain = Just a }
+
+        Pilot ->
+            case withoutA.pilot of
+                Just _ ->
+                    Nothing
+
+                Nothing ->
+                    Just { withoutA | pilot = Just a }
+
+        Engineer ->
+            Just { withoutA | engineers = a :: withoutA.engineers }
+
+        ScienceOfficer ->
+            Just { withoutA | scienceOfficers = a :: withoutA.scienceOfficers }
+
+        Gunner ->
+            Just { withoutA | gunners = a :: withoutA.gunners }
+
+
+empty : Assignments a
+empty =
+    { captain = Nothing
+    , pilot = Nothing
+    , engineers = []
+    , scienceOfficers = []
+    , gunners = []
+    }
+
+
+allInEngineering : List a -> Assignments a
+allInEngineering engineeers =
+    { captain = Nothing
+    , pilot = Nothing
+    , engineers = engineeers
+    , scienceOfficers = []
+    , gunners = []
     }
 
 
