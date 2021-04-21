@@ -1,10 +1,10 @@
-module AssignmentsEditor exposing (view)
+module AssignmentsEditor exposing (Model, view)
 
 import Assignments exposing (Assignment(..), Assignments)
 import Html exposing (..)
 import Html.Attributes exposing (disabled, selected, type_, value)
 import Html.Events exposing (onInput)
-import HtmlCmd exposing (HtmlCmd, element)
+import HtmlCmd exposing (HtmlCmd, element, lift)
 import Set exposing (Set)
 import Task
 
@@ -91,11 +91,8 @@ nameView canSelectCaptain canSelectPilot name assignment =
         ]
 
 
-view :
-    (( String, Assignment ) -> Assignments String -> Cmd (Assignments String))
-    -> Assignments String
-    -> HtmlCmd (Assignments String)
-view setAssignments assignments =
+view : Assignments String -> Html (Assignments String)
+view assignments =
     let
         assignmentList =
             Assignments.toList assignments
@@ -110,18 +107,10 @@ view setAssignments assignments =
             (\( name, assignment ) ->
                 nameView (no Captain) (no Pilot) name assignment
                     |> Html.map
-                        (\newAssignment -> setAssignments ( name, newAssignment ) assignments)
+                        (\newAssignment -> Maybe.withDefault assignments (Assignments.move name newAssignment assignments))
             )
             assignmentList
         )
-
-
-pureSetAssignments : ( String, Assignment ) -> Assignments String -> Cmd (Assignments String)
-pureSetAssignments ( name, newAssignment ) assignments =
-    Assignments.move name newAssignment assignments
-        |> Maybe.withDefault assignments
-        |> Task.succeed
-        |> Task.perform identity
 
 
 main : Program () Model ( Model, Cmd Model )
@@ -139,5 +128,5 @@ main =
                     ]
                 , Cmd.none
                 )
-        , view = view pureSetAssignments
+        , view = view >> lift
         }
