@@ -6,6 +6,7 @@ import Computer exposing (..)
 import DefenseLevel exposing (..)
 import Dict
 import ExpansionBay exposing (..)
+import Frame exposing (Frame)
 import Html exposing (..)
 import Html.Attributes exposing (disabled, selected, value)
 import Html.Events exposing (onClick, onInput)

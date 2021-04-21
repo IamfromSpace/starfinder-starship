@@ -5,6 +5,7 @@ import Computer exposing (Computer)
 import DefenseLevel exposing (DefenseLevel(..))
 import Dict
 import ExpansionBay exposing (ExpansionBay(..))
+import Frame exposing (Frame)
 import Http exposing (Expect, Response(..), emptyBody, expectStringResponse, header, request, stringBody)
 import Json.Decode as D exposing (Decoder, decodeString)
 import Json.Decode.Pipeline exposing (optional, required)
@@ -14,7 +15,7 @@ import KeyedSet as KS
 import Link exposing (Link(..))
 import LinkAndTogglable exposing (LinkAndTogglable(..))
 import ShipAssets exposing (frames, shields, weapons)
-import Starship exposing (BuildError, CrewQuarters(..), DriftEngine(..), Frame, Sensor, Shields, Starship)
+import Starship exposing (BuildError, CrewQuarters(..), DriftEngine(..), Sensor, Shields, Starship)
 import Switch exposing (Switch(..))
 import Task
 import Togglable exposing (Togglable(..))
