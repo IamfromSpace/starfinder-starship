@@ -1,4 +1,4 @@
-module CrewEditor exposing (view)
+module CrewEditor exposing (Crew, emptyCrew, view)
 
 import Browser exposing (element)
 import Crewmate exposing (Crewmate)
@@ -27,9 +27,14 @@ type Msg
     | ClientMsg (Result String Crew)
 
 
+emptyCrew : Crew
+emptyCrew =
+    InOrdDict.empty
+
+
 init : Model
 init =
-    { crew = InOrdDict.empty
+    { crew = emptyCrew
     , waiting = False
     , error = Nothing
     }

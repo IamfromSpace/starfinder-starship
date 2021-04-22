@@ -2,6 +2,7 @@ module CreateAndEditStarshipBuild exposing (Config, Model, Msg(..), initialModel
 
 import Arc
 import BuildClient exposing (CreateStarshipBuild, CreateStarshipBuildError, GetStarshipBuild, GetStarshipBuildError, GetStarshipBuilds, GetStarshipBuildsError(..), HttpClientError, Link, StarshipBuildLink, UpdateStarshipBuild, UpdateStarshipBuildError, createStarshipBuild, createStarshipBuildErrorToString, getStarshipBuild, getStarshipBuildErrorToString, getStarshipBuilds, getStarshipBuildsErrorToString, httpClientErrorToString, updateStarshipBuild, updateStarshipBuildErrorToString)
+import CrewEditor exposing (Crew, emptyCrew)
 import Dict
 import Html exposing (Html, button, div, input, label, text)
 import Html.Attributes exposing (disabled, value)
@@ -20,7 +21,7 @@ import Weapon
 initialModel : Model
 initialModel =
     { starshipBuild = Nothing
-    , starshipStatus = Nothing
+    , flightStatus = Nothing
     , error = Nothing
     , isFetching = False
     , shipName = ""
@@ -28,11 +29,16 @@ initialModel =
     }
 
 
+type FlightStatus
+    = SelectingCrew Crew
+    | Flying StatusEditor.Model
+
+
 type alias Model =
     -- TODO: Store the previous Starship Build state so we can detect if it's
     -- actually changed
     { starshipBuild : Maybe ( Maybe ( String, Link ), Starship )
-    , starshipStatus : Maybe StatusEditor.Model
+    , flightStatus : Maybe FlightStatus
     , error : Maybe String
     , isFetching : Bool
     , shipName : String
@@ -54,6 +60,8 @@ type Msg
     | SetShipName String
     | StarshipUpdate StarshipEditor.Msg
     | StatusUpdate StatusEditor.Msg
+    | CrewUpdate Crew
+    | AcceptCrew
     | Back
 
 
@@ -71,7 +79,7 @@ update :
     -> Msg
     -> Model
     -> ( Model, Cmd Msg )
-update { getStarshipBuild, getStarshipBuilds, createStarshipBuild, updateStarshipBuild } msg ({ starshipBuild, error, isFetching, shipName, starshipStatus } as s) =
+update { getStarshipBuild, getStarshipBuilds, createStarshipBuild, updateStarshipBuild } msg ({ starshipBuild, error, isFetching, shipName, flightStatus } as s) =
     case msg of
         GetShip link ->
             ( { s | isFetching = True }
@@ -244,7 +252,7 @@ update { getStarshipBuild, getStarshipBuilds, createStarshipBuild, updateStarshi
                         ( { s
                             | isFetching = False
                             , starshipBuild = Just ( Nothing, sb )
-                            , starshipStatus = Just (StatusEditor.init sb)
+                            , flightStatus = Just (SelectingCrew emptyCrew)
                           }
                         , Cmd.none
                         )
@@ -264,32 +272,52 @@ update { getStarshipBuild, getStarshipBuilds, createStarshipBuild, updateStarshi
                     ( s, Cmd.none )
 
         StatusUpdate sMsg ->
-            case ( starshipBuild, starshipStatus ) of
-                ( Just ( _, sModel ), Just sStatus ) ->
+            case ( starshipBuild, flightStatus ) of
+                ( Just ( _, sModel ), Just (Flying sStatus) ) ->
                     let
                         ( newStatus, cmd ) =
                             StatusEditor.update sModel sMsg sStatus
                     in
-                    ( { s | starshipStatus = Just newStatus }, Cmd.map StatusUpdate cmd )
+                    ( { s | flightStatus = Just (Flying newStatus) }, Cmd.map StatusUpdate cmd )
+
+                _ ->
+                    ( s, Cmd.none )
+
+        CrewUpdate newCrew ->
+            case ( starshipBuild, flightStatus ) of
+                ( Just ( _, sModel ), Just (SelectingCrew _) ) ->
+                    ( { s | flightStatus = Just (SelectingCrew newCrew) }, Cmd.none )
+
+                _ ->
+                    ( s, Cmd.none )
+
+        AcceptCrew ->
+            case ( starshipBuild, flightStatus ) of
+                ( Just ( _, sModel ), Just (SelectingCrew crew) ) ->
+                    ( { s | flightStatus = Just (Flying (StatusEditor.init sModel)) }, Cmd.none )
 
                 _ ->
                     ( s, Cmd.none )
 
         Back ->
-            case error of
-                Just _ ->
+            case ( error, flightStatus ) of
+                ( Just _, _ ) ->
                     ( { s | error = Nothing }, Cmd.none )
 
-                Nothing ->
+                ( Nothing, Just (Flying status) ) ->
                     -- TODO: This could lose saved progress!
-                    ( { s | starshipBuild = Nothing, starshipStatus = Nothing }, Cmd.none )
+                    ( { s | starshipBuild = Nothing, flightStatus = Just (SelectingCrew emptyCrew) }, Cmd.none )
+
+                ( Nothing, _ ) ->
+                    -- TODO: This could lose saved progress!
+                    ( { s | starshipBuild = Nothing, flightStatus = Nothing }, Cmd.none )
 
 
 view : Model -> Html Msg
-view { starshipBuild, error, isFetching, shipName, ships, starshipStatus } =
+view { starshipBuild, error, isFetching, shipName, ships, flightStatus } =
     div
         []
-        (case ( ( starshipBuild, starshipStatus ), error, isFetching ) of
+        (case ( ( starshipBuild, flightStatus ), error, isFetching ) of
             ( _, _, True ) ->
                 [ text "..." ]
 
@@ -298,7 +326,13 @@ view { starshipBuild, error, isFetching, shipName, ships, starshipStatus } =
                 , button [ onClick Back ] [ text "BACK" ]
                 ]
 
-            ( ( Just ( _, starship ), Just status ), _, _ ) ->
+            ( ( Just ( _, starship ), Just (SelectingCrew crew) ), _, _ ) ->
+                [ Html.map CrewUpdate <| CrewEditor.view crew
+                , button [ onClick AcceptCrew ] [ text "ACCEPT" ]
+                , button [ onClick Back ] [ text "BACK" ]
+                ]
+
+            ( ( Just ( _, starship ), Just (Flying status) ), _, _ ) ->
                 [ Html.map StatusUpdate <| StatusEditor.view starship status
                 , button [ onClick Back ] [ text "BACK" ]
                 ]
