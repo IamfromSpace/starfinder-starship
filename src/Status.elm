@@ -53,6 +53,11 @@ type alias Status =
     -- However, this parameterization gets _everywhere_, so it's a bit of apain
     -- to do now.
     , crew : Dict String Crewmate
+
+    -- TODO: It seems like two Dicts is a waste here.  This doesn't well
+    -- capture our invariant (exactly one crewmate per status and vice versa),
+    -- and it means we have to handle missing dict entries twice, which is just
+    -- extra work.
     , crewStatus : Dict String CrewmateStatus
     , assignments : Assignments String
     , tauntedBy : Dict String ( Int, Taunted ) --TODO: affects one phase (over multiple rounds)
