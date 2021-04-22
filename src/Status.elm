@@ -59,6 +59,10 @@ type alias Status =
     -- and it means we have to handle missing dict entries twice, which is just
     -- extra work.
     , crewStatus : Dict String CrewmateStatus
+
+    -- TODO: There's really no way to possibly enforce all invariants
+    -- simultaneously.  Perhaps an assignment is really just a single round
+    -- status item, and this should just be collapsed into a single crew entry.
     , assignments : Assignments String
     , tauntedBy : Dict String ( Int, Taunted ) --TODO: affects one phase (over multiple rounds)
     }
