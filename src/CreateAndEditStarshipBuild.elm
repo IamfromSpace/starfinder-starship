@@ -304,9 +304,9 @@ update { getStarshipBuild, getStarshipBuilds, createStarshipBuild, updateStarshi
                 ( Just _, _ ) ->
                     ( { s | error = Nothing }, Cmd.none )
 
-                ( Nothing, Just (Flying status) ) ->
+                ( Nothing, Just (Flying _) ) ->
                     -- TODO: This could lose saved progress!
-                    ( { s | starshipBuild = Nothing, flightStatus = Just (SelectingCrew emptyCrew) }, Cmd.none )
+                    ( { s | flightStatus = Just (SelectingCrew emptyCrew) }, Cmd.none )
 
                 ( Nothing, _ ) ->
                     -- TODO: This could lose saved progress!
