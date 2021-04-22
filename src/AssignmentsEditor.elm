@@ -51,15 +51,15 @@ fromValue str =
             Engineer
 
 
-nameView : Bool -> Bool -> String -> Assignment -> Html Assignment
-nameView canSelectCaptain canSelectPilot name assignment =
+nameView : Bool -> Bool -> Bool -> String -> Assignment -> Html Assignment
+nameView isDisabled canSelectCaptain canSelectPilot name assignment =
     div []
         [ label [] [ text (name ++ ": ") ]
 
         -- TODO: Prevent double captain/pilot selection
         -- Note:  It appears this only works reliably if you use _both_
         -- <select value> and <option selected>, yay!
-        , select [ onInput fromValue, value (toValue assignment) ]
+        , select [ disabled isDisabled, onInput fromValue, value (toValue assignment) ]
             [ option
                 [ value (toValue Captain)
                 , selected (assignment == Captain)
@@ -91,8 +91,8 @@ nameView canSelectCaptain canSelectPilot name assignment =
         ]
 
 
-view : Assignments String -> Html (Assignments String)
-view assignments =
+view : Bool -> Assignments String -> Html (Assignments String)
+view isDisabled assignments =
     let
         assignmentList =
             Assignments.toList assignments
@@ -105,7 +105,7 @@ view assignments =
     div []
         (List.map
             (\( name, assignment ) ->
-                nameView (no Captain) (no Pilot) name assignment
+                nameView isDisabled (no Captain) (no Pilot) name assignment
                     |> Html.map
                         (\newAssignment -> Maybe.withDefault assignments (Assignments.move name newAssignment assignments))
             )
@@ -128,5 +128,5 @@ main =
                     ]
                 , Cmd.none
                 )
-        , view = view >> lift
+        , view = view False >> lift
         }
