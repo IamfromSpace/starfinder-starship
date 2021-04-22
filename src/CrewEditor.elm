@@ -23,8 +23,7 @@ type alias Model =
 
 
 type Msg
-    = AddCrewmate
-    | UpdateCrew Crew
+    = UpdateCrew Crew
     | ClientMsg (Result String Crew)
 
 
@@ -43,9 +42,6 @@ type alias CrewClient =
 update : { a | updateCrew : CrewClient } -> Msg -> Model -> ( Model, Cmd Msg )
 update { updateCrew } msg model =
     case msg of
-        AddCrewmate ->
-            ( { model | crew = InOrdDict.insert "" (.crewmate CrewmateEditor.init) model.crew }, Cmd.none )
-
         UpdateCrew new ->
             ( { model | waiting = True }, Cmd.map ClientMsg <| updateCrew new )
 
@@ -84,11 +80,11 @@ view_ crew =
         crew
 
 
-view : Model -> Html Msg
-view { crew } =
+view : Crew -> Html Crew
+view crew =
     div []
-        (div [] [ button [ onClick AddCrewmate ] [ text "Add Crewmate" ] ]
-            :: List.map (Html.map UpdateCrew) (view_ crew)
+        (div [] [ button [ onClick (InOrdDict.insert "" (.crewmate CrewmateEditor.init) crew) ] [ text "Add Crewmate" ] ]
+            :: view_ crew
         )
 
 
@@ -102,6 +98,6 @@ main =
     element
         { init = \_ -> ( init, Cmd.none )
         , update = update { updateCrew = mockClient }
-        , view = view
+        , view = .crew >> view >> Html.map UpdateCrew
         , subscriptions = \_ -> Sub.none
         }
