@@ -1,6 +1,8 @@
 module StatusEditor exposing (Model, Msg(..), colorTransition, criticalStatusToRgb, init, main, maybeSeverityToPercent, update, view)
 
 import Arc exposing (AnArc(..))
+import Assignments exposing (Assignments, allInEngineering)
+import AssignmentsEditor
 import Browser exposing (element)
 import Color exposing (Color, blue, green, grey, red, yellow)
 import Color.Convert exposing (colorToCssRgb)
@@ -75,14 +77,18 @@ maybeBalancing ps =
 
 
 type Phase
-    = Engineering
+    = Assign
+    | Engineering
     | Piloting
     | Gunnery
 
 
-nextPhase : Phase -> Phase
-nextPhase phase =
-    case phase of
+nextPhase : Model -> Phase
+nextPhase model =
+    case model.phase of
+        Assign ->
+            Engineering
+
         Engineering ->
             Piloting
 
@@ -90,12 +96,15 @@ nextPhase phase =
             Gunnery
 
         Gunnery ->
-            Engineering
+            Assign
 
 
 phaseToString : Phase -> String
 phaseToString phase =
     case phase of
+        Assign ->
+            "Assignments"
+
         Engineering ->
             "Engineering"
 
@@ -123,7 +132,7 @@ init starship =
     , damageInput = Nothing
     , partialState = Allotting (Arc.pure ((extract starship.shields).shieldPoints // 4))
     , roundNumber = 0
-    , phase = Engineering
+    , phase = Assign
     }
 
 
@@ -148,6 +157,7 @@ type Msg
     | Patch CS.PatchEffectiveness PatchableSystem
     | HoldItTogether PatchableSystem
     | QuickFix PatchableSystem
+    | SetAssignments (Assignments String)
     | NextPhase
 
 
@@ -375,6 +385,13 @@ update starship msg model =
         QuickFix patchableSystem ->
             ( { model | status = Status.quickFix patchableSystem model.status }, Cmd.none )
 
+        SetAssignments a ->
+            let
+                s =
+                    model.status
+            in
+            ( { model | status = { s | assignments = a } }, Cmd.none )
+
         NextPhase ->
             ( { model
                 | roundNumber =
@@ -386,7 +403,7 @@ update starship msg model =
                             _ ->
                                 0
                           )
-                , phase = nextPhase model.phase
+                , phase = nextPhase model
               }
             , Cmd.none
             )
@@ -865,9 +882,11 @@ view starship model =
         , patchableDisplay (model.phase == Engineering) "Weapons Array - Starboard" model.status.systems.weaponsArray.starboard (WeaponsArray Arc.Starboard)
         , patchableDisplay (model.phase == Engineering) "Engines" model.status.systems.engines Engines
         , patchableDisplay (model.phase == Engineering) "Power Core" model.status.systems.powerCore PowerCore
+        , AssignmentsEditor.view (model.phase /= Assign) model.status.assignments
+            |> Html.map SetAssignments
         , button
             [ E.onClick NextPhase, A.disabled isStillAllotting ]
-            [ text ("PROCEED TO " ++ String.toUpper (phaseToString (nextPhase model.phase)) ++ " PHASE") ]
+            [ text ("PROCEED TO " ++ String.toUpper (phaseToString (nextPhase model)) ++ " PHASE") ]
         ]
 
 
