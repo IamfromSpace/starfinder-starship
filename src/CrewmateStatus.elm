@@ -24,14 +24,14 @@ init : CrewmateStatus
 init =
     -- TODO: This isn't ideal, only some of these fields really have reasonable
     -- defaults
-    { resolvePoints = 0
+    { resolvePoints = 10000000
     , crewDemanded = Set.empty
     , demanded = False
     , encouraged = False
     , ordered = False
     , moved = False
-    , staminaPoints = 0
-    , hitPoints = 0
+    , staminaPoints = 10000000
+    , hitPoints = 10000000
     , actions = 0
     }
 
