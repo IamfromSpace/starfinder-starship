@@ -1,7 +1,7 @@
 module Status exposing (ExtraPoweredSystem(..), Status, areShieldsFull, balanceEvenly, balanceFromArc, basePatchDC, canBalanceFromTo, damageArc, damageSystem, divertPowerToEngines, divertPowerToShields, forceAddShields, forceMoveShields, getEffectiveAcAndTl, getEffectiveBonusOld, getEffectiveDistanceBetweenTurns, getEffectiveSpeed, hasExtraPower, holdItTogether, init, maxDivertPowerToShieldPoints, movingSpeechSource, movingSpeechTarget, patch, quickFix)
 
 import Arc exposing (AnArc, Arc)
-import Assignments exposing (Assignments)
+import Assignments exposing (Assignments, allInEngineering)
 import Crewmate exposing (Crewmate)
 import CrewmateStatus exposing (CrewmateStatus)
 import CriticalStatus as CS exposing (CriticalStatus, PatchEffectiveness(..), Severity(..))
@@ -68,22 +68,16 @@ type alias Status =
     }
 
 
-init : Status
-init =
+init : Dict String Crewmate -> Status
+init crew =
     { damage = 0
     , shields = Arc.pure 0
     , systems = PS.pure Nothing
     , powerAction = ( -1, Divert Shields ) -- The -1 round acts as a No-op
     , pilotResult = ( -1, noPilotResult ) -- The -1 round acts as a No-op
-    , crew = Dict.empty
-    , crewStatus = Dict.empty
-    , assignments =
-        { captain = Nothing
-        , pilot = Nothing
-        , scienceOfficers = []
-        , engineers = []
-        , gunners = []
-        }
+    , crew = crew
+    , crewStatus = Dict.map (always (always CrewmateStatus.init)) crew
+    , assignments = allInEngineering (Dict.keys crew)
     , tauntedBy = Dict.empty
     }
 

@@ -8,7 +8,9 @@ import Color exposing (Color, blue, green, grey, red, yellow)
 import Color.Convert exposing (colorToCssRgb)
 import Color.Manipulate exposing (weightedMix)
 import CounterArc
+import Crewmate exposing (Crewmate)
 import CriticalStatus as CS exposing (CriticalStatus, Severity(..))
+import Dict exposing (Dict)
 import Fighter
 import Html exposing (Html, button, div, input, text)
 import Html.Attributes as A
@@ -125,9 +127,9 @@ type alias Model =
     }
 
 
-init : Starship -> Model
-init starship =
-    { status = Status.init
+init : Dict String Crewmate -> Starship -> Model
+init crew starship =
+    { status = Status.init crew
     , critsRemaining = 0
     , damageInput = Nothing
     , partialState = Allotting (Arc.pure ((extract starship.shields).shieldPoints // 4))
@@ -893,7 +895,7 @@ view starship model =
 main : Program () Model Msg
 main =
     element
-        { init = \_ -> ( init norikamaDropship, Cmd.none )
+        { init = \_ -> ( init Dict.empty norikamaDropship, Cmd.none )
         , update = update norikamaDropship
         , view = view norikamaDropship
         , subscriptions = \_ -> Sub.none

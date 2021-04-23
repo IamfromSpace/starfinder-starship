@@ -1,4 +1,4 @@
-module CrewmateStatus exposing (CrewmateStatus, demandSource, demandTarget, encourageSource, encourageTarget, getBluffSkillModifier, getComputersSkillModifier, getDiplomacySkillModifier, getEngineeringSkillModifier, getGunningModifier, getIntimidateSkillModifier, getPilotingSkillModifier, movingSpeechSource, movingSpeechTarget, ordersSource, ordersTarget, tauntSource)
+module CrewmateStatus exposing (CrewmateStatus, demandSource, demandTarget, encourageSource, encourageTarget, getBluffSkillModifier, getComputersSkillModifier, getDiplomacySkillModifier, getEngineeringSkillModifier, getGunningModifier, getIntimidateSkillModifier, getPilotingSkillModifier, init, movingSpeechSource, movingSpeechTarget, ordersSource, ordersTarget, tauntSource)
 
 import Arc exposing (AnArc)
 import Crewmate exposing (Crewmate)
@@ -17,6 +17,22 @@ type alias CrewmateStatus =
     , staminaPoints : Int
     , hitPoints : Int
     , actions : Int -- TODO: Counter for one round
+    }
+
+
+init : CrewmateStatus
+init =
+    -- TODO: This isn't ideal, only some of these fields really have reasonable
+    -- defaults
+    { resolvePoints = 0
+    , crewDemanded = Set.empty
+    , demanded = False
+    , encouraged = False
+    , ordered = False
+    , moved = False
+    , staminaPoints = 0
+    , hitPoints = 0
+    , actions = 0
     }
 
 

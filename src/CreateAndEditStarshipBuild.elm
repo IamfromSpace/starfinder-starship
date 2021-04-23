@@ -7,6 +7,7 @@ import Dict
 import Html exposing (Html, button, div, input, label, text)
 import Html.Attributes exposing (disabled, value)
 import Html.Events exposing (onClick, onInput)
+import InOrdDict exposing (toDict)
 import InputConfigured as IC
 import KeyedSet as KS
 import Platform.Cmd exposing (Cmd)
@@ -294,7 +295,7 @@ update { getStarshipBuild, getStarshipBuilds, createStarshipBuild, updateStarshi
         AcceptCrew ->
             case ( starshipBuild, flightStatus ) of
                 ( Just ( _, sModel ), Just (SelectingCrew crew) ) ->
-                    ( { s | flightStatus = Just (Flying (StatusEditor.init sModel)) }, Cmd.none )
+                    ( { s | flightStatus = Just (Flying (StatusEditor.init (toDict crew) sModel)) }, Cmd.none )
 
                 _ ->
                     ( s, Cmd.none )
