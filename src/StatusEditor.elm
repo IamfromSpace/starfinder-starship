@@ -159,6 +159,7 @@ type Msg
     | Patch CS.PatchEffectiveness PatchableSystem
     | HoldItTogether PatchableSystem
     | QuickFix PatchableSystem
+    | MovingSpeech
     | SetAssignments (Assignments String)
     | NextPhase
 
@@ -386,6 +387,19 @@ update starship msg model =
 
         QuickFix patchableSystem ->
             ( { model | status = Status.quickFix patchableSystem model.status }, Cmd.none )
+
+        MovingSpeech ->
+            let
+                ( afterTargetStatus, _ ) =
+                    Status.movingSpeechTarget model.status
+
+                newModel =
+                    Status.movingSpeechSource afterTargetStatus { currentRound = model.roundNumber }
+                        |> Maybe.map Tuple.first
+                        |> Maybe.map (\s -> { model | status = s })
+                        |> Maybe.withDefault model
+            in
+            ( newModel, Cmd.none )
 
         SetAssignments a ->
             let
@@ -876,6 +890,23 @@ view starship model =
         , button
             [ E.onClick AcceptAllotmentToShields, A.disabled (not isStillAllotting) ]
             [ text "Accept Allotted Shields" ]
+        , let
+            ( s1, b1 ) =
+                Status.movingSpeechTarget model.status
+
+            mb =
+                Status.movingSpeechSource s1 { currentRound = model.roundNumber }
+          in
+          case mb of
+            Just ( nextStatus, bonus ) ->
+                button
+                    [ E.onClick MovingSpeech ]
+                    [ text ("Moving Speech (" ++ String.fromInt (bonus + b1) ++ ")") ]
+
+            Nothing ->
+                button
+                    [ A.disabled True ]
+                    [ text "Moving Speech" ]
         , patchableDisplay (model.phase == Engineering) "Life Support" model.status.systems.lifeSupport LifeSupport
         , patchableDisplay (model.phase == Engineering) "Sensors" model.status.systems.sensors Sensors
         , patchableDisplay (model.phase == Engineering) "Weapons Array - Forward" model.status.systems.weaponsArray.forward (WeaponsArray Arc.Forward)
