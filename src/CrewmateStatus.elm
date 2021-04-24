@@ -7,16 +7,40 @@ import Set exposing (Set)
 import Starship exposing (Starship)
 
 
+type alias PhaseStatus =
+    { moved : Bool
+    }
+
+
+type alias RoundStatus =
+    { demanded : Bool
+    , encouraged : Bool
+    , ordered : Bool
+    , actions : Int
+    , phaseStatus : ( (), PhaseStatus ) -- TODO: Move phase to a module
+    }
+
+
 type alias CrewmateStatus =
     { resolvePoints : Int
     , crewDemanded : Set String
-    , demanded : Bool -- TODO: Lasts one round
-    , encouraged : Bool -- TODO: Lasts one round
-    , ordered : Bool -- TODO: Lasts one round
-    , moved : Bool -- TODO: Lasts only one phase
     , staminaPoints : Int
     , hitPoints : Int
-    , actions : Int -- TODO: Counter for one round
+    , roundStatus : ( Int, RoundStatus )
+    }
+
+
+initRS : RoundStatus
+initRS =
+    { demanded = False
+    , encouraged = False
+    , ordered = False
+    , actions = 0
+    , phaseStatus =
+        ( ()
+        , { moved = False
+          }
+        )
     }
 
 
@@ -26,19 +50,18 @@ init =
     -- defaults
     { resolvePoints = 10000000
     , crewDemanded = Set.empty
-    , demanded = False
-    , encouraged = False
-    , ordered = False
-    , moved = False
     , staminaPoints = 10000000
     , hitPoints = 10000000
-    , actions = 0
+    , roundStatus = ( -1, initRS )
     }
 
 
-baseBonusModifier : CrewmateStatus -> Int
-baseBonusModifier { demanded, encouraged } =
+baseBonusModifier : CrewmateStatus -> { a | currentRound : Int } -> Int
+baseBonusModifier cs { currentRound } =
     let
+        ( roundApplied, { demanded, encouraged } ) =
+            cs.roundStatus
+
         d =
             if demanded then
                 4
@@ -53,115 +76,189 @@ baseBonusModifier { demanded, encouraged } =
             else
                 0
     in
-    d + e
+    if roundApplied == currentRound then
+        d + e
+
+    else
+        0
 
 
-getGunningModifier : CrewmateStatus -> Int
+getGunningModifier : CrewmateStatus -> { a | currentRound : Int } -> Int
 getGunningModifier =
     baseBonusModifier
 
 
-getPilotingSkillModifier : CrewmateStatus -> Int
+getPilotingSkillModifier : CrewmateStatus -> { a | currentRound : Int } -> Int
 getPilotingSkillModifier =
     baseBonusModifier
 
 
-getEngineeringSkillModifier : CrewmateStatus -> Int
+getEngineeringSkillModifier : CrewmateStatus -> { a | currentRound : Int } -> Int
 getEngineeringSkillModifier =
     baseBonusModifier
 
 
-getComputersSkillModifier : CrewmateStatus -> Int
+getComputersSkillModifier : CrewmateStatus -> { a | currentRound : Int } -> Int
 getComputersSkillModifier =
     baseBonusModifier
 
 
-getDiplomacySkillModifier : CrewmateStatus -> Int
+getDiplomacySkillModifier : CrewmateStatus -> { a | currentRound : Int } -> Int
 getDiplomacySkillModifier =
     baseBonusModifier
 
 
-getIntimidateSkillModifier : CrewmateStatus -> Int
+getIntimidateSkillModifier : CrewmateStatus -> { a | currentRound : Int } -> Int
 getIntimidateSkillModifier =
     baseBonusModifier
 
 
-getBluffSkillModifier : CrewmateStatus -> Int
+getBluffSkillModifier : CrewmateStatus -> { a | currentRound : Int } -> Int
 getBluffSkillModifier =
     baseBonusModifier
 
 
-canAct : CrewmateStatus -> Bool
-canAct { actions, ordered } =
+getCurrentRoundStatus : CrewmateStatus -> { a | currentRound : Int } -> RoundStatus
+getCurrentRoundStatus cms { currentRound } =
+    let
+        ( roundAffected, lastRoundStatus ) =
+            cms.roundStatus
+    in
+    if currentRound == roundAffected then
+        lastRoundStatus
+
+    else
+        initRS
+
+
+canAct : CrewmateStatus -> { a | currentRound : Int } -> Bool
+canAct cs r =
+    let
+        { actions, ordered } =
+            getCurrentRoundStatus cs r
+    in
     actions == 0 || ordered && actions == 1
 
 
-demandSource : CrewmateStatus -> { a | target : String } -> Maybe CrewmateStatus
-demandSource cms { target } =
-    if Set.member target cms.crewDemanded && canAct cms then
+demandSource : CrewmateStatus -> { a | target : String, currentRound : Int } -> Maybe CrewmateStatus
+demandSource cms ({ target, currentRound } as r) =
+    if Set.member target cms.crewDemanded && canAct cms r then
         Nothing
 
     else
+        let
+            currentRoundStatus =
+                getCurrentRoundStatus cms r
+        in
         Just
             { cms
                 | crewDemanded = Set.insert target cms.crewDemanded
-                , actions = cms.actions + 1
+                , roundStatus =
+                    ( currentRound
+                    , { currentRoundStatus | actions = currentRoundStatus.actions + 1 }
+                    )
             }
 
 
-demandTarget : CrewmateStatus -> CrewmateStatus
-demandTarget cms =
-    { cms | demanded = True }
+demandTarget : CrewmateStatus -> { a | currentRound : Int } -> CrewmateStatus
+demandTarget cms ({ currentRound } as r) =
+    let
+        currentRoundStatus =
+            getCurrentRoundStatus cms r
+    in
+    { cms | roundStatus = ( currentRound, { currentRoundStatus | demanded = True } ) }
 
 
-encourageSource : CrewmateStatus -> Maybe CrewmateStatus
-encourageSource cms =
-    if canAct cms then
-        Just { cms | actions = cms.actions + 1 }
-
-    else
-        Nothing
-
-
-encourageTarget : CrewmateStatus -> CrewmateStatus
-encourageTarget cms =
-    { cms | encouraged = True }
-
-
-tauntSource : CrewmateStatus -> Maybe CrewmateStatus
-tauntSource cms =
-    if canAct cms then
-        Just { cms | actions = cms.actions + 1 }
-
-    else
-        Nothing
-
-
-ordersSource : CrewmateStatus -> Maybe CrewmateStatus
-ordersSource cms =
-    if cms.resolvePoints > 0 && canAct cms then
+encourageSource : CrewmateStatus -> { a | currentRound : Int } -> Maybe CrewmateStatus
+encourageSource cms ({ currentRound } as r) =
+    if canAct cms r then
+        let
+            currentRoundStatus =
+                getCurrentRoundStatus cms r
+        in
         Just
             { cms
-                | resolvePoints = cms.resolvePoints - 1
-                , actions = cms.actions + 1
+                | roundStatus =
+                    ( currentRound
+                    , { currentRoundStatus | actions = currentRoundStatus.actions + 1 }
+                    )
             }
 
     else
         Nothing
 
 
-ordersTarget : CrewmateStatus -> CrewmateStatus
-ordersTarget cms =
-    { cms | ordered = True }
+encourageTarget : CrewmateStatus -> { a | currentRound : Int } -> CrewmateStatus
+encourageTarget cms ({ currentRound } as r) =
+    let
+        currentRoundStatus =
+            getCurrentRoundStatus cms r
+    in
+    { cms | roundStatus = ( currentRound, { currentRoundStatus | encouraged = True } ) }
 
 
-movingSpeechSource : CrewmateStatus -> Maybe CrewmateStatus
-movingSpeechSource cms =
-    if cms.resolvePoints > 0 && canAct cms then
+tauntSource : CrewmateStatus -> { a | currentRound : Int } -> Maybe CrewmateStatus
+tauntSource cms ({ currentRound } as r) =
+    if canAct cms r then
+        let
+            currentRoundStatus =
+                getCurrentRoundStatus cms r
+        in
+        Just
+            { cms
+                | roundStatus =
+                    ( currentRound
+                    , { currentRoundStatus | actions = currentRoundStatus.actions + 1 }
+                    )
+            }
+
+    else
+        Nothing
+
+
+ordersSource : CrewmateStatus -> { a | currentRound : Int } -> Maybe CrewmateStatus
+ordersSource cms ({ currentRound } as r) =
+    if cms.resolvePoints > 0 && canAct cms r then
+        let
+            currentRoundStatus =
+                getCurrentRoundStatus cms r
+        in
         Just
             { cms
                 | resolvePoints = cms.resolvePoints - 1
-                , actions = cms.actions + 1
+                , roundStatus =
+                    ( currentRound
+                    , { currentRoundStatus | actions = currentRoundStatus.actions + 1 }
+                    )
+            }
+
+    else
+        Nothing
+
+
+ordersTarget : CrewmateStatus -> { a | currentRound : Int } -> CrewmateStatus
+ordersTarget cms ({ currentRound } as r) =
+    let
+        currentRoundStatus =
+            getCurrentRoundStatus cms r
+    in
+    { cms | roundStatus = ( currentRound, { currentRoundStatus | ordered = True } ) }
+
+
+movingSpeechSource : CrewmateStatus -> { a | currentRound : Int } -> Maybe CrewmateStatus
+movingSpeechSource cms ({ currentRound } as r) =
+    if cms.resolvePoints > 0 && canAct cms r then
+        let
+            currentRoundStatus =
+                getCurrentRoundStatus cms r
+        in
+        Just
+            { cms
+                | resolvePoints = cms.resolvePoints - 1
+                , roundStatus =
+                    ( currentRound
+                    , { currentRoundStatus | actions = currentRoundStatus.actions + 1 }
+                    )
             }
 
     else
@@ -173,6 +270,12 @@ movingSpeechSource cms =
 -- on the Status (though it could be denormalized in our HTTP response).
 
 
-movingSpeechTarget : CrewmateStatus -> CrewmateStatus
-movingSpeechTarget cms =
-    { cms | moved = True }
+movingSpeechTarget : CrewmateStatus -> { a | currentRound : Int } -> CrewmateStatus
+movingSpeechTarget cms ({ currentRound } as r) =
+    let
+        currentRoundStatus =
+            getCurrentRoundStatus cms r
+
+        --TODO: currentPhaseStatus
+    in
+    { cms | roundStatus = ( currentRound, { currentRoundStatus | phaseStatus = ( (), { moved = True } ) } ) }

@@ -391,7 +391,7 @@ update starship msg model =
         MovingSpeech ->
             let
                 ( afterTargetStatus, _ ) =
-                    Status.movingSpeechTarget model.status
+                    Status.movingSpeechTarget model.status { currentRound = model.roundNumber }
 
                 newModel =
                     Status.movingSpeechSource afterTargetStatus { currentRound = model.roundNumber }
@@ -892,7 +892,7 @@ view starship model =
             [ text "Accept Allotted Shields" ]
         , let
             ( s1, b1 ) =
-                Status.movingSpeechTarget model.status
+                Status.movingSpeechTarget model.status { currentRound = model.roundNumber }
 
             mb =
                 Status.movingSpeechSource s1 { currentRound = model.roundNumber }
