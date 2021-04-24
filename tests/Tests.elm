@@ -1,9 +1,12 @@
-module Tests exposing (..)
+module Tests exposing (all)
 
-import Test exposing (..)
+-- Main is imported to ensure everything compiles
+
 import Expect
-import Starship exposing (..)
+import Main
 import ShipAssets exposing (..)
+import Starship exposing (..)
+import Test exposing (..)
 
 
 all : Test
