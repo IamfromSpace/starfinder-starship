@@ -7,6 +7,7 @@ import Browser exposing (element)
 import Color exposing (Color, blue, green, grey, red, yellow)
 import Color.Convert exposing (colorToCssRgb)
 import Color.Manipulate exposing (weightedMix)
+import CombatPhase exposing (CombatPhase(..))
 import CounterArc
 import Crewmate exposing (Crewmate)
 import CriticalStatus as CS exposing (CriticalStatus, Severity(..))
@@ -80,24 +81,22 @@ maybeBalancing ps =
 
 type Phase
     = Assign
-    | Engineering
-    | Piloting
-    | Gunnery
+    | CP CombatPhase
 
 
 nextPhase : Model -> Phase
 nextPhase model =
     case model.phase of
         Assign ->
-            Engineering
+            CP Engineering
 
-        Engineering ->
-            Piloting
+        CP Engineering ->
+            CP Piloting
 
-        Piloting ->
-            Gunnery
+        CP Piloting ->
+            CP Gunnery
 
-        Gunnery ->
+        CP Gunnery ->
             Assign
 
 
@@ -107,13 +106,13 @@ phaseToString phase =
         Assign ->
             "Assignments"
 
-        Engineering ->
+        CP Engineering ->
             "Engineering"
 
-        Piloting ->
+        CP Piloting ->
             "Piloting"
 
-        Gunnery ->
+        CP Gunnery ->
             "Gunnery"
 
 
@@ -413,7 +412,7 @@ update starship msg model =
                 | roundNumber =
                     model.roundNumber
                         + (case model.phase of
-                            Gunnery ->
+                            CP Gunnery ->
                                 1
 
                             _ ->
@@ -780,7 +779,7 @@ view starship model =
             [ A.value (Maybe.map String.fromInt model.damageInput |> Maybe.withDefault "")
             , A.disabled
                 (case ( model.partialState, model.phase ) of
-                    ( Selected _, Gunnery ) ->
+                    ( Selected _, CP Gunnery ) ->
                         False
 
                     _ ->
@@ -794,7 +793,7 @@ view starship model =
         -- TODO: Allow weapon effects (most notably EMP)
         , button
             (case ( model.partialState, model.damageInput, model.phase ) of
-                ( Selected arc, Just damageInput, Gunnery ) ->
+                ( Selected arc, Just damageInput, CP Gunnery ) ->
                     [ E.onClick (Damage damageInput True) ]
 
                 _ ->
@@ -803,7 +802,7 @@ view starship model =
             [ text "Damage w/Crit" ]
         , button
             (case ( model.partialState, model.damageInput, model.phase ) of
-                ( Selected arc, Just damageInput, Gunnery ) ->
+                ( Selected arc, Just damageInput, CP Gunnery ) ->
                     [ E.onClick (Damage damageInput False) ]
 
                 _ ->
@@ -812,7 +811,7 @@ view starship model =
             [ text "Damage" ]
         , button
             (case ( model.partialState, model.phase ) of
-                ( Selected arc, Piloting ) ->
+                ( Selected arc, CP Piloting ) ->
                     case Status.canBalanceFromTo arc model.status.shields of
                         [] ->
                             [ A.disabled True ]
@@ -844,7 +843,7 @@ view starship model =
             [ text "Accept Balance to other Shields" ]
         , button
             (case ( model.partialState, model.phase ) of
-                ( None, Piloting ) ->
+                ( None, CP Piloting ) ->
                     [ E.onClick BalanceEvenly ]
 
                 _ ->
@@ -853,7 +852,7 @@ view starship model =
             [ text "Balance Shields Evenly" ]
         , button
             (case ( model.partialState, Status.maxDivertPowerToShieldPoints starship model.status <= 0, model.phase ) of
-                ( None, False, Engineering ) ->
+                ( None, False, CP Engineering ) ->
                     [ E.onClick StartDivertToShields ]
 
                 _ ->
@@ -880,7 +879,7 @@ view starship model =
             [ text "Accept Divert Power to Shields" ]
         , button
             (case ( model.partialState, model.phase ) of
-                ( None, Engineering ) ->
+                ( None, CP Engineering ) ->
                     [ E.onClick DivertToEngines ]
 
                 _ ->
@@ -897,24 +896,24 @@ view starship model =
             mb =
                 Status.movingSpeechSource s1 { currentRound = model.roundNumber }
           in
-          case mb of
-            Just ( nextStatus, bonus ) ->
+          case ( mb, model.phase ) of
+            ( Just ( nextStatus, bonus ), CP _ ) ->
                 button
                     [ E.onClick MovingSpeech ]
                     [ text ("Moving Speech (" ++ String.fromInt (bonus + b1) ++ ")") ]
 
-            Nothing ->
+            _ ->
                 button
                     [ A.disabled True ]
                     [ text "Moving Speech" ]
-        , patchableDisplay (model.phase == Engineering) "Life Support" model.status.systems.lifeSupport LifeSupport
-        , patchableDisplay (model.phase == Engineering) "Sensors" model.status.systems.sensors Sensors
-        , patchableDisplay (model.phase == Engineering) "Weapons Array - Forward" model.status.systems.weaponsArray.forward (WeaponsArray Arc.Forward)
-        , patchableDisplay (model.phase == Engineering) "Weapons Array - Aft" model.status.systems.weaponsArray.aft (WeaponsArray Arc.Aft)
-        , patchableDisplay (model.phase == Engineering) "Weapons Array - Port" model.status.systems.weaponsArray.portSide (WeaponsArray Arc.Port)
-        , patchableDisplay (model.phase == Engineering) "Weapons Array - Starboard" model.status.systems.weaponsArray.starboard (WeaponsArray Arc.Starboard)
-        , patchableDisplay (model.phase == Engineering) "Engines" model.status.systems.engines Engines
-        , patchableDisplay (model.phase == Engineering) "Power Core" model.status.systems.powerCore PowerCore
+        , patchableDisplay (model.phase == CP Engineering) "Life Support" model.status.systems.lifeSupport LifeSupport
+        , patchableDisplay (model.phase == CP Engineering) "Sensors" model.status.systems.sensors Sensors
+        , patchableDisplay (model.phase == CP Engineering) "Weapons Array - Forward" model.status.systems.weaponsArray.forward (WeaponsArray Arc.Forward)
+        , patchableDisplay (model.phase == CP Engineering) "Weapons Array - Aft" model.status.systems.weaponsArray.aft (WeaponsArray Arc.Aft)
+        , patchableDisplay (model.phase == CP Engineering) "Weapons Array - Port" model.status.systems.weaponsArray.portSide (WeaponsArray Arc.Port)
+        , patchableDisplay (model.phase == CP Engineering) "Weapons Array - Starboard" model.status.systems.weaponsArray.starboard (WeaponsArray Arc.Starboard)
+        , patchableDisplay (model.phase == CP Engineering) "Engines" model.status.systems.engines Engines
+        , patchableDisplay (model.phase == CP Engineering) "Power Core" model.status.systems.powerCore PowerCore
         , AssignmentsEditor.view (model.phase /= Assign) model.status.assignments
             |> Html.map SetAssignments
         , button
