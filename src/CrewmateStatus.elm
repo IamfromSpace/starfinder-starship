@@ -1,6 +1,7 @@
 module CrewmateStatus exposing (CrewmateStatus, demandSource, demandTarget, encourageSource, encourageTarget, getBluffSkillModifier, getComputersSkillModifier, getDiplomacySkillModifier, getEngineeringSkillModifier, getGunningModifier, getIntimidateSkillModifier, getPilotingSkillModifier, init, movingSpeechSource, movingSpeechTarget, ordersSource, ordersTarget, tauntSource)
 
 import Arc exposing (AnArc)
+import CombatPhase exposing (CombatPhase(..))
 import Crewmate exposing (Crewmate)
 import PatchableSystems exposing (PatchableSystem(..))
 import Set exposing (Set)
@@ -17,7 +18,7 @@ type alias RoundStatus =
     , encouraged : Bool
     , ordered : Bool
     , actions : Int
-    , phaseStatus : ( (), PhaseStatus ) -- TODO: Move phase to a module
+    , phaseStatus : ( CombatPhase, PhaseStatus )
     }
 
 
@@ -30,6 +31,12 @@ type alias CrewmateStatus =
     }
 
 
+initPS : PhaseStatus
+initPS =
+    { moved = False
+    }
+
+
 initRS : RoundStatus
 initRS =
     { demanded = False
@@ -37,9 +44,8 @@ initRS =
     , ordered = False
     , actions = 0
     , phaseStatus =
-        ( ()
-        , { moved = False
-          }
+        ( Engineering
+        , initPS
         )
     }
 
@@ -270,12 +276,20 @@ movingSpeechSource cms ({ currentRound } as r) =
 -- on the Status (though it could be denormalized in our HTTP response).
 
 
-movingSpeechTarget : CrewmateStatus -> { a | currentRound : Int } -> CrewmateStatus
-movingSpeechTarget cms ({ currentRound } as r) =
+movingSpeechTarget : CrewmateStatus -> { a | currentRound : Int, currentPhase : CombatPhase } -> CrewmateStatus
+movingSpeechTarget cms ({ currentRound, currentPhase } as r) =
     let
         currentRoundStatus =
             getCurrentRoundStatus cms r
 
-        --TODO: currentPhaseStatus
+        ( phaseAffected, lastPhaseStatus ) =
+            currentRoundStatus.phaseStatus
+
+        currentPhaseStatus =
+            if currentPhase == phaseAffected then
+                lastPhaseStatus
+
+            else
+                initPS
     in
-    { cms | roundStatus = ( currentRound, { currentRoundStatus | phaseStatus = ( (), { moved = True } ) } ) }
+    { cms | roundStatus = ( currentRound, { currentRoundStatus | phaseStatus = ( currentPhase, { currentPhaseStatus | moved = True } ) } ) }

@@ -388,17 +388,25 @@ update starship msg model =
             ( { model | status = Status.quickFix patchableSystem model.status }, Cmd.none )
 
         MovingSpeech ->
-            let
-                ( afterTargetStatus, _ ) =
-                    Status.movingSpeechTarget model.status { currentRound = model.roundNumber }
+            case model.phase of
+                CP combatPhase ->
+                    let
+                        r =
+                            { currentRound = model.roundNumber, currentPhase = combatPhase }
 
-                newModel =
-                    Status.movingSpeechSource afterTargetStatus { currentRound = model.roundNumber }
-                        |> Maybe.map Tuple.first
-                        |> Maybe.map (\s -> { model | status = s })
-                        |> Maybe.withDefault model
-            in
-            ( newModel, Cmd.none )
+                        ( afterTargetStatus, _ ) =
+                            Status.movingSpeechTarget model.status r
+
+                        newModel =
+                            Status.movingSpeechSource afterTargetStatus r
+                                |> Maybe.map Tuple.first
+                                |> Maybe.map (\s -> { model | status = s })
+                                |> Maybe.withDefault model
+                    in
+                    ( newModel, Cmd.none )
+
+                _ ->
+                    ( model, Cmd.none )
 
         SetAssignments a ->
             let
@@ -890,22 +898,37 @@ view starship model =
             [ E.onClick AcceptAllotmentToShields, A.disabled (not isStillAllotting) ]
             [ text "Accept Allotted Shields" ]
         , let
-            ( s1, b1 ) =
-                Status.movingSpeechTarget model.status { currentRound = model.roundNumber }
+            mCombatPhase =
+                case model.phase of
+                    CP combatPhase ->
+                        Just combatPhase
 
-            mb =
-                Status.movingSpeechSource s1 { currentRound = model.roundNumber }
+                    _ ->
+                        Nothing
           in
-          case ( mb, model.phase ) of
-            ( Just ( nextStatus, bonus ), CP _ ) ->
-                button
-                    [ E.onClick MovingSpeech ]
-                    [ text ("Moving Speech (" ++ String.fromInt (bonus + b1) ++ ")") ]
+          mCombatPhase
+            |> Maybe.andThen
+                (\combatPhase ->
+                    let
+                        r =
+                            { currentRound = model.roundNumber, currentPhase = combatPhase }
 
-            _ ->
-                button
+                        ( s1, b1 ) =
+                            Status.movingSpeechTarget model.status r
+                    in
+                    Status.movingSpeechSource s1 r
+                        |> Maybe.map
+                            (\( nextStatus, bonus ) ->
+                                button
+                                    [ E.onClick MovingSpeech ]
+                                    [ text ("Moving Speech (" ++ String.fromInt (bonus + b1) ++ ")") ]
+                            )
+                )
+            |> Maybe.withDefault
+                (button
                     [ A.disabled True ]
                     [ text "Moving Speech" ]
+                )
         , patchableDisplay (model.phase == CP Engineering) "Life Support" model.status.systems.lifeSupport LifeSupport
         , patchableDisplay (model.phase == CP Engineering) "Sensors" model.status.systems.sensors Sensors
         , patchableDisplay (model.phase == CP Engineering) "Weapons Array - Forward" model.status.systems.weaponsArray.forward (WeaponsArray Arc.Forward)

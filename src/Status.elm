@@ -2,6 +2,7 @@ module Status exposing (ExtraPoweredSystem(..), Status, areShieldsFull, balanceE
 
 import Arc exposing (AnArc, Arc)
 import Assignments exposing (Assignments, allInEngineering)
+import CombatPhase exposing (CombatPhase)
 import Crewmate exposing (Crewmate)
 import CrewmateStatus exposing (CrewmateStatus)
 import CriticalStatus as CS exposing (CriticalStatus, PatchEffectiveness(..), Severity(..))
@@ -970,7 +971,7 @@ movingSpeechSource status ({ currentRound } as r) =
     Maybe.map2 (\a b -> ( a, b )) newState bonus
 
 
-movingSpeechTarget : Status -> { a | currentRound : Int } -> ( Status, Int )
+movingSpeechTarget : Status -> { a | currentRound : Int, currentPhase : CombatPhase } -> ( Status, Int )
 movingSpeechTarget status r =
     ( { status | crewStatus = Dict.map (always (\x -> CrewmateStatus.movingSpeechTarget x r)) status.crewStatus }, 0 )
 
