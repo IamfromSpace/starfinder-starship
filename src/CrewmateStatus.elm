@@ -1,4 +1,4 @@
-module CrewmateStatus exposing (CrewmateStatus, demandSource, demandTarget, encourageSource, encourageTarget, getBluffSkillModifier, getComputersSkillModifier, getDiplomacySkillModifier, getEngineeringSkillModifier, getGunningModifier, getIntimidateSkillModifier, getPilotingSkillModifier, init, movingSpeechSource, movingSpeechTarget, ordersSource, ordersTarget, tauntSource)
+module CrewmateStatus exposing (CrewmateStatus, demandSource, demandTarget, encourageSource, encourageTarget, getBluffSkillModifier, getComputersSkillModifier, getEngineeringSkillModifier, getGunningModifier, getIntimidateSkillModifier, getPilotingSkillModifier, init, movingSpeechSource, movingSpeechTarget, ordersSource, ordersTarget, tauntSource)
 
 import Arc exposing (AnArc)
 import CombatPhase exposing (CombatPhase(..))
@@ -255,7 +255,7 @@ ordersTarget cms ({ currentRound } as r) =
     { cms | roundStatus = ( currentRound, { currentRoundStatus | ordered = True } ) }
 
 
-movingSpeechSource : CrewmateStatus -> { a | currentRound : Int } -> Maybe CrewmateStatus
+movingSpeechSource : CrewmateStatus -> { a | currentRound : Int } -> Maybe ( CrewmateStatus, Int )
 movingSpeechSource cms ({ currentRound } as r) =
     if cms.resolvePoints > 0 && canAct cms r then
         let
@@ -263,13 +263,15 @@ movingSpeechSource cms ({ currentRound } as r) =
                 getCurrentRoundStatus cms r
         in
         Just
-            { cms
+            ( { cms
                 | resolvePoints = cms.resolvePoints - 1
                 , roundStatus =
                     ( currentRound
                     , { currentRoundStatus | actions = currentRoundStatus.actions + 1 }
                     )
-            }
+              }
+            , getDiplomacySkillModifier cms r
+            )
 
     else
         Nothing

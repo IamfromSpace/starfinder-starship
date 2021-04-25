@@ -698,13 +698,6 @@ getXSkillModifier f g ( crewId, status ) r =
     cMod + csMod
 
 
-getDiplomacySkillModifier : ( String, Status ) -> { a | currentRound : Int } -> Int
-getDiplomacySkillModifier =
-    getXSkillModifier
-        Crewmate.getDiplomacySkillModifier
-        CrewmateStatus.getDiplomacySkillModifier
-
-
 getIntimidateSkillModifier : ( String, Status ) -> { a | currentRound : Int } -> Int
 getIntimidateSkillModifier =
     getXSkillModifier
@@ -937,44 +930,30 @@ ordersTarget status r =
 movingSpeechSource : Status -> { a | currentRound : Int } -> Maybe ( Status, Int )
 movingSpeechSource status ({ currentRound } as r) =
     let
-        updateCrew captain =
-            Dict.get captain status.crew
-                |> Maybe.andThen Crewmate.movingSpeechSource
-                |> Maybe.map (\cm -> Dict.insert captain cm status.crew)
-
-        updateCrewStatus captain =
+        updateCrewStatusAndGetBonus captain =
             Dict.get captain status.crewStatus
                 |> Maybe.andThen (\x -> CrewmateStatus.movingSpeechSource x r)
-                |> Maybe.map (\cs -> Dict.insert captain cs status.crewStatus)
+                |> Maybe.map (\( cs, b ) -> ( Dict.insert captain cs status.crewStatus, b ))
 
-        mNewCrew =
+        mCrewBonus =
             status.assignments.captain
-                |> Maybe.andThen updateCrew
+                |> Maybe.andThen (\c -> Dict.get c status.crew)
+                |> Maybe.andThen Crewmate.movingSpeechSource
 
-        mNewCrewStatus =
+        mNewCrewStatusAndBonus =
             status.assignments.captain
-                |> Maybe.andThen updateCrewStatus
+                |> Maybe.andThen updateCrewStatusAndGetBonus
 
         newState =
-            Maybe.map2
-                (\c cs ->
-                    { status
-                        | crewStatus = cs
-                        , crew = c
-                    }
-                )
-                mNewCrew
-                mNewCrewStatus
-
-        captainBonus =
-            status.assignments.captain
-                |> Maybe.map (\cap -> getDiplomacySkillModifier ( cap, status ) r)
+            Maybe.map
+                (\( cs, _ ) -> { status | crewStatus = cs })
+                mNewCrewStatusAndBonus
 
         systemBonus =
             getEffectiveBonus True currentRound LifeSupport status
 
         bonus =
-            Maybe.map2 (+) captainBonus systemBonus
+            Maybe.map2 (\( _, b ) -> (+) b) mNewCrewStatusAndBonus systemBonus
     in
     Maybe.map2 (\a b -> ( a, b )) newState bonus
 

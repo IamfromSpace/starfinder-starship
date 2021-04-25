@@ -1,4 +1,4 @@
-module Crewmate exposing (Crewmate, getAcModifier, getBluffSkillModifier, getComputersSkillModifier, getDiplomacySkillModifier, getEngineeringSkillModifier, getGunningModifier, getIntimidateSkillModifier, getPilotingSkillModifier, getTlModifier, init, movingSpeechSource, ordersSource)
+module Crewmate exposing (Crewmate, getAcModifier, getBluffSkillModifier, getComputersSkillModifier, getEngineeringSkillModifier, getGunningModifier, getIntimidateSkillModifier, getPilotingSkillModifier, getTlModifier, init, movingSpeechSource, ordersSource)
 
 
 type alias Crewmate =
@@ -94,10 +94,10 @@ ordersSource ({ level } as cm) =
         Nothing
 
 
-movingSpeechSource : Crewmate -> Maybe Crewmate
+movingSpeechSource : Crewmate -> Maybe Int
 movingSpeechSource ({ level } as cm) =
     if level >= 12 then
-        Just cm
+        Just (getDiplomacySkillModifier cm)
 
     else
         Nothing
