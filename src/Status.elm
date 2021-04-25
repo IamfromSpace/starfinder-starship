@@ -677,6 +677,9 @@ getEffectiveDistanceBetweenTurns starship currentRound status =
 --
 -- TODO: Need to determine if the check _can_ be peformed (qualified, done
 -- before, too damaged, sufficient RP, etc)
+-- TODO: This module shouldn't really need to know about "skills," instead
+-- bonuses should be abstracted.  Ex. Crewmate.blankSource should return the
+-- bonus (which may be using getBlankSkillModifier under the hood.
 
 
 getXSkillModifier : (Crewmate -> Int) -> (CrewmateStatus -> r -> Int) -> ( String, Status ) -> r -> Int
