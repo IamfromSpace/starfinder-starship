@@ -916,6 +916,11 @@ ordersSource status ({ currentRound } as r) =
         Nothing
 
 
+
+-- TODO: This only affects a single crewmate (and the captain can't order
+-- himself)
+
+
 ordersTarget : Status -> { a | currentRound : Int } -> Status
 ordersTarget status r =
     { status | crewStatus = Dict.map (always (\x -> CrewmateStatus.ordersTarget x r)) status.crewStatus }
