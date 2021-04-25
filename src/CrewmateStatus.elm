@@ -8,6 +8,10 @@ import Set exposing (Set)
 import Starship exposing (Starship)
 
 
+
+-- TODO: This is actually a ship wide effect.  Sigh.
+
+
 type alias PhaseStatus =
     { moved : Bool
     }
