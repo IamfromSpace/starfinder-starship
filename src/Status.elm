@@ -850,7 +850,7 @@ tauntSource status ({ currentRound } as r) =
     let
         updateCaptain captain =
             Dict.get captain status.crewStatus
-                |> Maybe.andThen (\x -> CrewmateStatus.movingSpeechSource x r)
+                |> Maybe.andThen (\x -> CrewmateStatus.tauntSource x r)
                 |> Maybe.map (\cs -> Dict.insert captain cs status.crewStatus)
                 |> Maybe.map (\cs -> { status | crewStatus = cs })
 
