@@ -150,6 +150,7 @@ type Msg
     | DivertToEngines
     | EditAllotmentToShields AnArc (Int -> Int)
     | AcceptAllotmentToShields
+    | Maneuver
     | StartBalanceFromArc
     | EditBalanceFromArc AnArc Int
     | CancelBalanceFromArc
@@ -328,6 +329,14 @@ update starship msg model =
                         model
                     , Cmd.none
                     )
+
+                _ ->
+                    ( model, Cmd.none )
+
+        Maneuver ->
+            case ( model.phase, Status.maneuver model.status { currentRound = model.roundNumber } ) of
+                ( CP Piloting, Just ( newStatus, _ ) ) ->
+                    ( { model | status = newStatus }, Cmd.none )
 
                 _ ->
                     ( model, Cmd.none )
@@ -817,6 +826,16 @@ view starship model =
                     [ A.disabled True ]
             )
             [ text "Damage" ]
+        , case ( model.phase, Status.maneuver model.status { currentRound = model.roundNumber } ) of
+            ( CP Piloting, Just ( _, bonus ) ) ->
+                button
+                    [ E.onClick Maneuver ]
+                    [ text ("Maneuver (" ++ String.fromInt bonus ++ ")") ]
+
+            _ ->
+                button
+                    [ A.disabled True ]
+                    [ text "Maneuver" ]
         , button
             (case ( model.partialState, model.phase ) of
                 ( Selected arc, CP Piloting ) ->

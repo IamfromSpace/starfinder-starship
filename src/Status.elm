@@ -1,4 +1,4 @@
-module Status exposing (ExtraPoweredSystem(..), Status, areShieldsFull, balanceEvenly, balanceFromArc, basePatchDC, canBalanceFromTo, damageArc, damageSystem, divertPowerToEngines, divertPowerToShields, forceAddShields, forceMoveShields, getEffectiveAcAndTl, getEffectiveBonusOld, getEffectiveDistanceBetweenTurns, getEffectiveSpeed, hasExtraPower, holdItTogether, init, maxDivertPowerToShieldPoints, movingSpeechSource, movingSpeechTarget, patch, quickFix)
+module Status exposing (ExtraPoweredSystem(..), Status, areShieldsFull, balanceEvenly, balanceFromArc, basePatchDC, canBalanceFromTo, damageArc, damageSystem, divertPowerToEngines, divertPowerToShields, forceAddShields, forceMoveShields, getEffectiveAcAndTl, getEffectiveBonusOld, getEffectiveDistanceBetweenTurns, getEffectiveSpeed, hasExtraPower, holdItTogether, init, maneuver, maxDivertPowerToShieldPoints, movingSpeechSource, movingSpeechTarget, patch, quickFix)
 
 import Arc exposing (AnArc, Arc)
 import Assignments exposing (Assignments, allInEngineering)
@@ -484,9 +484,41 @@ applyPilotResult f starship currentRound status =
     { status | pilotResult = ( currentRound, f starship ) }
 
 
-maneuver : Starship -> Int -> Status -> Status
-maneuver =
-    applyPilotResult (always PilotResult.maneuver)
+maneuver : Status -> { a | currentRound : Int } -> Maybe ( Status, Int )
+maneuver status ({ currentRound } as r) =
+    let
+        mPilot =
+            status.assignments.pilot
+
+        mCrewBonus =
+            mPilot
+                |> Maybe.andThen (\p -> Dict.get p status.crew)
+                |> Maybe.map Crewmate.maneuver
+
+        mNewCrewStatusAndBonus =
+            mPilot
+                |> Maybe.andThen
+                    (\p ->
+                        Dict.get p status.crewStatus
+                            |> Maybe.andThen (\x -> CrewmateStatus.maneuver x r)
+                            |> Maybe.map (\( s, b ) -> ( Dict.insert p s status.crewStatus, b ))
+                    )
+
+        mSystemsBonus =
+            getEffectiveBonus False currentRound Engines status
+    in
+    case ( ( mCrewBonus, mNewCrewStatusAndBonus ), mSystemsBonus ) of
+        ( ( Just crewBonus, Just ( newCrewStatus, crewStatusBonus ) ), Just systemsBonus ) ->
+            Just
+                ( { status
+                    | pilotResult = ( currentRound, PilotResult.maneuver )
+                    , crewStatus = newCrewStatus
+                  }
+                , crewBonus + crewStatusBonus + systemsBonus
+                )
+
+        _ ->
+            Nothing
 
 
 backOff : Starship -> Int -> Status -> Status
@@ -1021,12 +1053,6 @@ preciseTargetingBonus : ( Int, ( String, AnArc ), Status ) -> { a | currentRound
 preciseTargetingBonus ( currentRound, ( crewId, arc ), status ) r =
     getEffectiveBonusOld currentRound (WeaponsArray arc) status
         + getGunningModifier ( crewId, status ) r
-
-
-maneuverBonus : ( Int, String, Status ) -> { a | currentRound : Int } -> Int
-maneuverBonus ( currentRound, crewId, status ) r =
-    getPilotingSkillModifier ( crewId, status ) r
-        + getEffectiveBonusOld currentRound Engines status
 
 
 stuntBonus : ( Int, String, Status ) -> { a | currentRound : Int } -> Int
