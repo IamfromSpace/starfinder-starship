@@ -10,11 +10,14 @@
     "elm-test": "^0.19.1-revision6",
     "elm": "^0.19.1-5",
     "elm-format": "^0.8.5",
-    "elm-upgrade": "^0.19.2"
+    "elm-upgrade": "^0.19.2",
+    "uglifyjs": "^2.4.11"
   },
   "devDependencies": {},
   "scripts": {
     "reactor": "elm reactor --port=9876",
+    "make": "elm make src/Main.elm",
+    "make-min": "elm make src/Main.elm  --output index.js --optimize && uglifyjs index.js --compress 'pure_funcs=[F2,F3,F4,F5,F6,F7,F8,F9,A2,A3,A4,A5,A6,A7,A8,A9],pure_getters,keep_fargs=false,unsafe_comps,unsafe' | uglifyjs --mangle --output index.min.js",
     "test": "elm-test"
   },
   "repository": {

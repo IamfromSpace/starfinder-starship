@@ -367,6 +367,9 @@ selectionView canAdd optionMap x =
                         v
 
                     Nothing ->
+                        -- TODO: Because we return a variable type (a), there's
+                        -- pretty much no way to satisyf this without Debug,
+                        -- which notably prevents minimization.
                         Debug.todo "Unselectable option was selected!"
             )
         ]
