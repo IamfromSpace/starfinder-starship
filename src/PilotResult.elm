@@ -54,6 +54,10 @@ noPilotResult =
     }
 
 
+
+-- TODO: Nothing here really needs a Starship, these need the ship's speed
+
+
 reductionToHalfSpeedAndNoTurns : Starship -> ( Int, Int )
 reductionToHalfSpeedAndNoTurns starship =
     let
