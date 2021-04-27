@@ -1,4 +1,4 @@
-module Status exposing (ExtraPoweredSystem(..), Status, areShieldsFull, balanceEvenly, balanceFromArc, basePatchDC, canBalanceFromTo, damageArc, damageSystem, divertPowerToEngines, divertPowerToShields, forceAddShields, forceMoveShields, getEffectiveAcAndTl, getEffectiveBonusOld, getEffectiveDistanceBetweenTurns, getEffectiveSpeed, hasExtraPower, holdItTogether, init, maneuver, maxDivertPowerToShieldPoints, movingSpeechSource, movingSpeechTarget, patch, quickFix)
+module Status exposing (ExtraPoweredSystem(..), Status, areShieldsFull, backOff, balanceEvenly, balanceFromArc, basePatchDC, canBalanceFromTo, damageArc, damageSystem, divertPowerToEngines, divertPowerToShields, forceAddShields, forceMoveShields, getEffectiveAcAndTl, getEffectiveBonusOld, getEffectiveDistanceBetweenTurns, getEffectiveSpeed, hasExtraPower, holdItTogether, init, maneuver, maxDivertPowerToShieldPoints, movingSpeechSource, movingSpeechTarget, patch, quickFix)
 
 import Arc exposing (AnArc, Arc)
 import Assignments exposing (Assignments, allInEngineering)
@@ -484,8 +484,8 @@ applyPilotResult f starship currentRound status =
     { status | pilotResult = ( currentRound, f starship ) }
 
 
-maneuver : Status -> { a | currentRound : Int } -> Maybe ( Status, Int )
-maneuver status ({ currentRound } as r) =
+pilotCheckHelper : PilotResult -> (Crewmate -> Int) -> (CrewmateStatus -> { a | currentRound : Int } -> Maybe ( CrewmateStatus, Int )) -> Status -> { a | currentRound : Int } -> Maybe ( Status, Int )
+pilotCheckHelper pr f g status ({ currentRound } as r) =
     let
         mPilot =
             status.assignments.pilot
@@ -493,14 +493,14 @@ maneuver status ({ currentRound } as r) =
         mCrewBonus =
             mPilot
                 |> Maybe.andThen (\p -> Dict.get p status.crew)
-                |> Maybe.map Crewmate.maneuver
+                |> Maybe.map f
 
         mNewCrewStatusAndBonus =
             mPilot
                 |> Maybe.andThen
                     (\p ->
                         Dict.get p status.crewStatus
-                            |> Maybe.andThen (\x -> CrewmateStatus.maneuver x r)
+                            |> Maybe.andThen (\x -> g x r)
                             |> Maybe.map (\( s, b ) -> ( Dict.insert p s status.crewStatus, b ))
                     )
 
@@ -511,7 +511,7 @@ maneuver status ({ currentRound } as r) =
         ( ( Just crewBonus, Just ( newCrewStatus, crewStatusBonus ) ), Just systemsBonus ) ->
             Just
                 ( { status
-                    | pilotResult = ( currentRound, PilotResult.maneuver )
+                    | pilotResult = ( currentRound, pr )
                     , crewStatus = newCrewStatus
                   }
                 , crewBonus + crewStatusBonus + systemsBonus
@@ -521,9 +521,14 @@ maneuver status ({ currentRound } as r) =
             Nothing
 
 
-backOff : Starship -> Int -> Status -> Status
-backOff =
-    applyPilotResult PilotResult.backOff
+maneuver : Status -> { a | currentRound : Int } -> Maybe ( Status, Int )
+maneuver =
+    pilotCheckHelper PilotResult.maneuver Crewmate.maneuver CrewmateStatus.maneuver
+
+
+backOff : Status -> { a | starship : Starship, currentRound : Int } -> Maybe ( Status, Int )
+backOff status ({ starship } as r) =
+    pilotCheckHelper (PilotResult.backOff starship) Crewmate.backOff CrewmateStatus.backOff status r
 
 
 backOffFail : Starship -> Int -> Status -> Status

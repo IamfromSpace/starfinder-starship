@@ -151,6 +151,7 @@ type Msg
     | EditAllotmentToShields AnArc (Int -> Int)
     | AcceptAllotmentToShields
     | Maneuver
+    | BackOff
     | StartBalanceFromArc
     | EditBalanceFromArc AnArc Int
     | CancelBalanceFromArc
@@ -335,6 +336,14 @@ update starship msg model =
 
         Maneuver ->
             case ( model.phase, Status.maneuver model.status { currentRound = model.roundNumber } ) of
+                ( CP Piloting, Just ( newStatus, _ ) ) ->
+                    ( { model | status = newStatus }, Cmd.none )
+
+                _ ->
+                    ( model, Cmd.none )
+
+        BackOff ->
+            case ( model.phase, Status.backOff model.status { currentRound = model.roundNumber, starship = starship } ) of
                 ( CP Piloting, Just ( newStatus, _ ) ) ->
                     ( { model | status = newStatus }, Cmd.none )
 
@@ -836,6 +845,16 @@ view starship model =
                 button
                     [ A.disabled True ]
                     [ text "Maneuver" ]
+        , case ( model.phase, Status.backOff model.status { currentRound = model.roundNumber, starship = starship } ) of
+            ( CP Piloting, Just ( _, bonus ) ) ->
+                button
+                    [ E.onClick BackOff ]
+                    [ text ("Back Off (" ++ String.fromInt bonus ++ ")") ]
+
+            _ ->
+                button
+                    [ A.disabled True ]
+                    [ text "Back Off" ]
         , button
             (case ( model.partialState, model.phase ) of
                 ( Selected arc, CP Piloting ) ->

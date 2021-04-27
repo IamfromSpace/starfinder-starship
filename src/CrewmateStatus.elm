@@ -1,4 +1,4 @@
-module CrewmateStatus exposing (CrewmateStatus, demandSource, demandTarget, encourageSource, encourageTarget, getBluffSkillModifier, getComputersSkillModifier, getEngineeringSkillModifier, getGunningModifier, getIntimidateSkillModifier, getPilotingSkillModifier, init, maneuver, movingSpeechSource, movingSpeechTarget, ordersSource, ordersTarget, tauntSource)
+module CrewmateStatus exposing (CrewmateStatus, backOff, demandSource, demandTarget, encourageSource, encourageTarget, getBluffSkillModifier, getComputersSkillModifier, getEngineeringSkillModifier, getGunningModifier, getIntimidateSkillModifier, getPilotingSkillModifier, init, maneuver, movingSpeechSource, movingSpeechTarget, ordersSource, ordersTarget, tauntSource)
 
 import Arc exposing (AnArc)
 import CombatPhase exposing (CombatPhase(..))
@@ -150,8 +150,8 @@ canAct cs r =
     actions == 0 || ordered && actions == 1
 
 
-maneuver : CrewmateStatus -> { a | currentRound : Int } -> Maybe ( CrewmateStatus, Int )
-maneuver cms ({ currentRound } as r) =
+pilotCheckHelper : CrewmateStatus -> { a | currentRound : Int } -> Maybe ( CrewmateStatus, Int )
+pilotCheckHelper cms ({ currentRound } as r) =
     if canAct cms r then
         let
             currentRoundStatus =
@@ -172,6 +172,16 @@ maneuver cms ({ currentRound } as r) =
 
     else
         Nothing
+
+
+maneuver : CrewmateStatus -> { a | currentRound : Int } -> Maybe ( CrewmateStatus, Int )
+maneuver =
+    pilotCheckHelper
+
+
+backOff : CrewmateStatus -> { a | currentRound : Int } -> Maybe ( CrewmateStatus, Int )
+backOff =
+    pilotCheckHelper
 
 
 demandSource : CrewmateStatus -> { a | target : String, currentRound : Int } -> Maybe CrewmateStatus
