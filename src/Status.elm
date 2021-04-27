@@ -1,4 +1,4 @@
-module Status exposing (ExtraPoweredSystem(..), Status, areShieldsFull, backOff, backOffFail, backOffFailBy5OrMore, balanceEvenly, balanceFromArc, basePatchDC, canBalanceFromTo, damageArc, damageSystem, divertPowerToEngines, divertPowerToShields, forceAddShields, forceMoveShields, getEffectiveAcAndTl, getEffectiveBonusOld, getEffectiveDistanceBetweenTurns, getEffectiveSpeed, hasExtraPower, holdItTogether, init, maneuver, maxDivertPowerToShieldPoints, movingSpeechSource, movingSpeechTarget, patch, quickFix)
+module Status exposing (ExtraPoweredSystem(..), Status, areShieldsFull, backOff, backOffFail, backOffFailBy5OrMore, balanceEvenly, balanceFromArc, basePatchDC, canBalanceFromTo, damageArc, damageSystem, divertPowerToEngines, divertPowerToShields, forceAddShields, forceMoveShields, getEffectiveAcAndTl, getEffectiveBonusOld, getEffectiveDistanceBetweenTurns, getEffectiveSpecialPilotResult, getEffectiveSpeed, hasExtraPower, holdItTogether, init, maneuver, maxDivertPowerToShieldPoints, movingSpeechSource, movingSpeechTarget, patch, quickFix)
 
 import Arc exposing (AnArc, Arc)
 import Assignments exposing (Assignments, allInEngineering)
@@ -9,7 +9,7 @@ import CriticalStatus as CS exposing (CriticalStatus, PatchEffectiveness(..), Se
 import DefenseLevel
 import Dict exposing (Dict)
 import PatchableSystems as PS exposing (PatchableSystem(..), PatchableSystems)
-import PilotResult exposing (PilotResult, noPilotResult)
+import PilotResult exposing (PilotResult, SpecialPilotResult, noPilotResult)
 import Size
 import Starship exposing (Starship)
 import Switch exposing (Switch(..))
@@ -709,6 +709,15 @@ getEffectiveDistanceBetweenTurns starship currentRound status =
                 0
     in
     max 0 (starshipModifier + pilotEffect)
+
+
+getEffectiveSpecialPilotResult : Status -> { a | currentRound : Int } -> Maybe SpecialPilotResult
+getEffectiveSpecialPilotResult { pilotResult } { currentRound } =
+    if Tuple.first pilotResult == currentRound then
+        (Tuple.second pilotResult).special
+
+    else
+        Nothing
 
 
 

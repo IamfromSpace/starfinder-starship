@@ -17,6 +17,7 @@ import Html exposing (Html, button, div, input, text)
 import Html.Attributes as A
 import Html.Events as E
 import PatchableSystems as PS exposing (PatchableSystem(..))
+import PilotResult exposing (SpecialPilotResult(..))
 import Platform.Cmd exposing (Cmd)
 import Platform.Sub
 import Random
@@ -819,6 +820,42 @@ view starship model =
         , div [] [ text ("TL: " ++ String.fromInt effectiveTl) ]
         , div [] [ text ("Speed (hexes): " ++ String.fromInt (Status.getEffectiveSpeed starship model.roundNumber model.status)) ]
         , div [] [ text ("Turn: " ++ String.fromInt (Status.getEffectiveDistanceBetweenTurns starship model.roundNumber model.status)) ]
+        , div []
+            [ text
+                ("Special: "
+                    ++ (case Status.getEffectiveSpecialPilotResult model.status { currentRound = model.roundNumber } of
+                            Just MoveForwardFullSpeed ->
+                                "Move forward at full speed"
+
+                            Just Turn180AtTheEnd ->
+                                "Turn 180deg at the end of movement"
+
+                            Just MoveBackwardExactlyOneHex ->
+                                "Move backward exactly one hex"
+
+                            Just MoveBackward ->
+                                "Move backwards"
+
+                            Just SwapPortAndStarboard ->
+                                "Swap port and starboard arcs"
+
+                            Just NoFreeAttackForSingleEnemy ->
+                                "No free attack given"
+
+                            Just NoFreeAttackForAnyEnemyAndFreeFinalRotation ->
+                                "No free attack given, and ship can be freely rotated at the end of its movement"
+
+                            Just Slide ->
+                                "Slide"
+
+                            Just TurnInPlace ->
+                                "Turn in place"
+
+                            Nothing ->
+                                "None"
+                       )
+                )
+            ]
         , input
             [ A.value (Maybe.map String.fromInt model.damageInput |> Maybe.withDefault "")
             , A.disabled
