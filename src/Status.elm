@@ -508,13 +508,13 @@ pilotCheckHelper pr f g status ({ currentRound } as r) =
             getEffectiveBonus False currentRound Engines status
     in
     case ( ( mCrewBonus, mNewCrewStatusAndBonus ), mNonCrewBonus ) of
-        ( ( Just crewBonus, Just ( newCrewStatus, crewStatusBonus ) ), Just systemsBonus ) ->
+        ( ( Just crewBonus, Just ( newCrewStatus, crewStatusBonus ) ), Just nonCrewBonus ) ->
             Just
                 ( { status
                     | pilotResult = ( currentRound, pr )
                     , crewStatus = newCrewStatus
                   }
-                , crewBonus + crewStatusBonus + systemsBonus
+                , crewBonus + crewStatusBonus + nonCrewBonus
                 )
 
         _ ->
@@ -995,11 +995,11 @@ movingSpeechSource status ({ currentRound } as r) =
                 (\( cs, _ ) -> { status | crewStatus = cs })
                 mNewCrewStatusAndBonus
 
-        systemBonus =
+        mNonCrewBonus =
             getEffectiveBonus True currentRound LifeSupport status
 
         bonus =
-            Maybe.map2 (\( _, b ) -> (+) b) mNewCrewStatusAndBonus systemBonus
+            Maybe.map2 (\( _, b ) -> (+) b) mNewCrewStatusAndBonus mNonCrewBonus
     in
     Maybe.map2 (\a b -> ( a, b )) newState bonus
 
