@@ -65,7 +65,7 @@ type alias Status =
     -- simultaneously.  Perhaps an assignment is really just a single round
     -- status item, and this should just be collapsed into a single crew entry.
     , assignments : Assignments String
-    , tauntedBy : Dict String ( Int, Taunted ) --TODO: affects one phase (over multiple rounds)
+    , tauntedBy : Dict String ( Int, Taunted ) --TODO: affects one phase (over multiple rounds) unless it is a Push action
     }
 
 
