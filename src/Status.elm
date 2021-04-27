@@ -504,10 +504,10 @@ maneuver status ({ currentRound } as r) =
                             |> Maybe.map (\( s, b ) -> ( Dict.insert p s status.crewStatus, b ))
                     )
 
-        mSystemsBonus =
+        mNonCrewBonus =
             getEffectiveBonus False currentRound Engines status
     in
-    case ( ( mCrewBonus, mNewCrewStatusAndBonus ), mSystemsBonus ) of
+    case ( ( mCrewBonus, mNewCrewStatusAndBonus ), mNonCrewBonus ) of
         ( ( Just crewBonus, Just ( newCrewStatus, crewStatusBonus ) ), Just systemsBonus ) ->
             Just
                 ( { status
