@@ -999,7 +999,7 @@ movingSpeechSource status ({ currentRound } as r) =
             getEffectiveBonus True currentRound LifeSupport status
 
         bonus =
-            Maybe.map2 (\( _, b ) -> (+) b) mNewCrewStatusAndBonus mNonCrewBonus
+            Maybe.map3 (\a ( _, b ) c -> a + b + c) mCrewBonus mNewCrewStatusAndBonus mNonCrewBonus
     in
     Maybe.map2 (\a b -> ( a, b )) newState bonus
 
