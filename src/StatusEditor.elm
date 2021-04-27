@@ -152,6 +152,8 @@ type Msg
     | AcceptAllotmentToShields
     | Maneuver
     | BackOff
+    | BackOffFail
+    | BackOffFailBy5OrMore
     | StartBalanceFromArc
     | EditBalanceFromArc AnArc Int
     | CancelBalanceFromArc
@@ -344,6 +346,22 @@ update starship msg model =
 
         BackOff ->
             case ( model.phase, Status.backOff model.status { currentRound = model.roundNumber, starship = starship } ) of
+                ( CP Piloting, Just ( newStatus, _ ) ) ->
+                    ( { model | status = newStatus }, Cmd.none )
+
+                _ ->
+                    ( model, Cmd.none )
+
+        BackOffFail ->
+            case ( model.phase, Status.backOffFail model.status { currentRound = model.roundNumber } ) of
+                ( CP Piloting, Just ( newStatus, _ ) ) ->
+                    ( { model | status = newStatus }, Cmd.none )
+
+                _ ->
+                    ( model, Cmd.none )
+
+        BackOffFailBy5OrMore ->
+            case ( model.phase, Status.backOffFailBy5OrMore model.status { currentRound = model.roundNumber, starship = starship } ) of
                 ( CP Piloting, Just ( newStatus, _ ) ) ->
                     ( { model | status = newStatus }, Cmd.none )
 
@@ -855,6 +873,26 @@ view starship model =
                 button
                     [ A.disabled True ]
                     [ text "Back Off" ]
+        , case ( model.phase, Status.backOffFail model.status { currentRound = model.roundNumber } ) of
+            ( CP Piloting, Just _ ) ->
+                button
+                    [ E.onClick BackOffFail ]
+                    [ text "Back Off (Fail)" ]
+
+            _ ->
+                button
+                    [ A.disabled True ]
+                    [ text "Back Off (Fail)" ]
+        , case ( model.phase, Status.backOffFailBy5OrMore model.status { currentRound = model.roundNumber, starship = starship } ) of
+            ( CP Piloting, Just _ ) ->
+                button
+                    [ E.onClick BackOffFailBy5OrMore ]
+                    [ text "Back Off (Fail by 5 or More)" ]
+
+            _ ->
+                button
+                    [ A.disabled True ]
+                    [ text "Back Off (Fail by 5 or More)" ]
         , button
             (case ( model.partialState, model.phase ) of
                 ( Selected arc, CP Piloting ) ->

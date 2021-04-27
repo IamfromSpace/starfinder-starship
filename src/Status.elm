@@ -1,4 +1,4 @@
-module Status exposing (ExtraPoweredSystem(..), Status, areShieldsFull, backOff, balanceEvenly, balanceFromArc, basePatchDC, canBalanceFromTo, damageArc, damageSystem, divertPowerToEngines, divertPowerToShields, forceAddShields, forceMoveShields, getEffectiveAcAndTl, getEffectiveBonusOld, getEffectiveDistanceBetweenTurns, getEffectiveSpeed, hasExtraPower, holdItTogether, init, maneuver, maxDivertPowerToShieldPoints, movingSpeechSource, movingSpeechTarget, patch, quickFix)
+module Status exposing (ExtraPoweredSystem(..), Status, areShieldsFull, backOff, backOffFail, backOffFailBy5OrMore, balanceEvenly, balanceFromArc, basePatchDC, canBalanceFromTo, damageArc, damageSystem, divertPowerToEngines, divertPowerToShields, forceAddShields, forceMoveShields, getEffectiveAcAndTl, getEffectiveBonusOld, getEffectiveDistanceBetweenTurns, getEffectiveSpeed, hasExtraPower, holdItTogether, init, maneuver, maxDivertPowerToShieldPoints, movingSpeechSource, movingSpeechTarget, patch, quickFix)
 
 import Arc exposing (AnArc, Arc)
 import Assignments exposing (Assignments, allInEngineering)
@@ -531,14 +531,23 @@ backOff status ({ starship } as r) =
     pilotCheckHelper (PilotResult.backOff starship) Crewmate.backOff CrewmateStatus.backOff status r
 
 
-backOffFail : Starship -> Int -> Status -> Status
+
+-- TODO: This is probably one of the missing pieces from our emerging "action
+-- Monad" (MonadReader a + MonadState Thing + MonadWriter Bonus), where really
+-- there's a range of effects that could occur.  Not just the
+-- list/nondeterminism monad, because these usually relate to the DC (but there
+-- _can_ be multiple nondeterministic things, I suppose).  It seems basically
+-- impossible to combine/collapse these together though.
+
+
+backOffFail : Status -> { a | currentRound : Int } -> Maybe ( Status, Int )
 backOffFail =
-    applyPilotResult (always PilotResult.backOffFail)
+    pilotCheckHelper PilotResult.backOffFail Crewmate.backOff CrewmateStatus.backOff
 
 
-backOffFailBy5OrMore : Starship -> Int -> Status -> Status
-backOffFailBy5OrMore =
-    applyPilotResult PilotResult.backOffFailBy5OrMore
+backOffFailBy5OrMore : Status -> { a | starship : Starship, currentRound : Int } -> Maybe ( Status, Int )
+backOffFailBy5OrMore status ({ starship } as r) =
+    pilotCheckHelper (PilotResult.backOffFailBy5OrMore starship) Crewmate.backOff CrewmateStatus.backOff status r
 
 
 barrelRoll : Starship -> Int -> Status -> Status
