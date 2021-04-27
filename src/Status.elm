@@ -46,7 +46,7 @@ type alias Status =
     , shields : Arc Int
     , systems : PS.PatchableSystems (Maybe CriticalStatus)
     , powerAction : ( Int, PowerAction ) -- The most recent round's Power Action
-    , pilotResult : ( Int, PilotResult )
+    , pilotResult : ( Int, PilotResult ) -- TODO: While totally bizzare, if ordered, the pilot could theoretically do two stunts
 
     -- TODO: Ideally CrewId (or just an "assignable thing") isn't a String, but
     -- a parameterized type so that it can be any identifier, or a
