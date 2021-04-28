@@ -164,6 +164,8 @@ type Msg
     | FlipAndBurnFail
     | Flyby
     | FlybyFail
+    | Slide
+    | SlideFail
     | StartBalanceFromArc
     | EditBalanceFromArc AnArc Int
     | CancelBalanceFromArc
@@ -444,6 +446,22 @@ update starship msg model =
 
         FlybyFail ->
             case ( model.phase, Status.flybyFail model.status { currentRound = model.roundNumber } ) of
+                ( CP Piloting, Just ( newStatus, _ ) ) ->
+                    ( { model | status = newStatus }, Cmd.none )
+
+                _ ->
+                    ( model, Cmd.none )
+
+        Slide ->
+            case ( model.phase, Status.slide model.status { currentRound = model.roundNumber } ) of
+                ( CP Piloting, Just ( newStatus, _ ) ) ->
+                    ( { model | status = newStatus }, Cmd.none )
+
+                _ ->
+                    ( model, Cmd.none )
+
+        SlideFail ->
+            case ( model.phase, Status.slideFail model.status { currentRound = model.roundNumber, starship = starship } ) of
                 ( CP Piloting, Just ( newStatus, _ ) ) ->
                     ( { model | status = newStatus }, Cmd.none )
 
@@ -932,7 +950,7 @@ view starship model =
                             Just NoFreeAttackForAnyEnemyAndFreeFinalRotation ->
                                 "No free attack given, and ship can be freely rotated at the end of its movement"
 
-                            Just Slide ->
+                            Just PilotResult.Slide ->
                                 "Slide"
 
                             Just TurnInPlace ->
@@ -1107,6 +1125,26 @@ view starship model =
                 button
                     [ A.disabled True ]
                     [ text "Flyby (Fail)" ]
+        , case ( model.phase, Status.slide model.status { currentRound = model.roundNumber, starship = starship } ) of
+            ( CP Piloting, Just ( _, bonus ) ) ->
+                button
+                    [ E.onClick Slide ]
+                    [ text ("Slide (" ++ String.fromInt bonus ++ ")") ]
+
+            _ ->
+                button
+                    [ A.disabled True ]
+                    [ text "Slide" ]
+        , case ( model.phase, Status.slideFail model.status { currentRound = model.roundNumber, starship = starship } ) of
+            ( CP Piloting, Just _ ) ->
+                button
+                    [ E.onClick SlideFail ]
+                    [ text "Slide (Fail)" ]
+
+            _ ->
+                button
+                    [ A.disabled True ]
+                    [ text "Slide (Fail)" ]
         , button
             (case ( model.partialState, model.phase ) of
                 ( Selected arc, CP Piloting ) ->

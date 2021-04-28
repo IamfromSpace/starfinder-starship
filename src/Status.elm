@@ -1,4 +1,4 @@
-module Status exposing (ExtraPoweredSystem(..), Status, areShieldsFull, backOff, backOffFail, backOffFailBy5OrMore, balanceEvenly, balanceFromArc, barrelRoll, barrelRollFail, barrelRollFailBy5OrMore, basePatchDC, canBalanceFromTo, damageArc, damageSystem, divertPowerToEngines, divertPowerToShields, evade, evadeFailBy5OrMore, flipAndBurn, flipAndBurnFail, flyby, flybyFail, forceAddShields, forceMoveShields, getEffectiveAcAndTl, getEffectiveBonusOld, getEffectiveDistanceBetweenTurns, getEffectiveSpecialPilotResult, getEffectiveSpeed, hasExtraPower, holdItTogether, init, maneuver, maxDivertPowerToShieldPoints, movingSpeechSource, movingSpeechTarget, patch, quickFix)
+module Status exposing (ExtraPoweredSystem(..), Status, areShieldsFull, backOff, backOffFail, backOffFailBy5OrMore, balanceEvenly, balanceFromArc, barrelRoll, barrelRollFail, barrelRollFailBy5OrMore, basePatchDC, canBalanceFromTo, damageArc, damageSystem, divertPowerToEngines, divertPowerToShields, evade, evadeFailBy5OrMore, flipAndBurn, flipAndBurnFail, flyby, flybyFail, forceAddShields, forceMoveShields, getEffectiveAcAndTl, getEffectiveBonusOld, getEffectiveDistanceBetweenTurns, getEffectiveSpecialPilotResult, getEffectiveSpeed, hasExtraPower, holdItTogether, init, maneuver, maxDivertPowerToShieldPoints, movingSpeechSource, movingSpeechTarget, patch, quickFix, slide, slideFail)
 
 import Arc exposing (AnArc, Arc)
 import Assignments exposing (Assignments, allInEngineering)
@@ -623,14 +623,14 @@ flybyFail =
     pilotCheckHelper PilotResult.flybyFail Crewmate.flyby CrewmateStatus.flyby
 
 
-slide : Starship -> Int -> Status -> Status
+slide : Status -> { a | currentRound : Int } -> Maybe ( Status, Int )
 slide =
-    applyPilotResult (always PilotResult.slide)
+    pilotCheckHelper PilotResult.slide Crewmate.slide CrewmateStatus.slide
 
 
-slideFail : Starship -> Int -> Status -> Status
-slideFail =
-    applyPilotResult PilotResult.slideFail
+slideFail : Status -> { a | starship : Starship, currentRound : Int } -> Maybe ( Status, Int )
+slideFail status ({ starship } as r) =
+    pilotCheckHelper (PilotResult.slideFail starship) Crewmate.slide CrewmateStatus.slide status r
 
 
 turnInPlace : Starship -> Int -> Status -> Status
