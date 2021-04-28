@@ -1,4 +1,4 @@
-module Status exposing (ExtraPoweredSystem(..), Status, areShieldsFull, backOff, backOffFail, backOffFailBy5OrMore, balanceEvenly, balanceFromArc, barrelRoll, barrelRollFail, barrelRollFailBy5OrMore, basePatchDC, canBalanceFromTo, damageArc, damageSystem, divertPowerToEngines, divertPowerToShields, forceAddShields, forceMoveShields, getEffectiveAcAndTl, getEffectiveBonusOld, getEffectiveDistanceBetweenTurns, getEffectiveSpecialPilotResult, getEffectiveSpeed, hasExtraPower, holdItTogether, init, maneuver, maxDivertPowerToShieldPoints, movingSpeechSource, movingSpeechTarget, patch, quickFix)
+module Status exposing (ExtraPoweredSystem(..), Status, areShieldsFull, backOff, backOffFail, backOffFailBy5OrMore, balanceEvenly, balanceFromArc, barrelRoll, barrelRollFail, barrelRollFailBy5OrMore, basePatchDC, canBalanceFromTo, damageArc, damageSystem, divertPowerToEngines, divertPowerToShields, evade, evadeFailBy5OrMore, forceAddShields, forceMoveShields, getEffectiveAcAndTl, getEffectiveBonusOld, getEffectiveDistanceBetweenTurns, getEffectiveSpecialPilotResult, getEffectiveSpeed, hasExtraPower, holdItTogether, init, maneuver, maxDivertPowerToShieldPoints, movingSpeechSource, movingSpeechTarget, patch, quickFix)
 
 import Arc exposing (AnArc, Arc)
 import Assignments exposing (Assignments, allInEngineering)
@@ -593,14 +593,14 @@ barrelRollFailBy5OrMore status ({ starship } as r) =
         Nothing
 
 
-evade : Starship -> Int -> Status -> Status
+evade : Status -> { a | currentRound : Int } -> Maybe ( Status, Int )
 evade =
-    applyPilotResult (always PilotResult.evade)
+    pilotCheckHelper PilotResult.evade Crewmate.evade CrewmateStatus.evade
 
 
-evadeFailBy5OrMore : Starship -> Int -> Status -> Status
+evadeFailBy5OrMore : Status -> { a | currentRound : Int } -> Maybe ( Status, Int )
 evadeFailBy5OrMore =
-    applyPilotResult (always PilotResult.evadeFailBy5OrMore)
+    pilotCheckHelper PilotResult.evadeFailBy5OrMore Crewmate.evade CrewmateStatus.evade
 
 
 flipAndBurn : Starship -> Int -> Status -> Status

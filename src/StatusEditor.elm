@@ -158,6 +158,8 @@ type Msg
     | BarrelRoll
     | BarrelRollFail
     | BarrelRollFailBy5OrMore
+    | Evade
+    | EvadeFailBy5OrMore
     | StartBalanceFromArc
     | EditBalanceFromArc AnArc Int
     | CancelBalanceFromArc
@@ -390,6 +392,22 @@ update starship msg model =
 
         BarrelRollFailBy5OrMore ->
             case ( model.phase, Status.barrelRollFailBy5OrMore model.status { currentRound = model.roundNumber, starship = starship } ) of
+                ( CP Piloting, Just ( newStatus, _ ) ) ->
+                    ( { model | status = newStatus }, Cmd.none )
+
+                _ ->
+                    ( model, Cmd.none )
+
+        Evade ->
+            case ( model.phase, Status.evade model.status { currentRound = model.roundNumber } ) of
+                ( CP Piloting, Just ( newStatus, _ ) ) ->
+                    ( { model | status = newStatus }, Cmd.none )
+
+                _ ->
+                    ( model, Cmd.none )
+
+        EvadeFailBy5OrMore ->
+            case ( model.phase, Status.evadeFailBy5OrMore model.status { currentRound = model.roundNumber, starship = starship } ) of
                 ( CP Piloting, Just ( newStatus, _ ) ) ->
                     ( { model | status = newStatus }, Cmd.none )
 
@@ -987,6 +1005,26 @@ view starship model =
                 button
                     [ A.disabled True ]
                     [ text "Barrel Roll (Fail by 5 or More)" ]
+        , case ( model.phase, Status.evade model.status { currentRound = model.roundNumber, starship = starship } ) of
+            ( CP Piloting, Just ( _, bonus ) ) ->
+                button
+                    [ E.onClick Evade ]
+                    [ text ("Evade (" ++ String.fromInt bonus ++ ")") ]
+
+            _ ->
+                button
+                    [ A.disabled True ]
+                    [ text "Evade" ]
+        , case ( model.phase, Status.evadeFailBy5OrMore model.status { currentRound = model.roundNumber, starship = starship } ) of
+            ( CP Piloting, Just _ ) ->
+                button
+                    [ E.onClick EvadeFailBy5OrMore ]
+                    [ text "Evade (Fail by 5 or More)" ]
+
+            _ ->
+                button
+                    [ A.disabled True ]
+                    [ text "Evade (Fail by 5 or More)" ]
         , button
             (case ( model.partialState, model.phase ) of
                 ( Selected arc, CP Piloting ) ->
