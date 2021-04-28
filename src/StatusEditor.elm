@@ -160,6 +160,8 @@ type Msg
     | BarrelRollFailBy5OrMore
     | Evade
     | EvadeFailBy5OrMore
+    | FlipAndBurn
+    | FlipAndBurnFail
     | StartBalanceFromArc
     | EditBalanceFromArc AnArc Int
     | CancelBalanceFromArc
@@ -408,6 +410,22 @@ update starship msg model =
 
         EvadeFailBy5OrMore ->
             case ( model.phase, Status.evadeFailBy5OrMore model.status { currentRound = model.roundNumber, starship = starship } ) of
+                ( CP Piloting, Just ( newStatus, _ ) ) ->
+                    ( { model | status = newStatus }, Cmd.none )
+
+                _ ->
+                    ( model, Cmd.none )
+
+        FlipAndBurn ->
+            case ( model.phase, Status.flipAndBurn model.status { currentRound = model.roundNumber, starship = starship } ) of
+                ( CP Piloting, Just ( newStatus, _ ) ) ->
+                    ( { model | status = newStatus }, Cmd.none )
+
+                _ ->
+                    ( model, Cmd.none )
+
+        FlipAndBurnFail ->
+            case ( model.phase, Status.flipAndBurnFail model.status { currentRound = model.roundNumber, starship = starship } ) of
                 ( CP Piloting, Just ( newStatus, _ ) ) ->
                     ( { model | status = newStatus }, Cmd.none )
 
@@ -1025,6 +1043,26 @@ view starship model =
                 button
                     [ A.disabled True ]
                     [ text "Evade (Fail by 5 or More)" ]
+        , case ( model.phase, Status.flipAndBurn model.status { currentRound = model.roundNumber, starship = starship } ) of
+            ( CP Piloting, Just ( _, bonus ) ) ->
+                button
+                    [ E.onClick FlipAndBurn ]
+                    [ text ("Flip and Burn (" ++ String.fromInt bonus ++ ")") ]
+
+            _ ->
+                button
+                    [ A.disabled True ]
+                    [ text "Flip and Burn" ]
+        , case ( model.phase, Status.flipAndBurnFail model.status { currentRound = model.roundNumber, starship = starship } ) of
+            ( CP Piloting, Just _ ) ->
+                button
+                    [ E.onClick FlipAndBurn ]
+                    [ text "Flip and Burn (Fail)" ]
+
+            _ ->
+                button
+                    [ A.disabled True ]
+                    [ text "Flip and Burn (Fail)" ]
         , button
             (case ( model.partialState, model.phase ) of
                 ( Selected arc, CP Piloting ) ->

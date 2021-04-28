@@ -1,4 +1,4 @@
-module Status exposing (ExtraPoweredSystem(..), Status, areShieldsFull, backOff, backOffFail, backOffFailBy5OrMore, balanceEvenly, balanceFromArc, barrelRoll, barrelRollFail, barrelRollFailBy5OrMore, basePatchDC, canBalanceFromTo, damageArc, damageSystem, divertPowerToEngines, divertPowerToShields, evade, evadeFailBy5OrMore, forceAddShields, forceMoveShields, getEffectiveAcAndTl, getEffectiveBonusOld, getEffectiveDistanceBetweenTurns, getEffectiveSpecialPilotResult, getEffectiveSpeed, hasExtraPower, holdItTogether, init, maneuver, maxDivertPowerToShieldPoints, movingSpeechSource, movingSpeechTarget, patch, quickFix)
+module Status exposing (ExtraPoweredSystem(..), Status, areShieldsFull, backOff, backOffFail, backOffFailBy5OrMore, balanceEvenly, balanceFromArc, barrelRoll, barrelRollFail, barrelRollFailBy5OrMore, basePatchDC, canBalanceFromTo, damageArc, damageSystem, divertPowerToEngines, divertPowerToShields, evade, evadeFailBy5OrMore, flipAndBurn, flipAndBurnFail, forceAddShields, forceMoveShields, getEffectiveAcAndTl, getEffectiveBonusOld, getEffectiveDistanceBetweenTurns, getEffectiveSpecialPilotResult, getEffectiveSpeed, hasExtraPower, holdItTogether, init, maneuver, maxDivertPowerToShieldPoints, movingSpeechSource, movingSpeechTarget, patch, quickFix)
 
 import Arc exposing (AnArc, Arc)
 import Assignments exposing (Assignments, allInEngineering)
@@ -603,14 +603,14 @@ evadeFailBy5OrMore =
     pilotCheckHelper PilotResult.evadeFailBy5OrMore Crewmate.evade CrewmateStatus.evade
 
 
-flipAndBurn : Starship -> Int -> Status -> Status
-flipAndBurn =
-    applyPilotResult PilotResult.flipAndBurn
+flipAndBurn : Status -> { a | starship : Starship, currentRound : Int } -> Maybe ( Status, Int )
+flipAndBurn status ({ starship } as r) =
+    pilotCheckHelper (PilotResult.flipAndBurn starship) Crewmate.flipAndBurn CrewmateStatus.flipAndBurn status r
 
 
-flipAndBurnFail : Starship -> Int -> Status -> Status
-flipAndBurnFail =
-    applyPilotResult PilotResult.flipAndBurnFail
+flipAndBurnFail : Status -> { a | starship : Starship, currentRound : Int } -> Maybe ( Status, Int )
+flipAndBurnFail status ({ starship } as r) =
+    pilotCheckHelper (PilotResult.flipAndBurnFail starship) Crewmate.flipAndBurn CrewmateStatus.flipAndBurn status r
 
 
 flyby : Starship -> Int -> Status -> Status

@@ -1,4 +1,4 @@
-module Crewmate exposing (Crewmate, backOff, barrelRoll, evade, getAcModifier, getBluffSkillModifier, getComputersSkillModifier, getEngineeringSkillModifier, getGunningModifier, getIntimidateSkillModifier, getPilotingSkillModifier, getTlModifier, init, maneuver, movingSpeechSource, ordersSource)
+module Crewmate exposing (Crewmate, backOff, barrelRoll, evade, flipAndBurn, getAcModifier, getBluffSkillModifier, getComputersSkillModifier, getEngineeringSkillModifier, getGunningModifier, getIntimidateSkillModifier, getPilotingSkillModifier, getTlModifier, init, maneuver, movingSpeechSource, ordersSource)
 
 
 type alias Crewmate =
@@ -102,6 +102,11 @@ barrelRoll =
 
 evade : Crewmate -> Int
 evade =
+    getPilotingSkillModifier
+
+
+flipAndBurn : Crewmate -> Int
+flipAndBurn =
     getPilotingSkillModifier
 
 
