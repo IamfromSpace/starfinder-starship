@@ -162,6 +162,8 @@ type Msg
     | EvadeFailBy5OrMore
     | FlipAndBurn
     | FlipAndBurnFail
+    | Flyby
+    | FlybyFail
     | StartBalanceFromArc
     | EditBalanceFromArc AnArc Int
     | CancelBalanceFromArc
@@ -426,6 +428,22 @@ update starship msg model =
 
         FlipAndBurnFail ->
             case ( model.phase, Status.flipAndBurnFail model.status { currentRound = model.roundNumber, starship = starship } ) of
+                ( CP Piloting, Just ( newStatus, _ ) ) ->
+                    ( { model | status = newStatus }, Cmd.none )
+
+                _ ->
+                    ( model, Cmd.none )
+
+        Flyby ->
+            case ( model.phase, Status.flyby model.status { currentRound = model.roundNumber } ) of
+                ( CP Piloting, Just ( newStatus, _ ) ) ->
+                    ( { model | status = newStatus }, Cmd.none )
+
+                _ ->
+                    ( model, Cmd.none )
+
+        FlybyFail ->
+            case ( model.phase, Status.flybyFail model.status { currentRound = model.roundNumber } ) of
                 ( CP Piloting, Just ( newStatus, _ ) ) ->
                     ( { model | status = newStatus }, Cmd.none )
 
@@ -1062,13 +1080,33 @@ view starship model =
         , case ( model.phase, Status.flipAndBurnFail model.status { currentRound = model.roundNumber, starship = starship } ) of
             ( CP Piloting, Just _ ) ->
                 button
-                    [ E.onClick FlipAndBurn ]
+                    [ E.onClick FlipAndBurnFail ]
                     [ text "Flip and Burn (Fail)" ]
 
             _ ->
                 button
                     [ A.disabled True ]
                     [ text "Flip and Burn (Fail)" ]
+        , case ( model.phase, Status.flyby model.status { currentRound = model.roundNumber, starship = starship } ) of
+            ( CP Piloting, Just ( _, bonus ) ) ->
+                button
+                    [ E.onClick Flyby ]
+                    [ text ("Flyby (" ++ String.fromInt bonus ++ ")") ]
+
+            _ ->
+                button
+                    [ A.disabled True ]
+                    [ text "Flyby" ]
+        , case ( model.phase, Status.flybyFail model.status { currentRound = model.roundNumber } ) of
+            ( CP Piloting, Just _ ) ->
+                button
+                    [ E.onClick FlybyFail ]
+                    [ text "Flyby (Fail)" ]
+
+            _ ->
+                button
+                    [ A.disabled True ]
+                    [ text "Flyby (Fail)" ]
         , button
             (case ( model.partialState, model.phase ) of
                 ( Selected arc, CP Piloting ) ->

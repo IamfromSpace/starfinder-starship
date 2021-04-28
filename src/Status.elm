@@ -1,4 +1,4 @@
-module Status exposing (ExtraPoweredSystem(..), Status, areShieldsFull, backOff, backOffFail, backOffFailBy5OrMore, balanceEvenly, balanceFromArc, barrelRoll, barrelRollFail, barrelRollFailBy5OrMore, basePatchDC, canBalanceFromTo, damageArc, damageSystem, divertPowerToEngines, divertPowerToShields, evade, evadeFailBy5OrMore, flipAndBurn, flipAndBurnFail, forceAddShields, forceMoveShields, getEffectiveAcAndTl, getEffectiveBonusOld, getEffectiveDistanceBetweenTurns, getEffectiveSpecialPilotResult, getEffectiveSpeed, hasExtraPower, holdItTogether, init, maneuver, maxDivertPowerToShieldPoints, movingSpeechSource, movingSpeechTarget, patch, quickFix)
+module Status exposing (ExtraPoweredSystem(..), Status, areShieldsFull, backOff, backOffFail, backOffFailBy5OrMore, balanceEvenly, balanceFromArc, barrelRoll, barrelRollFail, barrelRollFailBy5OrMore, basePatchDC, canBalanceFromTo, damageArc, damageSystem, divertPowerToEngines, divertPowerToShields, evade, evadeFailBy5OrMore, flipAndBurn, flipAndBurnFail, flyby, flybyFail, forceAddShields, forceMoveShields, getEffectiveAcAndTl, getEffectiveBonusOld, getEffectiveDistanceBetweenTurns, getEffectiveSpecialPilotResult, getEffectiveSpeed, hasExtraPower, holdItTogether, init, maneuver, maxDivertPowerToShieldPoints, movingSpeechSource, movingSpeechTarget, patch, quickFix)
 
 import Arc exposing (AnArc, Arc)
 import Assignments exposing (Assignments, allInEngineering)
@@ -613,14 +613,14 @@ flipAndBurnFail status ({ starship } as r) =
     pilotCheckHelper (PilotResult.flipAndBurnFail starship) Crewmate.flipAndBurn CrewmateStatus.flipAndBurn status r
 
 
-flyby : Starship -> Int -> Status -> Status
+flyby : Status -> { a | currentRound : Int } -> Maybe ( Status, Int )
 flyby =
-    applyPilotResult (always PilotResult.flyby)
+    pilotCheckHelper PilotResult.flyby Crewmate.flyby CrewmateStatus.flyby
 
 
-flybyFail : Starship -> Int -> Status -> Status
+flybyFail : Status -> { a | currentRound : Int } -> Maybe ( Status, Int )
 flybyFail =
-    applyPilotResult (always PilotResult.flybyFail)
+    pilotCheckHelper PilotResult.flybyFail Crewmate.flyby CrewmateStatus.flyby
 
 
 slide : Starship -> Int -> Status -> Status
