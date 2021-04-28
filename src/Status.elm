@@ -1,4 +1,4 @@
-module Status exposing (ExtraPoweredSystem(..), Status, areShieldsFull, backOff, backOffFail, backOffFailBy5OrMore, balanceEvenly, balanceFromArc, basePatchDC, canBalanceFromTo, damageArc, damageSystem, divertPowerToEngines, divertPowerToShields, forceAddShields, forceMoveShields, getEffectiveAcAndTl, getEffectiveBonusOld, getEffectiveDistanceBetweenTurns, getEffectiveSpecialPilotResult, getEffectiveSpeed, hasExtraPower, holdItTogether, init, maneuver, maxDivertPowerToShieldPoints, movingSpeechSource, movingSpeechTarget, patch, quickFix)
+module Status exposing (ExtraPoweredSystem(..), Status, areShieldsFull, backOff, backOffFail, backOffFailBy5OrMore, balanceEvenly, balanceFromArc, barrelRoll, barrelRollFail, barrelRollFailBy5OrMore, basePatchDC, canBalanceFromTo, damageArc, damageSystem, divertPowerToEngines, divertPowerToShields, forceAddShields, forceMoveShields, getEffectiveAcAndTl, getEffectiveBonusOld, getEffectiveDistanceBetweenTurns, getEffectiveSpecialPilotResult, getEffectiveSpeed, hasExtraPower, holdItTogether, init, maneuver, maxDivertPowerToShieldPoints, movingSpeechSource, movingSpeechTarget, patch, quickFix)
 
 import Arc exposing (AnArc, Arc)
 import Assignments exposing (Assignments, allInEngineering)
@@ -10,7 +10,7 @@ import DefenseLevel
 import Dict exposing (Dict)
 import PatchableSystems as PS exposing (PatchableSystem(..), PatchableSystems)
 import PilotResult exposing (PilotResult, SpecialPilotResult, noPilotResult)
-import Size
+import Size exposing (Size(..))
 import Starship exposing (Starship)
 import Switch exposing (Switch(..))
 import Togglable exposing (extract, meta)
@@ -550,22 +550,47 @@ backOffFailBy5OrMore status ({ starship } as r) =
     pilotCheckHelper (PilotResult.backOffFailBy5OrMore starship) Crewmate.backOff CrewmateStatus.backOff status r
 
 
-barrelRoll : Starship -> Int -> Status -> Status
-barrelRoll =
-    -- TODO: Only valid for ships Large or smaller
-    applyPilotResult PilotResult.barrelRoll
+canBarrelRoll : Starship -> Bool
+canBarrelRoll starship =
+    case starship.frame.size of
+        Colossal ->
+            False
+
+        Gargantuan ->
+            False
+
+        Huge ->
+            False
+
+        _ ->
+            True
 
 
-barrelRollFail : Starship -> Int -> Status -> Status
-barrelRollFail =
-    -- TODO: Only valid for ships Large or smaller
-    applyPilotResult PilotResult.barrelRollFail
+barrelRoll : Status -> { a | starship : Starship, currentRound : Int } -> Maybe ( Status, Int )
+barrelRoll status ({ starship } as r) =
+    if canBarrelRoll starship then
+        pilotCheckHelper (PilotResult.barrelRoll starship) Crewmate.barrelRoll CrewmateStatus.barrelRoll status r
+
+    else
+        Nothing
 
 
-barrelRollFailBy5OrMore : Starship -> Int -> Status -> Status
-barrelRollFailBy5OrMore =
-    -- TODO: Only valid for ships Large or smaller
-    applyPilotResult PilotResult.barrelRollFailBy5OrMore
+barrelRollFail : Status -> { a | starship : Starship, currentRound : Int } -> Maybe ( Status, Int )
+barrelRollFail status ({ starship } as r) =
+    if canBarrelRoll starship then
+        pilotCheckHelper (PilotResult.barrelRollFail starship) Crewmate.barrelRoll CrewmateStatus.barrelRoll status r
+
+    else
+        Nothing
+
+
+barrelRollFailBy5OrMore : Status -> { a | starship : Starship, currentRound : Int } -> Maybe ( Status, Int )
+barrelRollFailBy5OrMore status ({ starship } as r) =
+    if canBarrelRoll starship then
+        pilotCheckHelper (PilotResult.barrelRollFailBy5OrMore starship) Crewmate.barrelRoll CrewmateStatus.barrelRoll status r
+
+    else
+        Nothing
 
 
 evade : Starship -> Int -> Status -> Status

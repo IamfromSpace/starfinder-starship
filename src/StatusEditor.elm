@@ -155,6 +155,9 @@ type Msg
     | BackOff
     | BackOffFail
     | BackOffFailBy5OrMore
+    | BarrelRoll
+    | BarrelRollFail
+    | BarrelRollFailBy5OrMore
     | StartBalanceFromArc
     | EditBalanceFromArc AnArc Int
     | CancelBalanceFromArc
@@ -363,6 +366,30 @@ update starship msg model =
 
         BackOffFailBy5OrMore ->
             case ( model.phase, Status.backOffFailBy5OrMore model.status { currentRound = model.roundNumber, starship = starship } ) of
+                ( CP Piloting, Just ( newStatus, _ ) ) ->
+                    ( { model | status = newStatus }, Cmd.none )
+
+                _ ->
+                    ( model, Cmd.none )
+
+        BarrelRoll ->
+            case ( model.phase, Status.barrelRoll model.status { currentRound = model.roundNumber, starship = starship } ) of
+                ( CP Piloting, Just ( newStatus, _ ) ) ->
+                    ( { model | status = newStatus }, Cmd.none )
+
+                _ ->
+                    ( model, Cmd.none )
+
+        BarrelRollFail ->
+            case ( model.phase, Status.barrelRollFail model.status { currentRound = model.roundNumber, starship = starship } ) of
+                ( CP Piloting, Just ( newStatus, _ ) ) ->
+                    ( { model | status = newStatus }, Cmd.none )
+
+                _ ->
+                    ( model, Cmd.none )
+
+        BarrelRollFailBy5OrMore ->
+            case ( model.phase, Status.barrelRollFailBy5OrMore model.status { currentRound = model.roundNumber, starship = starship } ) of
                 ( CP Piloting, Just ( newStatus, _ ) ) ->
                     ( { model | status = newStatus }, Cmd.none )
 
@@ -930,6 +957,36 @@ view starship model =
                 button
                     [ A.disabled True ]
                     [ text "Back Off (Fail by 5 or More)" ]
+        , case ( model.phase, Status.barrelRoll model.status { currentRound = model.roundNumber, starship = starship } ) of
+            ( CP Piloting, Just ( _, bonus ) ) ->
+                button
+                    [ E.onClick BarrelRoll ]
+                    [ text ("Barrel Roll (" ++ String.fromInt bonus ++ ")") ]
+
+            _ ->
+                button
+                    [ A.disabled True ]
+                    [ text "Barrel Roll" ]
+        , case ( model.phase, Status.barrelRollFail model.status { currentRound = model.roundNumber, starship = starship } ) of
+            ( CP Piloting, Just _ ) ->
+                button
+                    [ E.onClick BarrelRollFail ]
+                    [ text "Barrel Roll (Fail)" ]
+
+            _ ->
+                button
+                    [ A.disabled True ]
+                    [ text "Barrel Roll (Fail)" ]
+        , case ( model.phase, Status.barrelRollFailBy5OrMore model.status { currentRound = model.roundNumber, starship = starship } ) of
+            ( CP Piloting, Just _ ) ->
+                button
+                    [ E.onClick BarrelRollFailBy5OrMore ]
+                    [ text "Barrel Roll (Fail by 5 or More)" ]
+
+            _ ->
+                button
+                    [ A.disabled True ]
+                    [ text "Barrel Roll (Fail by 5 or More)" ]
         , button
             (case ( model.partialState, model.phase ) of
                 ( Selected arc, CP Piloting ) ->

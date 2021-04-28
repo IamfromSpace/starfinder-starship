@@ -1,4 +1,4 @@
-module CrewmateStatus exposing (CrewmateStatus, backOff, demandSource, demandTarget, encourageSource, encourageTarget, getBluffSkillModifier, getComputersSkillModifier, getEngineeringSkillModifier, getGunningModifier, getIntimidateSkillModifier, getPilotingSkillModifier, init, maneuver, movingSpeechSource, movingSpeechTarget, ordersSource, ordersTarget, tauntSource)
+module CrewmateStatus exposing (CrewmateStatus, backOff, barrelRoll, demandSource, demandTarget, encourageSource, encourageTarget, getBluffSkillModifier, getComputersSkillModifier, getEngineeringSkillModifier, getGunningModifier, getIntimidateSkillModifier, getPilotingSkillModifier, init, maneuver, movingSpeechSource, movingSpeechTarget, ordersSource, ordersTarget, tauntSource)
 
 import Arc exposing (AnArc)
 import CombatPhase exposing (CombatPhase(..))
@@ -181,6 +181,11 @@ maneuver =
 
 backOff : CrewmateStatus -> { a | currentRound : Int } -> Maybe ( CrewmateStatus, Int )
 backOff =
+    pilotCheckHelper
+
+
+barrelRoll : CrewmateStatus -> { a | currentRound : Int } -> Maybe ( CrewmateStatus, Int )
+barrelRoll =
     pilotCheckHelper
 
 
