@@ -717,7 +717,7 @@ getEffectiveSpeed starship currentRound status =
     Starship.getSpeedModifier starship + engineeringBonus + pilotBonus
 
 
-getEffectiveDistanceBetweenTurns : Starship -> Int -> Status -> Int
+getEffectiveDistanceBetweenTurns : Starship -> Int -> Status -> Maybe Int
 getEffectiveDistanceBetweenTurns starship currentRound status =
     let
         starshipModifier =
@@ -726,14 +726,15 @@ getEffectiveDistanceBetweenTurns starship currentRound status =
         ( pilotResultRound, pilotResult ) =
             status.pilotResult
 
-        pilotEffect =
+        mPilotEffect =
             if currentRound == pilotResultRound then
                 PilotResult.getDistanceBetweenTurnsModifier pilotResult
 
             else
-                0
+                Just 0
     in
-    max 0 (starshipModifier + pilotEffect)
+    mPilotEffect
+        |> Maybe.map (\pilotEffect -> max 0 (starshipModifier + pilotEffect))
 
 
 getEffectiveSpecialPilotResult : Status -> { a | currentRound : Int } -> Maybe SpecialPilotResult

@@ -20,7 +20,9 @@ type SpecialPilotResult
 type alias PilotResult =
     { acAndTlBonus : Int
     , speedDelta : Int
-    , maneuverabilityDelta : Int
+
+    -- None means "infinity" or "no turns allowed"
+    , maneuverabilityDelta : Maybe Int
     , special : Maybe SpecialPilotResult
     }
 
@@ -40,7 +42,7 @@ getSpeedModifier =
     .speedDelta
 
 
-getDistanceBetweenTurnsModifier : PilotResult -> Int
+getDistanceBetweenTurnsModifier : PilotResult -> Maybe Int
 getDistanceBetweenTurnsModifier =
     .maneuverabilityDelta
 
@@ -49,7 +51,7 @@ noPilotResult : PilotResult
 noPilotResult =
     { acAndTlBonus = 0
     , speedDelta = 0
-    , maneuverabilityDelta = 0
+    , maneuverabilityDelta = Just 0
     , special = Nothing
     }
 
@@ -58,8 +60,8 @@ noPilotResult =
 -- TODO: Nothing here really needs a Starship, these need the ship's speed
 
 
-reductionToHalfSpeedAndNoTurns : Starship -> ( Int, Int )
-reductionToHalfSpeedAndNoTurns starship =
+getDeltaToHalfSpeed : Starship -> Int
+getDeltaToHalfSpeed starship =
     let
         baseSpeed =
             -- TODO: this ignores if thrusters are off
@@ -68,26 +70,19 @@ reductionToHalfSpeedAndNoTurns starship =
         finalSpeed =
             baseSpeed // 2
     in
-    -- TODO: This also considers if power has been diverted to the engines (by
-    -- adding 3 instead of 1) but ultimately this should just be represented as
-    -- a Maybe or something.
-    ( finalSpeed - baseSpeed, finalSpeed + 3 )
+    finalSpeed - baseSpeed
 
 
 maneuver : PilotResult
 maneuver =
-    { noPilotResult | maneuverabilityDelta = -1 }
+    { noPilotResult | maneuverabilityDelta = Just -1 }
 
 
 backOff : Starship -> PilotResult
 backOff starship =
-    let
-        ( speedDelta, maneuverabilityDelta ) =
-            reductionToHalfSpeedAndNoTurns starship
-    in
     { noPilotResult
-        | maneuverabilityDelta = maneuverabilityDelta
-        , speedDelta = speedDelta
+        | maneuverabilityDelta = Nothing
+        , speedDelta = getDeltaToHalfSpeed starship
         , special = Just MoveBackward
     }
 
@@ -111,9 +106,7 @@ barrelRoll : Starship -> PilotResult
 barrelRoll starship =
     -- TODO: Only valid for ships Large or smaller
     { noPilotResult
-        | speedDelta =
-            Tuple.first <|
-                reductionToHalfSpeedAndNoTurns starship
+        | speedDelta = getDeltaToHalfSpeed starship
         , special = Just SwapPortAndStarboard
     }
 
@@ -122,9 +115,7 @@ barrelRollFail : Starship -> PilotResult
 barrelRollFail starship =
     -- TODO: Only valid for ships Large or smaller
     { noPilotResult
-        | speedDelta =
-            Tuple.first <|
-                reductionToHalfSpeedAndNoTurns starship
+        | speedDelta = getDeltaToHalfSpeed starship
     }
 
 
@@ -133,9 +124,7 @@ barrelRollFailBy5OrMore starship =
     -- TODO: Only valid for ships Large or smaller
     { noPilotResult
         | acAndTlBonus = -4
-        , speedDelta =
-            Tuple.first <|
-                reductionToHalfSpeedAndNoTurns starship
+        , speedDelta = getDeltaToHalfSpeed starship
     }
 
 
@@ -151,26 +140,18 @@ evadeFailBy5OrMore =
 
 flipAndBurn : Starship -> PilotResult
 flipAndBurn starship =
-    let
-        ( speedDelta, maneuverabilityDelta ) =
-            reductionToHalfSpeedAndNoTurns starship
-    in
     { noPilotResult
-        | maneuverabilityDelta = maneuverabilityDelta
-        , speedDelta = speedDelta
+        | maneuverabilityDelta = Nothing
+        , speedDelta = getDeltaToHalfSpeed starship
         , special = Just Turn180AtTheEnd
     }
 
 
 flipAndBurnFail : Starship -> PilotResult
 flipAndBurnFail starship =
-    let
-        ( speedDelta, maneuverabilityDelta ) =
-            reductionToHalfSpeedAndNoTurns starship
-    in
     { noPilotResult
-        | maneuverabilityDelta = maneuverabilityDelta
-        , speedDelta = speedDelta
+        | maneuverabilityDelta = Nothing
+        , speedDelta = getDeltaToHalfSpeed starship
         , special = Just MoveForwardFullSpeed
     }
 
@@ -192,13 +173,9 @@ slide =
 
 slideFail : Starship -> PilotResult
 slideFail starship =
-    let
-        ( speedDelta, maneuverabilityDelta ) =
-            reductionToHalfSpeedAndNoTurns starship
-    in
     { noPilotResult
-        | maneuverabilityDelta = maneuverabilityDelta
-        , speedDelta = speedDelta
+        | maneuverabilityDelta = Nothing
+        , speedDelta = getDeltaToHalfSpeed starship
     }
 
 
@@ -226,7 +203,7 @@ fullPower starship =
     -- TODO: Also costs a Resolve Point
     -- TODO: this ignores if thrusters are off
     { noPilotResult
-        | maneuverabilityDelta = 2
+        | maneuverabilityDelta = Just 2
         , speedDelta = extract starship.thrusters // 3
     }
 
@@ -235,7 +212,7 @@ audaciousGambit : PilotResult
 audaciousGambit =
     -- TODO: Also costs a Resolve Point
     { noPilotResult
-        | maneuverabilityDelta = -2
+        | maneuverabilityDelta = Just -2
         , special = Just NoFreeAttackForAnyEnemyAndFreeFinalRotation
     }
 

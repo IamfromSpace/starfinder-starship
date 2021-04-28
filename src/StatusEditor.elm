@@ -882,7 +882,13 @@ view starship model =
         , div [] [ text ("AC: " ++ String.fromInt effectiveAc) ]
         , div [] [ text ("TL: " ++ String.fromInt effectiveTl) ]
         , div [] [ text ("Speed (hexes): " ++ String.fromInt (Status.getEffectiveSpeed starship model.roundNumber model.status)) ]
-        , div [] [ text ("Turn: " ++ String.fromInt (Status.getEffectiveDistanceBetweenTurns starship model.roundNumber model.status)) ]
+        , div []
+            [ Status.getEffectiveDistanceBetweenTurns starship model.roundNumber model.status
+                |> Maybe.map String.fromInt
+                |> Maybe.withDefault "None allowed"
+                |> (++) "Turn: "
+                |> text
+            ]
         , div []
             [ text
                 ("Special: "
