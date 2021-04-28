@@ -104,7 +104,6 @@ backOffFailBy5OrMore starship =
 
 barrelRoll : Starship -> PilotResult
 barrelRoll starship =
-    -- TODO: Only valid for ships Large or smaller
     { noPilotResult
         | speedDelta = getDeltaToHalfSpeed starship
         , special = Just SwapPortAndStarboard
@@ -113,7 +112,6 @@ barrelRoll starship =
 
 barrelRollFail : Starship -> PilotResult
 barrelRollFail starship =
-    -- TODO: Only valid for ships Large or smaller
     { noPilotResult
         | speedDelta = getDeltaToHalfSpeed starship
     }
@@ -121,7 +119,6 @@ barrelRollFail starship =
 
 barrelRollFailBy5OrMore : Starship -> PilotResult
 barrelRollFailBy5OrMore starship =
-    -- TODO: Only valid for ships Large or smaller
     { noPilotResult
         | acAndTlBonus = -4
         , speedDelta = getDeltaToHalfSpeed starship
