@@ -166,6 +166,7 @@ type Msg
     | FlybyFail
     | Slide
     | SlideFail
+    | TurnInPlace
     | StartBalanceFromArc
     | EditBalanceFromArc AnArc Int
     | CancelBalanceFromArc
@@ -462,6 +463,14 @@ update starship msg model =
 
         SlideFail ->
             case ( model.phase, Status.slideFail model.status { currentRound = model.roundNumber, starship = starship } ) of
+                ( CP Piloting, Just ( newStatus, _ ) ) ->
+                    ( { model | status = newStatus }, Cmd.none )
+
+                _ ->
+                    ( model, Cmd.none )
+
+        TurnInPlace ->
+            case ( model.phase, Status.turnInPlace model.status { currentRound = model.roundNumber, starship = starship } ) of
                 ( CP Piloting, Just ( newStatus, _ ) ) ->
                     ( { model | status = newStatus }, Cmd.none )
 
@@ -953,7 +962,7 @@ view starship model =
                             Just PilotResult.Slide ->
                                 "Slide"
 
-                            Just TurnInPlace ->
+                            Just PilotResult.TurnInPlace ->
                                 "Turn in place"
 
                             Nothing ->
@@ -1145,6 +1154,16 @@ view starship model =
                 button
                     [ A.disabled True ]
                     [ text "Slide (Fail)" ]
+        , case ( model.phase, Status.turnInPlace model.status { currentRound = model.roundNumber, starship = starship } ) of
+            ( CP Piloting, Just ( _, bonus ) ) ->
+                button
+                    [ E.onClick TurnInPlace ]
+                    [ text ("Turn in Place (" ++ String.fromInt bonus ++ ")") ]
+
+            _ ->
+                button
+                    [ A.disabled True ]
+                    [ text "Turn in Place" ]
         , button
             (case ( model.partialState, model.phase ) of
                 ( Selected arc, CP Piloting ) ->
