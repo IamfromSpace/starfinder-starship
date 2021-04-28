@@ -192,6 +192,7 @@ turnInPlace starship =
 
         -- TODO: this ignores if thrusters are off
         , speedDelta = -(extract starship.thrusters)
+        , special = Just TurnInPlace
     }
 
 
