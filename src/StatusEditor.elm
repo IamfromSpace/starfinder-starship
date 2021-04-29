@@ -168,6 +168,8 @@ type Msg
     | SlideFail
     | TurnInPlace
     | FullPower
+    | AudaciousGambit
+    | AudaciousGambitFail
     | StartBalanceFromArc
     | EditBalanceFromArc AnArc Int
     | CancelBalanceFromArc
@@ -480,6 +482,22 @@ update starship msg model =
 
         FullPower ->
             case ( model.phase, Status.fullPower model.status { currentRound = model.roundNumber, starship = starship } ) of
+                ( CP Piloting, Just ( newStatus, _ ) ) ->
+                    ( { model | status = newStatus }, Cmd.none )
+
+                _ ->
+                    ( model, Cmd.none )
+
+        AudaciousGambit ->
+            case ( model.phase, Status.audaciousGambit model.status { currentRound = model.roundNumber } ) of
+                ( CP Piloting, Just ( newStatus, _ ) ) ->
+                    ( { model | status = newStatus }, Cmd.none )
+
+                _ ->
+                    ( model, Cmd.none )
+
+        AudaciousGambitFail ->
+            case ( model.phase, Status.audaciousGambitFail model.status { currentRound = model.roundNumber } ) of
                 ( CP Piloting, Just ( newStatus, _ ) ) ->
                     ( { model | status = newStatus }, Cmd.none )
 
@@ -1183,6 +1201,26 @@ view starship model =
                 button
                     [ A.disabled True ]
                     [ text "Full Power" ]
+        , case ( model.phase, Status.audaciousGambit model.status { currentRound = model.roundNumber, starship = starship } ) of
+            ( CP Piloting, Just ( _, bonus ) ) ->
+                button
+                    [ E.onClick AudaciousGambit ]
+                    [ text ("Audacious Gambit (" ++ String.fromInt bonus ++ ")") ]
+
+            _ ->
+                button
+                    [ A.disabled True ]
+                    [ text "Audacious Gambit" ]
+        , case ( model.phase, Status.audaciousGambitFail model.status { currentRound = model.roundNumber } ) of
+            ( CP Piloting, Just _ ) ->
+                button
+                    [ E.onClick AudaciousGambitFail ]
+                    [ text "Audacious Gambit (Fail)" ]
+
+            _ ->
+                button
+                    [ A.disabled True ]
+                    [ text "Audacious Gambit (Fail)" ]
         , button
             (case ( model.partialState, model.phase ) of
                 ( Selected arc, CP Piloting ) ->

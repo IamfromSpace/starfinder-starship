@@ -207,7 +207,6 @@ fullPower starship =
 
 audaciousGambit : PilotResult
 audaciousGambit =
-    -- TODO: Also costs a Resolve Point
     { noPilotResult
         | maneuverabilityDelta = Just -2
         , special = Just NoFreeAttackForAnyEnemyAndFreeFinalRotation

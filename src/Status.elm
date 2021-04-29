@@ -1,4 +1,4 @@
-module Status exposing (ExtraPoweredSystem(..), Status, areShieldsFull, backOff, backOffFail, backOffFailBy5OrMore, balanceEvenly, balanceFromArc, barrelRoll, barrelRollFail, barrelRollFailBy5OrMore, basePatchDC, canBalanceFromTo, damageArc, damageSystem, divertPowerToEngines, divertPowerToShields, evade, evadeFailBy5OrMore, flipAndBurn, flipAndBurnFail, flyby, flybyFail, forceAddShields, forceMoveShields, fullPower, getEffectiveAcAndTl, getEffectiveBonusOld, getEffectiveDistanceBetweenTurns, getEffectiveSpecialPilotResult, getEffectiveSpeed, hasExtraPower, holdItTogether, init, maneuver, maxDivertPowerToShieldPoints, movingSpeechSource, movingSpeechTarget, patch, quickFix, slide, slideFail, turnInPlace)
+module Status exposing (ExtraPoweredSystem(..), Status, areShieldsFull, audaciousGambit, audaciousGambitFail, backOff, backOffFail, backOffFailBy5OrMore, balanceEvenly, balanceFromArc, barrelRoll, barrelRollFail, barrelRollFailBy5OrMore, basePatchDC, canBalanceFromTo, damageArc, damageSystem, divertPowerToEngines, divertPowerToShields, evade, evadeFailBy5OrMore, flipAndBurn, flipAndBurnFail, flyby, flybyFail, forceAddShields, forceMoveShields, fullPower, getEffectiveAcAndTl, getEffectiveBonusOld, getEffectiveDistanceBetweenTurns, getEffectiveSpecialPilotResult, getEffectiveSpeed, hasExtraPower, holdItTogether, init, maneuver, maxDivertPowerToShieldPoints, movingSpeechSource, movingSpeechTarget, patch, quickFix, slide, slideFail, turnInPlace)
 
 import Arc exposing (AnArc, Arc)
 import Assignments exposing (Assignments, allInEngineering)
@@ -648,16 +648,14 @@ fullPower status ({ starship } as r) =
     pilotCheckHelper_ (PilotResult.fullPower starship) Crewmate.fullPower CrewmateStatus.fullPower status r
 
 
-audaciousGambit : Starship -> Int -> Status -> Status
+audaciousGambit : Status -> { a | currentRound : Int } -> Maybe ( Status, Int )
 audaciousGambit =
-    applyPilotResult (always PilotResult.audaciousGambit)
+    pilotCheckHelper_ PilotResult.audaciousGambit Crewmate.audaciousGambit CrewmateStatus.audaciousGambit
 
 
-audaciousGambitFail : Starship -> Int -> Status -> Status
+audaciousGambitFail : Status -> { a | currentRound : Int } -> Maybe ( Status, Int )
 audaciousGambitFail =
-    -- TODO: Also costs a Resolve Point
-    -- Just updates the most recent pilot effect (but has none)
-    applyPilotResult (always PilotResult.audaciousGambitFail)
+    pilotCheckHelper_ PilotResult.audaciousGambitFail Crewmate.audaciousGambit CrewmateStatus.audaciousGambit
 
 
 getEffectiveAcAndTl : Starship -> Int -> Status -> ( Int, Int )
