@@ -167,6 +167,7 @@ type Msg
     | Slide
     | SlideFail
     | TurnInPlace
+    | FullPower
     | StartBalanceFromArc
     | EditBalanceFromArc AnArc Int
     | CancelBalanceFromArc
@@ -471,6 +472,14 @@ update starship msg model =
 
         TurnInPlace ->
             case ( model.phase, Status.turnInPlace model.status { currentRound = model.roundNumber, starship = starship } ) of
+                ( CP Piloting, Just ( newStatus, _ ) ) ->
+                    ( { model | status = newStatus }, Cmd.none )
+
+                _ ->
+                    ( model, Cmd.none )
+
+        FullPower ->
+            case ( model.phase, Status.fullPower model.status { currentRound = model.roundNumber, starship = starship } ) of
                 ( CP Piloting, Just ( newStatus, _ ) ) ->
                     ( { model | status = newStatus }, Cmd.none )
 
@@ -1164,6 +1173,16 @@ view starship model =
                 button
                     [ A.disabled True ]
                     [ text "Turn in Place" ]
+        , case ( model.phase, Status.fullPower model.status { currentRound = model.roundNumber, starship = starship } ) of
+            ( CP Piloting, Just ( _, bonus ) ) ->
+                button
+                    [ E.onClick FullPower ]
+                    [ text ("Full Power (" ++ String.fromInt bonus ++ ")") ]
+
+            _ ->
+                button
+                    [ A.disabled True ]
+                    [ text "Full Power" ]
         , button
             (case ( model.partialState, model.phase ) of
                 ( Selected arc, CP Piloting ) ->

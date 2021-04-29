@@ -198,7 +198,6 @@ turnInPlace starship =
 
 fullPower : Starship -> PilotResult
 fullPower starship =
-    -- TODO: Also costs a Resolve Point
     -- TODO: this ignores if thrusters are off
     { noPilotResult
         | maneuverabilityDelta = Just 2

@@ -1,4 +1,4 @@
-module Status exposing (ExtraPoweredSystem(..), Status, areShieldsFull, backOff, backOffFail, backOffFailBy5OrMore, balanceEvenly, balanceFromArc, barrelRoll, barrelRollFail, barrelRollFailBy5OrMore, basePatchDC, canBalanceFromTo, damageArc, damageSystem, divertPowerToEngines, divertPowerToShields, evade, evadeFailBy5OrMore, flipAndBurn, flipAndBurnFail, flyby, flybyFail, forceAddShields, forceMoveShields, getEffectiveAcAndTl, getEffectiveBonusOld, getEffectiveDistanceBetweenTurns, getEffectiveSpecialPilotResult, getEffectiveSpeed, hasExtraPower, holdItTogether, init, maneuver, maxDivertPowerToShieldPoints, movingSpeechSource, movingSpeechTarget, patch, quickFix, slide, slideFail, turnInPlace)
+module Status exposing (ExtraPoweredSystem(..), Status, areShieldsFull, backOff, backOffFail, backOffFailBy5OrMore, balanceEvenly, balanceFromArc, barrelRoll, barrelRollFail, barrelRollFailBy5OrMore, basePatchDC, canBalanceFromTo, damageArc, damageSystem, divertPowerToEngines, divertPowerToShields, evade, evadeFailBy5OrMore, flipAndBurn, flipAndBurnFail, flyby, flybyFail, forceAddShields, forceMoveShields, fullPower, getEffectiveAcAndTl, getEffectiveBonusOld, getEffectiveDistanceBetweenTurns, getEffectiveSpecialPilotResult, getEffectiveSpeed, hasExtraPower, holdItTogether, init, maneuver, maxDivertPowerToShieldPoints, movingSpeechSource, movingSpeechTarget, patch, quickFix, slide, slideFail, turnInPlace)
 
 import Arc exposing (AnArc, Arc)
 import Assignments exposing (Assignments, allInEngineering)
@@ -484,8 +484,8 @@ applyPilotResult f starship currentRound status =
     { status | pilotResult = ( currentRound, f starship ) }
 
 
-pilotCheckHelper : PilotResult -> (Crewmate -> Int) -> (CrewmateStatus -> { a | currentRound : Int } -> Maybe ( CrewmateStatus, Int )) -> Status -> { a | currentRound : Int } -> Maybe ( Status, Int )
-pilotCheckHelper pr f g status ({ currentRound } as r) =
+pilotCheckHelper_ : PilotResult -> (Crewmate -> Maybe Int) -> (CrewmateStatus -> { a | currentRound : Int } -> Maybe ( CrewmateStatus, Int )) -> Status -> { a | currentRound : Int } -> Maybe ( Status, Int )
+pilotCheckHelper_ pr f g status ({ currentRound } as r) =
     let
         mPilot =
             status.assignments.pilot
@@ -493,7 +493,7 @@ pilotCheckHelper pr f g status ({ currentRound } as r) =
         mCrewBonus =
             mPilot
                 |> Maybe.andThen (\p -> Dict.get p status.crew)
-                |> Maybe.map f
+                |> Maybe.andThen f
 
         mNewCrewStatusAndBonus =
             mPilot
@@ -519,6 +519,11 @@ pilotCheckHelper pr f g status ({ currentRound } as r) =
 
         _ ->
             Nothing
+
+
+pilotCheckHelper : PilotResult -> (Crewmate -> Int) -> (CrewmateStatus -> { a | currentRound : Int } -> Maybe ( CrewmateStatus, Int )) -> Status -> { a | currentRound : Int } -> Maybe ( Status, Int )
+pilotCheckHelper pr f =
+    pilotCheckHelper_ pr (f >> Just)
 
 
 maneuver : Status -> { a | currentRound : Int } -> Maybe ( Status, Int )
@@ -638,10 +643,9 @@ turnInPlace status ({ starship } as r) =
     pilotCheckHelper (PilotResult.turnInPlace starship) Crewmate.turnInPlace CrewmateStatus.turnInPlace status r
 
 
-fullPower : Starship -> Int -> Status -> Status
-fullPower =
-    -- TODO: Also costs a Resolve Point
-    applyPilotResult PilotResult.fullPower
+fullPower : Status -> { a | starship : Starship, currentRound : Int } -> Maybe ( Status, Int )
+fullPower status ({ starship } as r) =
+    pilotCheckHelper_ (PilotResult.fullPower starship) Crewmate.fullPower CrewmateStatus.fullPower status r
 
 
 audaciousGambit : Starship -> Int -> Status -> Status

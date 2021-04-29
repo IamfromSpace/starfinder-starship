@@ -1,4 +1,4 @@
-module CrewmateStatus exposing (CrewmateStatus, backOff, barrelRoll, demandSource, demandTarget, encourageSource, encourageTarget, evade, flipAndBurn, flyby, getBluffSkillModifier, getComputersSkillModifier, getEngineeringSkillModifier, getGunningModifier, getIntimidateSkillModifier, getPilotingSkillModifier, init, maneuver, movingSpeechSource, movingSpeechTarget, ordersSource, ordersTarget, slide, tauntSource, turnInPlace)
+module CrewmateStatus exposing (CrewmateStatus, backOff, barrelRoll, demandSource, demandTarget, encourageSource, encourageTarget, evade, flipAndBurn, flyby, fullPower, getBluffSkillModifier, getComputersSkillModifier, getEngineeringSkillModifier, getGunningModifier, getIntimidateSkillModifier, getPilotingSkillModifier, init, maneuver, movingSpeechSource, movingSpeechTarget, ordersSource, ordersTarget, slide, tauntSource, turnInPlace)
 
 import Arc exposing (AnArc)
 import CombatPhase exposing (CombatPhase(..))
@@ -150,9 +150,9 @@ canAct cs r =
     actions == 0 || ordered && actions == 1
 
 
-pilotCheckHelper : CrewmateStatus -> { a | currentRound : Int } -> Maybe ( CrewmateStatus, Int )
-pilotCheckHelper cms ({ currentRound } as r) =
-    if canAct cms r then
+pilotCheckHelper_ : Bool -> CrewmateStatus -> { a | currentRound : Int } -> Maybe ( CrewmateStatus, Int )
+pilotCheckHelper_ costsResolve cms ({ currentRound } as r) =
+    if canAct cms r && (cms.resolvePoints > 0 || not costsResolve) then
         let
             currentRoundStatus =
                 getCurrentRoundStatus cms r
@@ -166,12 +166,25 @@ pilotCheckHelper cms ({ currentRound } as r) =
                     ( currentRound
                     , { currentRoundStatus | actions = currentRoundStatus.actions + 1 }
                     )
+                , resolvePoints =
+                    cms.resolvePoints
+                        - (if costsResolve then
+                            1
+
+                           else
+                            0
+                          )
               }
             , bonus
             )
 
     else
         Nothing
+
+
+pilotCheckHelper : CrewmateStatus -> { a | currentRound : Int } -> Maybe ( CrewmateStatus, Int )
+pilotCheckHelper =
+    pilotCheckHelper_ False
 
 
 maneuver : CrewmateStatus -> { a | currentRound : Int } -> Maybe ( CrewmateStatus, Int )
@@ -212,6 +225,11 @@ slide =
 turnInPlace : CrewmateStatus -> { a | currentRound : Int } -> Maybe ( CrewmateStatus, Int )
 turnInPlace =
     pilotCheckHelper
+
+
+fullPower : CrewmateStatus -> { a | currentRound : Int } -> Maybe ( CrewmateStatus, Int )
+fullPower =
+    pilotCheckHelper_ True
 
 
 demandSource : CrewmateStatus -> { a | target : String, currentRound : Int } -> Maybe CrewmateStatus
