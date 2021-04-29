@@ -1106,24 +1106,6 @@ preciseTargetingBonus ( currentRound, ( crewId, arc ), status ) r =
         + getGunningModifier ( crewId, status ) r
 
 
-stuntBonus : ( Int, String, Status ) -> { a | currentRound : Int } -> Int
-stuntBonus ( currentRound, crewId, status ) r =
-    getPilotingSkillModifier ( crewId, status ) r
-        + getEffectiveBonusOld currentRound Engines status
-
-
-fullPowerBonus : ( Int, String, Status ) -> { a | currentRound : Int } -> Int
-fullPowerBonus ( currentRound, crewId, status ) r =
-    getPilotingSkillModifier ( crewId, status ) r
-        + getEffectiveBonusOld currentRound Engines status
-
-
-audaciousGambitBonus : ( Int, String, Status ) -> { a | currentRound : Int } -> Int
-audaciousGambitBonus ( currentRound, crewId, status ) r =
-    getPilotingSkillModifier ( crewId, status ) r
-        + getEffectiveBonusOld currentRound Engines status
-
-
 balanceBonus : ( Int, String, Status ) -> { a | currentRound : Int } -> Int
 balanceBonus ( currentRound, crewId, status ) r =
     getComputersSkillModifier ( currentRound, crewId, status ) r
