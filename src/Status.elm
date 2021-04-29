@@ -479,11 +479,6 @@ balanceFromArc starship ( from, to, amount ) status =
         Nothing
 
 
-applyPilotResult : (Starship -> PilotResult) -> Starship -> Int -> Status -> Status
-applyPilotResult f starship currentRound status =
-    { status | pilotResult = ( currentRound, f starship ) }
-
-
 pilotCheckHelper_ : PilotResult -> (Crewmate -> Maybe Int) -> (CrewmateStatus -> { a | currentRound : Int } -> Maybe ( CrewmateStatus, Int )) -> Status -> { a | currentRound : Int } -> Maybe ( Status, Int )
 pilotCheckHelper_ pr f g status ({ currentRound } as r) =
     let
@@ -807,13 +802,6 @@ getGunningModifier =
     getXSkillModifier
         Crewmate.getGunningModifier
         CrewmateStatus.getGunningModifier
-
-
-getPilotingSkillModifier : ( String, Status ) -> { a | currentRound : Int } -> Int
-getPilotingSkillModifier =
-    getXSkillModifier
-        Crewmate.getPilotingSkillModifier
-        CrewmateStatus.getPilotingSkillModifier
 
 
 getComputersSkillModifier : ( Int, String, Status ) -> { a | currentRound : Int } -> Int
