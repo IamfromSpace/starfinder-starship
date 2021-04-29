@@ -202,7 +202,7 @@ fullPower starship =
     -- TODO: this ignores if thrusters are off
     { noPilotResult
         | maneuverabilityDelta = Just 2
-        , speedDelta = extract starship.thrusters // 3
+        , speedDelta = extract starship.thrusters // 2
     }
 
 
