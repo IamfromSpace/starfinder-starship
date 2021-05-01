@@ -14,6 +14,26 @@ frames =
     KS.fromList
         name
         [ Frame
+          { name = "Tiny Fighter"
+          , size = Tiny
+          , maneuverability = Good
+          , baseHitPoints = 35
+          , hitPointsIncrement = 5
+          , damageThreshold = 0
+          , arcMounts =
+                Arc
+                { forward = [ArcMountClass Light]
+                , aft = []
+                , portSide = []
+                , starboard = []
+                }
+          , turretMounts = []
+          , maxExpansionBays = 3
+          , minimumCrew = 1
+          , maximumCrew = 4
+          , listedBuildPoints = 6
+          }
+        , Frame
           { name = "Medium Transport"
           , size = Medium
           , maneuverability = Average
@@ -52,5 +72,25 @@ frames =
           , minimumCrew = 1
           , maximumCrew = 6
           , listedBuildPoints = 12
+          }
+        , Frame
+          { name = "Large Destroyer"
+          , size = Large
+          , maneuverability = Average
+          , baseHitPoints = 150
+          , hitPointsIncrement = 20
+          , damageThreshold = 0
+          , arcMounts =
+                Arc
+                { forward = [ArcMountClass Heavy, ArcMountClass Heavy]
+                , aft = [ArcMountClass Light]
+                , portSide = [ArcMountClass Light]
+                , starboard = [ArcMountClass Light]
+                }
+          , turretMounts = [TurretMountClass Light]
+          , maxExpansionBays = 4
+          , minimumCrew = 6
+          , maximumCrew = 20
+          , listedBuildPoints = 30
           }
         ]

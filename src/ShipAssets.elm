@@ -38,7 +38,25 @@ frames : KeyedSet String Frame
 frames =
     KS.fromList
         .name
-        [ { name = "Medium Transport"
+        [ { name = "Tiny Fighter"
+          , size = Size.Tiny
+          , maneuverability = Good
+          , baseHitPoints = 35
+          , hitPointsIncrement = 5
+          , damageThreshold = 0
+          , arcMounts =
+                { forward = [ Light ]
+                , aft = []
+                , portSide = []
+                , starboard = []
+                }
+          , turretMounts = []
+          , expansionBays = 3
+          , minimumCrew = 1
+          , maximumCrew = 4
+          , listedBuildPoints = 6
+          }
+        , { name = "Medium Transport"
           , size = Size.Medium
           , maneuverability = Average
           , baseHitPoints = 70
@@ -73,6 +91,24 @@ frames =
           , minimumCrew = 1
           , maximumCrew = 6
           , listedBuildPoints = 12
+          }
+        , { name = "Large Destroyer"
+          , size = Size.Large
+          , maneuverability = Average
+          , baseHitPoints = 150
+          , hitPointsIncrement = 20
+          , damageThreshold = 0
+          , arcMounts =
+                { forward = [ Heavy, Heavy ]
+                , aft = [ Light ]
+                , portSide = [ Light ]
+                , starboard = [ Light ]
+                }
+          , turretMounts = [ Light ]
+          , expansionBays = 4
+          , minimumCrew = 6
+          , maximumCrew = 20
+          , listedBuildPoints = 30
           }
         ]
 
