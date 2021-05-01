@@ -1013,4 +1013,4 @@ getDistanceBetweenTurnsModifier starship =
                 |> Maybe.map DefenseLevel.toManeuverabilityPenalty
                 |> Maybe.withDefault 0
     in
-    frameModifier + frameModifier
+    frameModifier + armorModifier
