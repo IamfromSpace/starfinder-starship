@@ -1,4 +1,4 @@
-module CombatCrew exposing (CombatCrew, maneuver)
+module CombatCrew exposing (CombatCrew, audaciousGambit, backOff, barrelRoll, demandSource, demandTarget, encourageSource, encourageTarget, evade, flipAndBurn, flyby, fullPower, getAcModifier, getTlModifier, maneuver, movingSpeechSource, ordersSource, ordersTarget, slide, tauntSource, turnInPlace)
 
 import Assignments exposing (Assignments)
 import Crewmate exposing (Crewmate)

@@ -2,6 +2,7 @@ module Status exposing (ExtraPoweredSystem(..), Status, areShieldsFull, audaciou
 
 import Arc exposing (AnArc, Arc)
 import Assignments exposing (Assignments, allInEngineering)
+import CombatCrew exposing (CombatCrew)
 import CombatPhase exposing (CombatPhase)
 import Crewmate exposing (Crewmate)
 import CrewmateStatus exposing (CrewmateStatus)
@@ -53,17 +54,7 @@ type alias Status =
     -- CrewmateStatus, or a (Crewmate, CrewmateStatus), or something else.
     -- However, this parameterization gets _everywhere_, so it's a bit of apain
     -- to do now.
-    , crew : Dict String Crewmate
-
-    -- TODO: It seems like two Dicts is a waste here.  This doesn't well
-    -- capture our invariant (exactly one crewmate per status and vice versa),
-    -- and it means we have to handle missing dict entries twice, which is just
-    -- extra work.
-    , crewStatus : Dict String CrewmateStatus
-
-    -- TODO: There's really no way to possibly enforce all invariants
-    -- simultaneously.  Perhaps an assignment is really just a single round
-    -- status item, and this should just be collapsed into a single crew entry.
+    , crew : CombatCrew String
     , assignments : Assignments String
     , tauntedBy : Dict String ( Int, Taunted ) --TODO: affects one phase (over multiple rounds) unless it is a Push action
     }
@@ -76,8 +67,7 @@ init crew =
     , systems = PS.pure Nothing
     , powerAction = ( -1, Divert Shields ) -- The -1 round acts as a No-op
     , pilotResult = ( -1, noPilotResult ) -- The -1 round acts as a No-op
-    , crew = crew
-    , crewStatus = Dict.map (always (always CrewmateStatus.init)) crew
+    , crew = Dict.map (\_ cm -> ( cm, CrewmateStatus.init )) crew
     , assignments = allInEngineering (Dict.keys crew)
     , tauntedBy = Dict.empty
     }
@@ -479,56 +469,37 @@ balanceFromArc starship ( from, to, amount ) status =
         Nothing
 
 
-pilotCheckHelper_ : PilotResult -> (Crewmate -> Maybe Int) -> (CrewmateStatus -> { a | currentRound : Int } -> Maybe ( CrewmateStatus, Int )) -> Status -> { a | currentRound : Int } -> Maybe ( Status, Int )
-pilotCheckHelper_ pr f g status ({ currentRound } as r) =
+pilotCheckHelper : PilotResult -> (CombatCrew String -> { currentRound : Int, assignments : Assignments String } -> Maybe ( CombatCrew String, Int )) -> Status -> { a | currentRound : Int } -> Maybe ( Status, Int )
+pilotCheckHelper pr f status ({ currentRound } as r) =
     let
-        mPilot =
-            status.assignments.pilot
-
-        mCrewBonus =
-            mPilot
-                |> Maybe.andThen (\p -> Dict.get p status.crew)
-                |> Maybe.andThen f
-
-        mNewCrewStatusAndBonus =
-            mPilot
-                |> Maybe.andThen
-                    (\p ->
-                        Dict.get p status.crewStatus
-                            |> Maybe.andThen (\x -> g x r)
-                            |> Maybe.map (\( s, b ) -> ( Dict.insert p s status.crewStatus, b ))
-                    )
+        mNewCrewAndBonus =
+            f status.crew { currentRound = currentRound, assignments = status.assignments }
 
         mNonCrewBonus =
             getEffectiveBonus False currentRound Engines status
     in
-    case ( ( mCrewBonus, mNewCrewStatusAndBonus ), mNonCrewBonus ) of
-        ( ( Just crewBonus, Just ( newCrewStatus, crewStatusBonus ) ), Just nonCrewBonus ) ->
+    case ( mNewCrewAndBonus, mNonCrewBonus ) of
+        ( Just ( newCrew, crewBonus ), Just nonCrewBonus ) ->
             Just
                 ( { status
                     | pilotResult = ( currentRound, pr )
-                    , crewStatus = newCrewStatus
+                    , crew = newCrew
                   }
-                , crewBonus + crewStatusBonus + nonCrewBonus
+                , crewBonus + nonCrewBonus
                 )
 
         _ ->
             Nothing
 
 
-pilotCheckHelper : PilotResult -> (Crewmate -> Int) -> (CrewmateStatus -> { a | currentRound : Int } -> Maybe ( CrewmateStatus, Int )) -> Status -> { a | currentRound : Int } -> Maybe ( Status, Int )
-pilotCheckHelper pr f =
-    pilotCheckHelper_ pr (f >> Just)
-
-
 maneuver : Status -> { a | currentRound : Int } -> Maybe ( Status, Int )
 maneuver =
-    pilotCheckHelper PilotResult.maneuver Crewmate.maneuver CrewmateStatus.maneuver
+    pilotCheckHelper PilotResult.maneuver CombatCrew.maneuver
 
 
 backOff : Status -> { a | starship : Starship, currentRound : Int } -> Maybe ( Status, Int )
 backOff status ({ starship } as r) =
-    pilotCheckHelper (PilotResult.backOff starship) Crewmate.backOff CrewmateStatus.backOff status r
+    pilotCheckHelper (PilotResult.backOff starship) CombatCrew.backOff status r
 
 
 
@@ -542,12 +513,12 @@ backOff status ({ starship } as r) =
 
 backOffFail : Status -> { a | currentRound : Int } -> Maybe ( Status, Int )
 backOffFail =
-    pilotCheckHelper PilotResult.backOffFail Crewmate.backOff CrewmateStatus.backOff
+    pilotCheckHelper PilotResult.backOffFail CombatCrew.backOff
 
 
 backOffFailBy5OrMore : Status -> { a | starship : Starship, currentRound : Int } -> Maybe ( Status, Int )
 backOffFailBy5OrMore status ({ starship } as r) =
-    pilotCheckHelper (PilotResult.backOffFailBy5OrMore starship) Crewmate.backOff CrewmateStatus.backOff status r
+    pilotCheckHelper (PilotResult.backOffFailBy5OrMore starship) CombatCrew.backOff status r
 
 
 canBarrelRoll : Starship -> Bool
@@ -569,7 +540,7 @@ canBarrelRoll starship =
 barrelRoll : Status -> { a | starship : Starship, currentRound : Int } -> Maybe ( Status, Int )
 barrelRoll status ({ starship } as r) =
     if canBarrelRoll starship then
-        pilotCheckHelper (PilotResult.barrelRoll starship) Crewmate.barrelRoll CrewmateStatus.barrelRoll status r
+        pilotCheckHelper (PilotResult.barrelRoll starship) CombatCrew.barrelRoll status r
 
     else
         Nothing
@@ -578,7 +549,7 @@ barrelRoll status ({ starship } as r) =
 barrelRollFail : Status -> { a | starship : Starship, currentRound : Int } -> Maybe ( Status, Int )
 barrelRollFail status ({ starship } as r) =
     if canBarrelRoll starship then
-        pilotCheckHelper (PilotResult.barrelRollFail starship) Crewmate.barrelRoll CrewmateStatus.barrelRoll status r
+        pilotCheckHelper (PilotResult.barrelRollFail starship) CombatCrew.barrelRoll status r
 
     else
         Nothing
@@ -587,7 +558,7 @@ barrelRollFail status ({ starship } as r) =
 barrelRollFailBy5OrMore : Status -> { a | starship : Starship, currentRound : Int } -> Maybe ( Status, Int )
 barrelRollFailBy5OrMore status ({ starship } as r) =
     if canBarrelRoll starship then
-        pilotCheckHelper (PilotResult.barrelRollFailBy5OrMore starship) Crewmate.barrelRoll CrewmateStatus.barrelRoll status r
+        pilotCheckHelper (PilotResult.barrelRollFailBy5OrMore starship) CombatCrew.barrelRoll status r
 
     else
         Nothing
@@ -595,62 +566,62 @@ barrelRollFailBy5OrMore status ({ starship } as r) =
 
 evade : Status -> { a | currentRound : Int } -> Maybe ( Status, Int )
 evade =
-    pilotCheckHelper PilotResult.evade Crewmate.evade CrewmateStatus.evade
+    pilotCheckHelper PilotResult.evade CombatCrew.evade
 
 
 evadeFailBy5OrMore : Status -> { a | currentRound : Int } -> Maybe ( Status, Int )
 evadeFailBy5OrMore =
-    pilotCheckHelper PilotResult.evadeFailBy5OrMore Crewmate.evade CrewmateStatus.evade
+    pilotCheckHelper PilotResult.evadeFailBy5OrMore CombatCrew.evade
 
 
 flipAndBurn : Status -> { a | starship : Starship, currentRound : Int } -> Maybe ( Status, Int )
 flipAndBurn status ({ starship } as r) =
-    pilotCheckHelper (PilotResult.flipAndBurn starship) Crewmate.flipAndBurn CrewmateStatus.flipAndBurn status r
+    pilotCheckHelper (PilotResult.flipAndBurn starship) CombatCrew.flipAndBurn status r
 
 
 flipAndBurnFail : Status -> { a | starship : Starship, currentRound : Int } -> Maybe ( Status, Int )
 flipAndBurnFail status ({ starship } as r) =
-    pilotCheckHelper (PilotResult.flipAndBurnFail starship) Crewmate.flipAndBurn CrewmateStatus.flipAndBurn status r
+    pilotCheckHelper (PilotResult.flipAndBurnFail starship) CombatCrew.flipAndBurn status r
 
 
 flyby : Status -> { a | currentRound : Int } -> Maybe ( Status, Int )
 flyby =
-    pilotCheckHelper PilotResult.flyby Crewmate.flyby CrewmateStatus.flyby
+    pilotCheckHelper PilotResult.flyby CombatCrew.flyby
 
 
 flybyFail : Status -> { a | currentRound : Int } -> Maybe ( Status, Int )
 flybyFail =
-    pilotCheckHelper PilotResult.flybyFail Crewmate.flyby CrewmateStatus.flyby
+    pilotCheckHelper PilotResult.flybyFail CombatCrew.flyby
 
 
 slide : Status -> { a | currentRound : Int } -> Maybe ( Status, Int )
 slide =
-    pilotCheckHelper PilotResult.slide Crewmate.slide CrewmateStatus.slide
+    pilotCheckHelper PilotResult.slide CombatCrew.slide
 
 
 slideFail : Status -> { a | starship : Starship, currentRound : Int } -> Maybe ( Status, Int )
 slideFail status ({ starship } as r) =
-    pilotCheckHelper (PilotResult.slideFail starship) Crewmate.slide CrewmateStatus.slide status r
+    pilotCheckHelper (PilotResult.slideFail starship) CombatCrew.slide status r
 
 
 turnInPlace : Status -> { a | starship : Starship, currentRound : Int } -> Maybe ( Status, Int )
 turnInPlace status ({ starship } as r) =
-    pilotCheckHelper (PilotResult.turnInPlace starship) Crewmate.turnInPlace CrewmateStatus.turnInPlace status r
+    pilotCheckHelper (PilotResult.turnInPlace starship) CombatCrew.turnInPlace status r
 
 
 fullPower : Status -> { a | starship : Starship, currentRound : Int } -> Maybe ( Status, Int )
 fullPower status ({ starship } as r) =
-    pilotCheckHelper_ (PilotResult.fullPower starship) Crewmate.fullPower CrewmateStatus.fullPower status r
+    pilotCheckHelper (PilotResult.fullPower starship) CombatCrew.fullPower status r
 
 
 audaciousGambit : Status -> { a | currentRound : Int } -> Maybe ( Status, Int )
 audaciousGambit =
-    pilotCheckHelper_ PilotResult.audaciousGambit Crewmate.audaciousGambit CrewmateStatus.audaciousGambit
+    pilotCheckHelper PilotResult.audaciousGambit CombatCrew.audaciousGambit
 
 
 audaciousGambitFail : Status -> { a | currentRound : Int } -> Maybe ( Status, Int )
 audaciousGambitFail =
-    pilotCheckHelper_ PilotResult.audaciousGambitFail Crewmate.audaciousGambit CrewmateStatus.audaciousGambit
+    pilotCheckHelper PilotResult.audaciousGambitFail CombatCrew.audaciousGambit
 
 
 getEffectiveAcAndTl : Starship -> Int -> Status -> ( Int, Int )
@@ -661,14 +632,10 @@ getEffectiveAcAndTl starship currentRound status =
                 |> Maybe.andThen (\id -> Dict.get id status.crew)
 
         pilotAcBonus =
-            pilot
-                |> Maybe.map Crewmate.getAcModifier
-                |> Maybe.withDefault 0
+            CombatCrew.getAcModifier status.crew { assignments = status.assignments }
 
         pilotTlBonus =
-            pilot
-                |> Maybe.map Crewmate.getTlModifier
-                |> Maybe.withDefault 0
+            CombatCrew.getTlModifier status.crew { assignments = status.assignments }
 
         ( pilotResultRound, pilotResult ) =
             status.pilotResult
@@ -765,29 +732,15 @@ getXSkillModifier f g ( crewId, status ) r =
     let
         cMod =
             Dict.get crewId status.crew
-                |> Maybe.map f
+                |> Maybe.map (Tuple.first >> f)
                 |> Maybe.withDefault 0
 
         csMod =
-            Dict.get crewId status.crewStatus
-                |> Maybe.map (\x -> g x r)
+            Dict.get crewId status.crew
+                |> Maybe.map (Tuple.second >> (\x -> g x r))
                 |> Maybe.withDefault 0
     in
     cMod + csMod
-
-
-getIntimidateSkillModifier : ( String, Status ) -> { a | currentRound : Int } -> Int
-getIntimidateSkillModifier =
-    getXSkillModifier
-        Crewmate.getIntimidateSkillModifier
-        CrewmateStatus.getIntimidateSkillModifier
-
-
-getBluffSkillModifier : ( String, Status ) -> { a | currentRound : Int } -> Int
-getBluffSkillModifier =
-    getXSkillModifier
-        Crewmate.getBluffSkillModifier
-        CrewmateStatus.getBluffSkillModifier
 
 
 getEngineeringSkillModifier : ( String, Status ) -> { a | currentRound : Int } -> Int
@@ -824,51 +777,22 @@ getComputersSkillModifier ( currentRound, crewId, status ) r =
     base + dMod
 
 
-
--- TODO: This shouldn't return a bonus, because demand doesn't require a check
-
-
 demandSource : Status -> { a | currentRound : Int, target : String } -> Maybe ( Status, Int )
 demandSource status ({ currentRound, target } as reader) =
     let
-        updateCaptain captain =
-            Dict.get captain status.crewStatus
-                |> Maybe.andThen
-                    (\ccs -> CrewmateStatus.demandSource ccs reader)
-                |> Maybe.map
-                    (\ccs ->
-                        { status
-                            | crewStatus =
-                                Dict.insert
-                                    captain
-                                    ccs
-                                    status.crewStatus
-                        }
-                    )
+        newStatus =
+            CombatCrew.demandSource status.crew { target = target, assignments = status.assignments, currentRound = currentRound }
+                |> Maybe.map (\x -> { status | crew = x })
     in
     Maybe.map2 (\a b -> ( a, b ))
-        (Maybe.andThen updateCaptain status.assignments.captain)
+        newStatus
         (getEffectiveBonus False currentRound LifeSupport status)
 
 
-
--- TODO: This shouldn't return a bonus, because demand doesn't require a check
-
-
-demandTarget : Status -> { a | currentRound : Int, target : String } -> Maybe ( Status, Int )
+demandTarget : Status -> { a | currentRound : Int, target : String } -> Maybe Status
 demandTarget status ({ currentRound, target } as r) =
-    Dict.get target status.crewStatus
-        |> Maybe.map
-            (\tcs ->
-                let
-                    cs =
-                        Dict.insert
-                            target
-                            (CrewmateStatus.demandTarget tcs r)
-                            status.crewStatus
-                in
-                ( { status | crewStatus = cs }, 0 )
-            )
+    CombatCrew.demandTarget status.crew r
+        |> Maybe.map (\x -> { status | crew = x })
 
 
 
@@ -876,68 +800,27 @@ demandTarget status ({ currentRound, target } as r) =
 -- reduced by 5) for using the associated skill instead of diplomacy
 
 
-encourageSource : Status -> { a | currentRound : Int, target : String } -> Maybe Status
-encourageSource status ({ currentRound, target } as reader) =
-    let
-        updateCaptain captain =
-            Dict.get captain status.crewStatus
-                |> Maybe.andThen (\x -> CrewmateStatus.encourageSource x reader)
-                |> Maybe.map
-                    (\ccs ->
-                        { status
-                            | crewStatus =
-                                Dict.insert
-                                    captain
-                                    ccs
-                                    status.crewStatus
-                        }
-                    )
-    in
+encourageSource : Status -> { a | currentRound : Int } -> Maybe Status
+encourageSource status ({ currentRound } as reader) =
+    -- TODO: need system bonuses
     if canUse False currentRound LifeSupport status then
-        status.assignments.captain
-            |> Maybe.andThen updateCaptain
+        CombatCrew.encourageSource status.crew { assignments = status.assignments, currentRound = currentRound }
+            |> Maybe.map (\x -> { status | crew = x })
 
     else
         Nothing
 
 
 encourageTarget : Status -> { a | currentRound : Int, target : String } -> Maybe Status
-encourageTarget status ({ currentRound, target } as r) =
-    Dict.get target status.crewStatus
-        |> Maybe.map
-            (\tcs ->
-                let
-                    cs =
-                        Dict.insert
-                            target
-                            (CrewmateStatus.encourageTarget tcs r)
-                            status.crewStatus
-                in
-                { status | crewStatus = cs }
-            )
+encourageTarget status r =
+    CombatCrew.encourageTarget status.crew r
+        |> Maybe.map (\x -> { status | crew = x })
 
 
 tauntSource : Status -> { a | currentRound : Int } -> Maybe ( Status, Int )
 tauntSource status ({ currentRound } as r) =
-    let
-        updateCaptain captain =
-            Dict.get captain status.crewStatus
-                |> Maybe.andThen (\x -> CrewmateStatus.tauntSource x r)
-                |> Maybe.map (\( cs, _ ) -> Dict.insert captain cs status.crewStatus)
-                |> Maybe.map (\cs -> { status | crewStatus = cs })
-
-        captainBonus captain =
-            max
-                (getBluffSkillModifier ( captain, status ) r)
-                (getIntimidateSkillModifier ( captain, status ) r)
-
-        captainResult =
-            Maybe.map2 (\a b -> ( a, b ))
-                (Maybe.andThen updateCaptain status.assignments.captain)
-                (Maybe.map captainBonus status.assignments.captain)
-    in
-    Maybe.map2 (\( s, b ) b2 -> ( s, b + b2 ))
-        captainResult
+    Maybe.map2 (\( newCrew, ( a, b ) ) b2 -> ( { status | crew = newCrew }, max a b + b2 ))
+        (CombatCrew.tauntSource status.crew { currentRound = currentRound, assignments = status.assignments })
         (getEffectiveBonus True currentRound LifeSupport status)
 
 
@@ -957,35 +840,10 @@ tauntTarget status { source, currentRound, taunted } =
 
 ordersSource : Status -> { a | currentRound : Int } -> Maybe Status
 ordersSource status ({ currentRound } as r) =
-    let
-        updateCrew captain =
-            Dict.get captain status.crew
-                |> Maybe.andThen Crewmate.ordersSource
-                |> Maybe.map (\cm -> Dict.insert captain cm status.crew)
-
-        updateCrewStatus captain =
-            Dict.get captain status.crewStatus
-                |> Maybe.andThen (\x -> CrewmateStatus.ordersSource x r)
-                |> Maybe.map (\cs -> Dict.insert captain cs status.crewStatus)
-
-        mNewCrew =
-            status.assignments.captain
-                |> Maybe.andThen updateCrew
-
-        mNewCrewStatus =
-            status.assignments.captain
-                |> Maybe.andThen updateCrewStatus
-    in
+    -- TODO: need system bonuses
     if canUse True currentRound LifeSupport status then
-        Maybe.map2
-            (\c cs ->
-                { status
-                    | crewStatus = cs
-                    , crew = c
-                }
-            )
-            mNewCrew
-            mNewCrewStatus
+        CombatCrew.ordersSource status.crew { currentRound = currentRound, assignments = status.assignments }
+            |> Maybe.map (\x -> { status | crew = x })
 
     else
         Nothing
@@ -996,9 +854,10 @@ ordersSource status ({ currentRound } as r) =
 -- himself)
 
 
-ordersTarget : Status -> { a | currentRound : Int } -> Status
+ordersTarget : Status -> { a | currentRound : Int, target : String } -> Maybe Status
 ordersTarget status r =
-    { status | crewStatus = Dict.map (always (\x -> CrewmateStatus.ordersTarget x r)) status.crewStatus }
+    CombatCrew.ordersTarget status.crew r
+        |> Maybe.map (\x -> { status | crew = x })
 
 
 
@@ -1009,37 +868,19 @@ ordersTarget status r =
 movingSpeechSource : Status -> { a | currentRound : Int } -> Maybe ( Status, Int )
 movingSpeechSource status ({ currentRound } as r) =
     let
-        updateCrewStatusAndGetBonus captain =
-            Dict.get captain status.crewStatus
-                |> Maybe.andThen (\x -> CrewmateStatus.movingSpeechSource x r)
-                |> Maybe.map (\( cs, b ) -> ( Dict.insert captain cs status.crewStatus, b ))
-
-        mCrewBonus =
-            status.assignments.captain
-                |> Maybe.andThen (\c -> Dict.get c status.crew)
-                |> Maybe.andThen Crewmate.movingSpeechSource
-
-        mNewCrewStatusAndBonus =
-            status.assignments.captain
-                |> Maybe.andThen updateCrewStatusAndGetBonus
-
-        newState =
-            Maybe.map
-                (\( cs, _ ) -> { status | crewStatus = cs })
-                mNewCrewStatusAndBonus
+        mNewCrewAndBonus =
+            CombatCrew.movingSpeechSource status.crew { currentRound = currentRound, assignments = status.assignments }
 
         mNonCrewBonus =
             getEffectiveBonus True currentRound LifeSupport status
-
-        bonus =
-            Maybe.map3 (\a ( _, b ) c -> a + b + c) mCrewBonus mNewCrewStatusAndBonus mNonCrewBonus
     in
-    Maybe.map2 (\a b -> ( a, b )) newState bonus
+    Maybe.map2 (\( a, b1 ) b2 -> ( { status | crew = a }, b1 + b2 )) mNewCrewAndBonus mNonCrewBonus
 
 
 movingSpeechTarget : Status -> { a | currentRound : Int, currentPhase : CombatPhase } -> ( Status, Int )
 movingSpeechTarget status r =
-    ( { status | crewStatus = Dict.map (always (\x -> CrewmateStatus.movingSpeechTarget x r)) status.crewStatus }, 0 )
+    --TODO This effect should be moved from CrewStatus to Status as it affects the entire ship.
+    ( status, 0 )
 
 
 divertBonus : ( Int, String, Status ) -> { a | currentRound : Int } -> Int
