@@ -1,4 +1,4 @@
-module Crewmate exposing (Crewmate, audaciousGambit, backOff, barrelRoll, evade, flipAndBurn, flyby, fullPower, getAcModifier, getBluffSkillModifier, getComputersSkillModifier, getEngineeringSkillModifier, getGunningModifier, getIntimidateSkillModifier, getPilotingSkillModifier, getTlModifier, init, maneuver, movingSpeechSource, ordersSource, slide, turnInPlace)
+module Crewmate exposing (Crewmate, audaciousGambit, backOff, barrelRoll, evade, flipAndBurn, flyby, fullPower, getAcModifier, getBluffSkillModifier, getComputersSkillModifier, getEngineeringSkillModifier, getGunningModifier, getIntimidateSkillModifier, getPilotingSkillModifier, getTlModifier, init, maneuver, movingSpeechSource, ordersSource, slide, tauntSource, turnInPlace)
 
 
 type alias Crewmate =
@@ -141,6 +141,11 @@ audaciousGambit ({ pilotingRanks } as cm) =
 
     else
         Nothing
+
+
+tauntSource : Crewmate -> ( Int, Int )
+tauntSource cm =
+    ( getIntimidateSkillModifier cm, getBluffSkillModifier cm )
 
 
 

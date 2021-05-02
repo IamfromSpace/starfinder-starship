@@ -294,7 +294,7 @@ encourageTarget cms ({ currentRound } as r) =
     { cms | roundStatus = ( currentRound, { currentRoundStatus | encouraged = True } ) }
 
 
-tauntSource : CrewmateStatus -> { a | currentRound : Int } -> Maybe CrewmateStatus
+tauntSource : CrewmateStatus -> { a | currentRound : Int } -> Maybe ( CrewmateStatus, ( Int, Int ) )
 tauntSource cms ({ currentRound } as r) =
     if canAct cms r then
         let
@@ -302,12 +302,14 @@ tauntSource cms ({ currentRound } as r) =
                 getCurrentRoundStatus cms r
         in
         Just
-            { cms
+            ( { cms
                 | roundStatus =
                     ( currentRound
                     , { currentRoundStatus | actions = currentRoundStatus.actions + 1 }
                     )
-            }
+              }
+            , ( getIntimidateSkillModifier cms r, getBluffSkillModifier cms r )
+            )
 
     else
         Nothing
