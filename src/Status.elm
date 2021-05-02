@@ -824,6 +824,10 @@ getComputersSkillModifier ( currentRound, crewId, status ) r =
     base + dMod
 
 
+
+-- TODO: This shouldn't return a bonus, because demand doesn't require a check
+
+
 demandSource : Status -> { a | currentRound : Int, target : String } -> Maybe ( Status, Int )
 demandSource status ({ currentRound, target } as reader) =
     let
@@ -845,6 +849,10 @@ demandSource status ({ currentRound, target } as reader) =
     Maybe.map2 (\a b -> ( a, b ))
         (Maybe.andThen updateCaptain status.assignments.captain)
         (getEffectiveBonus False currentRound LifeSupport status)
+
+
+
+-- TODO: This shouldn't return a bonus, because demand doesn't require a check
 
 
 demandTarget : Status -> { a | currentRound : Int, target : String } -> Maybe ( Status, Int )

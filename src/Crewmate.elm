@@ -143,6 +143,11 @@ audaciousGambit ({ pilotingRanks } as cm) =
         Nothing
 
 
+
+-- TODO: This _does_ return a bonus, but the skill used is dependent on the
+-- target.
+
+
 ordersSource : Crewmate -> Maybe Crewmate
 ordersSource ({ level } as cm) =
     if level >= 6 then
