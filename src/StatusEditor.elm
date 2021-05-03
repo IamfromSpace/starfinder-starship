@@ -853,7 +853,7 @@ view starship model =
         damagePercent =
             getDamagePercent starship model.status
 
-        isStillAllotting =
+        allotmentIsValid =
             maybeAllotting model.partialState
                 |> Maybe.map (\s -> Status.forceAddShields s model.status)
                 |> Maybe.map (Status.areShieldsFull starship)
@@ -1309,7 +1309,7 @@ view starship model =
             )
             [ text "Divert Power to Engines" ]
         , button
-            [ E.onClick AcceptAllotmentToShields, A.disabled (not isStillAllotting) ]
+            [ E.onClick AcceptAllotmentToShields, A.disabled (not allotmentIsValid) ]
             [ text "Accept Allotted Shields" ]
         , let
             mCombatPhase =
@@ -1354,7 +1354,7 @@ view starship model =
         , AssignmentsEditor.view (model.phase /= Assign) model.status.assignments
             |> Html.map SetAssignments
         , button
-            [ E.onClick NextPhase, A.disabled isStillAllotting ]
+            [ E.onClick NextPhase, A.disabled (maybeAllotting model.partialState /= Nothing) ]
             [ text ("PROCEED TO " ++ String.toUpper (phaseToString (nextPhase model)) ++ " PHASE") ]
         ]
 
