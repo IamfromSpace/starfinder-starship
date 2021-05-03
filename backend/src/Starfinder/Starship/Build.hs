@@ -810,7 +810,6 @@ data BuildError
     | TooManyWeaponMountsOnTurret
     | InvalidWeaponClassOnFrame
     | IllegalCapitalWeaponOnTurret
-    | IllegalTurretMountsOnTurretlessFrame
     | PcuRequiresRequiresAdditionalPowerCore
     | TooManyPowerCores
     | TooManyExpansionBays
@@ -838,7 +837,6 @@ validateStarship =
         . isTrue areTurretMountPointsValid TooManyWeaponMountsOnTurret
         . isTrue areWeaponClassesValidForFrame InvalidWeaponClassOnFrame
         . isTrue areTurretWeaponClassesValid IllegalCapitalWeaponOnTurret
-        . isTrue hasTurretIfHasTurretWeapons IllegalTurretMountsOnTurretlessFrame
         . isTrue hasEnoughPowerCoresForPcu PcuRequiresRequiresAdditionalPowerCore
         . isTrue hasValidPowerCoreCount TooManyPowerCores
         . isTrue hasValidExpansionBayCount TooManyExpansionBays

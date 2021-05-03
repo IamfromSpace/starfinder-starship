@@ -879,7 +879,6 @@ type BuildError
     | TooManyWeaponMountsOnTurret
     | InvalidWeaponClassOnFrame
     | IllegalCapitalWeaponOnTurret
-    | IllegalTurretMountsOnTurretlessFrame
     | IllegalLinkedTrackingWeapon
     | PcuRequiresRequiresAdditionalPowerCore
     | TooManyPowerCores
@@ -905,9 +904,6 @@ buildErrorToString buildError =
 
         IllegalCapitalWeaponOnTurret ->
             "IllegalCapitalWeaponOnTurret"
-
-        IllegalTurretMountsOnTurretlessFrame ->
-            "IllegalTurretMountsOnTurretlessFrame"
 
         IllegalLinkedTrackingWeapon ->
             "IllegalLinkedTrackingWeapon"
@@ -953,7 +949,6 @@ validateStarship =
         >> isTrue areTurretMountPointsValid TooManyWeaponMountsOnTurret
         >> isTrue areWeaponClassesValidForFrame InvalidWeaponClassOnFrame
         >> isTrue areTurretWeaponClassesValid IllegalCapitalWeaponOnTurret
-        >> isTrue hasTurretIfHasTurretWeapons IllegalTurretMountsOnTurretlessFrame
         >> isTrue hasNoTrackingWeaponLinks IllegalLinkedTrackingWeapon
         >> isTrue hasEnoughPowerCoresForPcu PcuRequiresRequiresAdditionalPowerCore
         >> isTrue hasValidPowerCoreCount TooManyPowerCores
