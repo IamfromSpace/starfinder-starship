@@ -19,16 +19,12 @@ packages:
   original:
     hackage: ghc-tcplugins-extra-0.3.2@sha256:1bbfd4449c3669a31618ea0ebc5d00d980a53988daad3b6218bab5c8cdff268d,1687
 - completed:
-    name: hal
-    version: 0.2.0
-    git: https://github.com/Nike-Inc/hal.git
+    hackage: hal-0.4.7@sha256:9d6225bc887b4f00f01beee67a6f1ea8496bcdc73195228eef6160043ea424c9,3233
     pantry-tree:
-      size: 1576
-      sha256: 3380f2b2841ea5fc333b800b6b5718ad7361c41538f2bb0debf866647da79d9f
-    commit: f9f2b12fede1aa0fdc70be088ba8898c142b3dde
+      size: 1063
+      sha256: e5a0b4118c3cc746a035e3467d7d115b30ecf844c04ddc596a30aeb6a5133608
   original:
-    git: https://github.com/Nike-Inc/hal.git
-    commit: f9f2b12fede1aa0fdc70be088ba8898c142b3dde
+    hackage: hal-0.4.7
 snapshots:
 - completed:
     size: 531707
