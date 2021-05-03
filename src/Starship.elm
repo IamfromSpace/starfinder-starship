@@ -398,6 +398,10 @@ getWeaponsBuildPoints =
     getAllWeapons >> List.map getPoints >> List.sum
 
 
+
+-- TODO: Array weapons use 2 mount points
+
+
 getMountPointsUsed : LinkAndTogglable Weapon -> Int
 getMountPointsUsed weapon =
     if .link (LT.meta weapon) == Linked then
