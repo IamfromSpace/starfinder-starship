@@ -167,24 +167,6 @@ getEffectiveBonusOld currentRound involvedSystem =
     getEffectiveBonus False currentRound involvedSystem >> Maybe.withDefault 0
 
 
-canUse : Bool -> Int -> PatchableSystem -> Status -> Bool
-canUse isPush currentRound involvedSystem status =
-    let
-        bonusBySystem system =
-            PS.getPatchableSystem system status.systems
-                |> Maybe.andThen (CS.getEffectiveSeverity currentRound)
-    in
-    case bonusBySystem involvedSystem of
-        Just Malfunctioning ->
-            not isPush
-
-        Just Wrecked ->
-            False
-
-        _ ->
-            True
-
-
 basePatchDC : PatchEffectiveness -> PatchableSystem -> Status -> Maybe Int
 basePatchDC pe ps s =
     Maybe.andThen (CS.basePatchDC pe) (PS.getPatchableSystem ps s.systems)
@@ -802,13 +784,9 @@ demandTarget status ({ currentRound, target } as r) =
 
 encourageSource : Status -> { a | currentRound : Int } -> Maybe Status
 encourageSource status ({ currentRound } as reader) =
-    -- TODO: need system bonuses
-    if canUse False currentRound LifeSupport status then
-        CombatCrew.encourageSource status.crew { assignments = status.assignments, currentRound = currentRound }
-            |> Maybe.map (\x -> { status | crew = x })
-
-    else
-        Nothing
+    Maybe.map2 (\x _ -> { status | crew = x })
+        (CombatCrew.encourageSource status.crew { assignments = status.assignments, currentRound = currentRound })
+        (getEffectiveBonus False currentRound LifeSupport status)
 
 
 encourageTarget : Status -> { a | currentRound : Int, target : String } -> Maybe Status
@@ -840,13 +818,9 @@ tauntTarget status { source, currentRound, taunted } =
 
 ordersSource : Status -> { a | currentRound : Int } -> Maybe Status
 ordersSource status ({ currentRound } as r) =
-    -- TODO: need system bonuses
-    if canUse True currentRound LifeSupport status then
-        CombatCrew.ordersSource status.crew { currentRound = currentRound, assignments = status.assignments }
-            |> Maybe.map (\x -> { status | crew = x })
-
-    else
-        Nothing
+    Maybe.map2 (\x _ -> { status | crew = x })
+        (CombatCrew.ordersSource status.crew { currentRound = currentRound, assignments = status.assignments })
+        (getEffectiveBonus True currentRound LifeSupport status)
 
 
 
