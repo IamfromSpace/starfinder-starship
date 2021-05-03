@@ -4,6 +4,7 @@ import Arc exposing (AnArc, Arc)
 import Assignments exposing (Assignments, allInEngineering)
 import CombatCrew exposing (CombatCrew)
 import CombatPhase exposing (CombatPhase)
+import Computer exposing (Computer)
 import Crewmate exposing (Crewmate)
 import CrewmateStatus exposing (CrewmateStatus)
 import CriticalStatus as CS exposing (CriticalStatus, PatchEffectiveness(..), Severity(..))
@@ -48,6 +49,7 @@ type alias Status =
     , systems : PS.PatchableSystems (Maybe CriticalStatus)
     , powerAction : ( Int, PowerAction ) -- The most recent round's Power Action
     , pilotResult : ( Int, PilotResult ) -- TODO: While totally bizzare, if ordered, the pilot could theoretically do two stunts
+    , computerNodesUsed : ( Int, Int )
 
     -- TODO: Ideally CrewId (or just an "assignable thing") isn't a String, but
     -- a parameterized type so that it can be any identifier, or a
@@ -67,6 +69,7 @@ init crew =
     , systems = PS.pure Nothing
     , powerAction = ( -1, Divert Shields ) -- The -1 round acts as a No-op
     , pilotResult = ( -1, noPilotResult ) -- The -1 round acts as a No-op
+    , computerNodesUsed = ( -1, 0 ) -- The -1 round acts as a No-op
     , crew = Dict.map (\_ cm -> ( cm, CrewmateStatus.init )) crew
     , assignments = allInEngineering (Dict.keys crew)
     , tauntedBy = Dict.empty
@@ -160,6 +163,37 @@ getEffectiveBonus isPush currentRound involvedSystem status =
     Maybe.map
         (\sb -> sb + tauntedByBonus + effectivePowerCoreEffectBonus)
         standardBonus
+
+
+getComputerNodeBonus : ( Int, Int ) -> { a | useComputerNode : Bool, starship : Starship, currentRound : Int } -> Maybe ( ( Int, Int ), Int )
+getComputerNodeBonus (( effectiveRound, usedNodeCount ) as s) { useComputerNode, starship, currentRound } =
+    if useComputerNode then
+        let
+            computer =
+                starship.computer
+
+            newUsedNodeCount =
+                if effectiveRound == currentRound then
+                    usedNodeCount + 1
+
+                else
+                    1
+
+            totalAvailable =
+                if meta computer == On then
+                    (extract computer).nodes
+
+                else
+                    0
+        in
+        if newUsedNodeCount <= totalAvailable then
+            Just ( ( currentRound, newUsedNodeCount ), (extract computer).bonus )
+
+        else
+            Nothing
+
+    else
+        Just ( s, 0 )
 
 
 getEffectiveBonusOld : Int -> PatchableSystem -> Status -> Int
@@ -451,7 +485,7 @@ balanceFromArc starship ( from, to, amount ) status =
         Nothing
 
 
-pilotCheckHelper : PilotResult -> (CombatCrew String -> { currentRound : Int, assignments : Assignments String } -> Maybe ( CombatCrew String, Int )) -> Status -> { a | currentRound : Int } -> Maybe ( Status, Int )
+pilotCheckHelper : PilotResult -> (CombatCrew String -> { currentRound : Int, assignments : Assignments String } -> Maybe ( CombatCrew String, Int )) -> Status -> { a | currentRound : Int, useComputerNode : Bool, starship : Starship } -> Maybe ( Status, Int )
 pilotCheckHelper pr f status ({ currentRound } as r) =
     let
         mNewCrewAndBonus =
@@ -459,27 +493,31 @@ pilotCheckHelper pr f status ({ currentRound } as r) =
 
         mNonCrewBonus =
             getEffectiveBonus False currentRound Engines status
+
+        mComputerNodeBonus =
+            getComputerNodeBonus status.computerNodesUsed r
     in
-    case ( mNewCrewAndBonus, mNonCrewBonus ) of
-        ( Just ( newCrew, crewBonus ), Just nonCrewBonus ) ->
-            Just
-                ( { status
-                    | pilotResult = ( currentRound, pr )
-                    , crew = newCrew
-                  }
-                , crewBonus + nonCrewBonus
-                )
+    Maybe.map3
+        (\( newCrew, crewBonus ) nonCrewBonus ( newComputerNodesUsed, computerBonus ) ->
+            ( { status
+                | pilotResult = ( currentRound, pr )
+                , crew = newCrew
+                , computerNodesUsed = newComputerNodesUsed
+              }
+            , crewBonus + nonCrewBonus + computerBonus
+            )
+        )
+        mNewCrewAndBonus
+        mNonCrewBonus
+        mComputerNodeBonus
 
-        _ ->
-            Nothing
 
-
-maneuver : Status -> { a | currentRound : Int } -> Maybe ( Status, Int )
+maneuver : Status -> { a | currentRound : Int, starship : Starship, useComputerNode : Bool } -> Maybe ( Status, Int )
 maneuver =
     pilotCheckHelper PilotResult.maneuver CombatCrew.maneuver
 
 
-backOff : Status -> { a | starship : Starship, currentRound : Int } -> Maybe ( Status, Int )
+backOff : Status -> { a | starship : Starship, currentRound : Int, useComputerNode : Bool } -> Maybe ( Status, Int )
 backOff status ({ starship } as r) =
     pilotCheckHelper (PilotResult.backOff starship) CombatCrew.backOff status r
 
@@ -493,12 +531,12 @@ backOff status ({ starship } as r) =
 -- impossible to combine/collapse these together though.
 
 
-backOffFail : Status -> { a | currentRound : Int } -> Maybe ( Status, Int )
+backOffFail : Status -> { a | currentRound : Int, starship : Starship, useComputerNode : Bool } -> Maybe ( Status, Int )
 backOffFail =
     pilotCheckHelper PilotResult.backOffFail CombatCrew.backOff
 
 
-backOffFailBy5OrMore : Status -> { a | starship : Starship, currentRound : Int } -> Maybe ( Status, Int )
+backOffFailBy5OrMore : Status -> { a | starship : Starship, currentRound : Int, useComputerNode : Bool } -> Maybe ( Status, Int )
 backOffFailBy5OrMore status ({ starship } as r) =
     pilotCheckHelper (PilotResult.backOffFailBy5OrMore starship) CombatCrew.backOff status r
 
@@ -519,7 +557,7 @@ canBarrelRoll starship =
             True
 
 
-barrelRoll : Status -> { a | starship : Starship, currentRound : Int } -> Maybe ( Status, Int )
+barrelRoll : Status -> { a | starship : Starship, currentRound : Int, useComputerNode : Bool } -> Maybe ( Status, Int )
 barrelRoll status ({ starship } as r) =
     if canBarrelRoll starship then
         pilotCheckHelper (PilotResult.barrelRoll starship) CombatCrew.barrelRoll status r
@@ -528,7 +566,7 @@ barrelRoll status ({ starship } as r) =
         Nothing
 
 
-barrelRollFail : Status -> { a | starship : Starship, currentRound : Int } -> Maybe ( Status, Int )
+barrelRollFail : Status -> { a | starship : Starship, currentRound : Int, useComputerNode : Bool } -> Maybe ( Status, Int )
 barrelRollFail status ({ starship } as r) =
     if canBarrelRoll starship then
         pilotCheckHelper (PilotResult.barrelRollFail starship) CombatCrew.barrelRoll status r
@@ -537,7 +575,7 @@ barrelRollFail status ({ starship } as r) =
         Nothing
 
 
-barrelRollFailBy5OrMore : Status -> { a | starship : Starship, currentRound : Int } -> Maybe ( Status, Int )
+barrelRollFailBy5OrMore : Status -> { a | starship : Starship, currentRound : Int, useComputerNode : Bool } -> Maybe ( Status, Int )
 barrelRollFailBy5OrMore status ({ starship } as r) =
     if canBarrelRoll starship then
         pilotCheckHelper (PilotResult.barrelRollFailBy5OrMore starship) CombatCrew.barrelRoll status r
@@ -546,62 +584,62 @@ barrelRollFailBy5OrMore status ({ starship } as r) =
         Nothing
 
 
-evade : Status -> { a | currentRound : Int } -> Maybe ( Status, Int )
+evade : Status -> { a | currentRound : Int, starship : Starship, useComputerNode : Bool } -> Maybe ( Status, Int )
 evade =
     pilotCheckHelper PilotResult.evade CombatCrew.evade
 
 
-evadeFailBy5OrMore : Status -> { a | currentRound : Int } -> Maybe ( Status, Int )
+evadeFailBy5OrMore : Status -> { a | currentRound : Int, starship : Starship, useComputerNode : Bool } -> Maybe ( Status, Int )
 evadeFailBy5OrMore =
     pilotCheckHelper PilotResult.evadeFailBy5OrMore CombatCrew.evade
 
 
-flipAndBurn : Status -> { a | starship : Starship, currentRound : Int } -> Maybe ( Status, Int )
+flipAndBurn : Status -> { a | starship : Starship, currentRound : Int, useComputerNode : Bool } -> Maybe ( Status, Int )
 flipAndBurn status ({ starship } as r) =
     pilotCheckHelper (PilotResult.flipAndBurn starship) CombatCrew.flipAndBurn status r
 
 
-flipAndBurnFail : Status -> { a | starship : Starship, currentRound : Int } -> Maybe ( Status, Int )
+flipAndBurnFail : Status -> { a | starship : Starship, currentRound : Int, useComputerNode : Bool } -> Maybe ( Status, Int )
 flipAndBurnFail status ({ starship } as r) =
     pilotCheckHelper (PilotResult.flipAndBurnFail starship) CombatCrew.flipAndBurn status r
 
 
-flyby : Status -> { a | currentRound : Int } -> Maybe ( Status, Int )
+flyby : Status -> { a | currentRound : Int, starship : Starship, useComputerNode : Bool } -> Maybe ( Status, Int )
 flyby =
     pilotCheckHelper PilotResult.flyby CombatCrew.flyby
 
 
-flybyFail : Status -> { a | currentRound : Int } -> Maybe ( Status, Int )
+flybyFail : Status -> { a | currentRound : Int, starship : Starship, useComputerNode : Bool } -> Maybe ( Status, Int )
 flybyFail =
     pilotCheckHelper PilotResult.flybyFail CombatCrew.flyby
 
 
-slide : Status -> { a | currentRound : Int } -> Maybe ( Status, Int )
+slide : Status -> { a | currentRound : Int, starship : Starship, useComputerNode : Bool } -> Maybe ( Status, Int )
 slide =
     pilotCheckHelper PilotResult.slide CombatCrew.slide
 
 
-slideFail : Status -> { a | starship : Starship, currentRound : Int } -> Maybe ( Status, Int )
+slideFail : Status -> { a | starship : Starship, currentRound : Int, useComputerNode : Bool } -> Maybe ( Status, Int )
 slideFail status ({ starship } as r) =
     pilotCheckHelper (PilotResult.slideFail starship) CombatCrew.slide status r
 
 
-turnInPlace : Status -> { a | starship : Starship, currentRound : Int } -> Maybe ( Status, Int )
+turnInPlace : Status -> { a | starship : Starship, currentRound : Int, useComputerNode : Bool } -> Maybe ( Status, Int )
 turnInPlace status ({ starship } as r) =
     pilotCheckHelper (PilotResult.turnInPlace starship) CombatCrew.turnInPlace status r
 
 
-fullPower : Status -> { a | starship : Starship, currentRound : Int } -> Maybe ( Status, Int )
+fullPower : Status -> { a | starship : Starship, currentRound : Int, useComputerNode : Bool } -> Maybe ( Status, Int )
 fullPower status ({ starship } as r) =
     pilotCheckHelper (PilotResult.fullPower starship) CombatCrew.fullPower status r
 
 
-audaciousGambit : Status -> { a | currentRound : Int } -> Maybe ( Status, Int )
+audaciousGambit : Status -> { a | currentRound : Int, starship : Starship, useComputerNode : Bool } -> Maybe ( Status, Int )
 audaciousGambit =
     pilotCheckHelper PilotResult.audaciousGambit CombatCrew.audaciousGambit
 
 
-audaciousGambitFail : Status -> { a | currentRound : Int } -> Maybe ( Status, Int )
+audaciousGambitFail : Status -> { a | currentRound : Int, starship : Starship, useComputerNode : Bool } -> Maybe ( Status, Int )
 audaciousGambitFail =
     pilotCheckHelper PilotResult.audaciousGambitFail CombatCrew.audaciousGambit
 
@@ -759,17 +797,17 @@ getComputersSkillModifier ( currentRound, crewId, status ) r =
     base + dMod
 
 
-demandSource : Status -> { a | currentRound : Int, target : String } -> Maybe ( Status, Int )
+demandSource : Status -> { a | currentRound : Int, target : String, starship : Starship, useComputerNode : Bool } -> Maybe ( Status, Int )
 demandSource status ({ currentRound, target } as reader) =
     let
         newStatus =
             -- TODO: This needs to return an intimidate bonus
             CombatCrew.demandSource status.crew { target = target, assignments = status.assignments, currentRound = currentRound }
-                |> Maybe.map (\x -> { status | crew = x })
     in
-    Maybe.map2 (\a b -> ( a, b ))
+    Maybe.map3 (\x b1 ( y, b2 ) -> ( { status | crew = x, computerNodesUsed = y }, b1 + b2 ))
         newStatus
         (getEffectiveBonus False currentRound LifeSupport status)
+        (getComputerNodeBonus status.computerNodesUsed reader)
 
 
 demandTarget : Status -> { a | currentRound : Int, target : String } -> Maybe Status
@@ -783,11 +821,12 @@ demandTarget status ({ currentRound, target } as r) =
 -- reduced by 5) for using the associated skill instead of diplomacy
 
 
-encourageSource : Status -> { a | currentRound : Int } -> Maybe Status
+encourageSource : Status -> { a | currentRound : Int, starship : Starship, useComputerNode : Bool } -> Maybe Status
 encourageSource status ({ currentRound } as reader) =
-    Maybe.map2 (\x _ -> { status | crew = x })
+    Maybe.map3 (\x _ ( y, _ ) -> { status | crew = x, computerNodesUsed = y })
         (CombatCrew.encourageSource status.crew { assignments = status.assignments, currentRound = currentRound })
         (getEffectiveBonus False currentRound LifeSupport status)
+        (getComputerNodeBonus status.computerNodesUsed reader)
 
 
 encourageTarget : Status -> { a | currentRound : Int, target : String } -> Maybe Status
@@ -796,11 +835,12 @@ encourageTarget status r =
         |> Maybe.map (\x -> { status | crew = x })
 
 
-tauntSource : Status -> { a | currentRound : Int } -> Maybe ( Status, Int )
+tauntSource : Status -> { a | currentRound : Int, starship : Starship, useComputerNode : Bool } -> Maybe ( Status, Int )
 tauntSource status ({ currentRound } as r) =
-    Maybe.map2 (\( newCrew, ( a, b ) ) b2 -> ( { status | crew = newCrew }, max a b + b2 ))
+    Maybe.map3 (\( newCrew, ( a, b ) ) b2 ( newComputerNodesUsed, b3 ) -> ( { status | crew = newCrew, computerNodesUsed = newComputerNodesUsed }, max a b + b2 + b3 ))
         (CombatCrew.tauntSource status.crew { currentRound = currentRound, assignments = status.assignments })
         (getEffectiveBonus True currentRound LifeSupport status)
+        (getComputerNodeBonus status.computerNodesUsed r)
 
 
 tauntTarget : Status -> { a | source : String, currentRound : Int, taunted : Taunted } -> Maybe ( Status, Int )
@@ -817,11 +857,12 @@ tauntTarget status { source, currentRound, taunted } =
 -- character will use
 
 
-ordersSource : Status -> { a | currentRound : Int } -> Maybe Status
+ordersSource : Status -> { a | currentRound : Int, starship : Starship, useComputerNode : Bool } -> Maybe Status
 ordersSource status ({ currentRound } as r) =
-    Maybe.map2 (\x _ -> { status | crew = x })
+    Maybe.map3 (\x _ ( y, _ ) -> { status | crew = x, computerNodesUsed = y })
         (CombatCrew.ordersSource status.crew { currentRound = currentRound, assignments = status.assignments })
         (getEffectiveBonus True currentRound LifeSupport status)
+        (getComputerNodeBonus status.computerNodesUsed r)
 
 
 
@@ -840,7 +881,7 @@ ordersTarget status r =
 -- abstraction just doesn't quite seem obvious
 
 
-movingSpeechSource : Status -> { a | currentRound : Int } -> Maybe ( Status, Int )
+movingSpeechSource : Status -> { a | currentRound : Int, starship : Starship, useComputerNode : Bool } -> Maybe ( Status, Int )
 movingSpeechSource status ({ currentRound } as r) =
     let
         mNewCrewAndBonus =
@@ -849,13 +890,20 @@ movingSpeechSource status ({ currentRound } as r) =
         mNonCrewBonus =
             getEffectiveBonus True currentRound LifeSupport status
     in
-    Maybe.map2 (\( a, b1 ) b2 -> ( { status | crew = a }, b1 + b2 )) mNewCrewAndBonus mNonCrewBonus
+    Maybe.map3 (\( a, b1 ) b2 ( c, b3 ) -> ( { status | crew = a, computerNodesUsed = c }, b1 + b2 + b3 ))
+        mNewCrewAndBonus
+        mNonCrewBonus
+        (getComputerNodeBonus status.computerNodesUsed r)
 
 
 movingSpeechTarget : Status -> { a | currentRound : Int, currentPhase : CombatPhase } -> ( Status, Int )
 movingSpeechTarget status r =
     --TODO This effect should be moved from CrewStatus to Status as it affects the entire ship.
     ( status, 0 )
+
+
+
+-- TODO: All these ignore computer nodes
 
 
 divertBonus : ( Int, String, Status ) -> { a | currentRound : Int } -> Int
