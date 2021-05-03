@@ -763,6 +763,7 @@ demandSource : Status -> { a | currentRound : Int, target : String } -> Maybe ( 
 demandSource status ({ currentRound, target } as reader) =
     let
         newStatus =
+            -- TODO: This needs to return an intimidate bonus
             CombatCrew.demandSource status.crew { target = target, assignments = status.assignments, currentRound = currentRound }
                 |> Maybe.map (\x -> { status | crew = x })
     in
