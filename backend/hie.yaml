@@ -1,0 +1,8 @@
+cradle:
+  stack:
+    - path: "./src"
+      component: "backend:lib"
+    - path: "./app"
+      component: "backend:exe:bootstrap"
+    - path: "./test"
+      component: "backend:test:bootstrap-test"
