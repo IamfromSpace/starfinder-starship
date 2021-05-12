@@ -1,4 +1,4 @@
-module Weapon exposing (Class(..), Irradiation(..), Range(..), Type(..), Weapon, WeaponProperty(..), getArcMountPointBuiltPoints, getTurretMountPointBuiltPoints, isTrackingWeapon, rangeToString)
+module Weapon exposing (Class(..), Irradiation(..), Range(..), Type(..), Weapon, WeaponProperty(..), getArcMountPointBuiltPoints, getTurretMountPointBuiltPoints, isTrackingWeapon, rangeToString, weaponPropertyToString)
 
 
 type Range
@@ -38,6 +38,19 @@ type Irradiation
     | Low
 
 
+irradiationToString : Irradiation -> String
+irradiationToString i =
+    case i of
+        High ->
+            "High"
+
+        MediumIrradiation ->
+            "Medium"
+
+        Low ->
+            "Low"
+
+
 type WeaponProperty
     = Array
     | BroadArc
@@ -51,6 +64,46 @@ type WeaponProperty
     | Ripper
     | TractorBeam
     | Vortex
+
+
+weaponPropertyToString : WeaponProperty -> String
+weaponPropertyToString wp =
+    case wp of
+        Array ->
+            "Array"
+
+        BroadArc ->
+            "BroadArc"
+
+        Burrowing ->
+            "Burrowing"
+
+        Emp ->
+            "Emp"
+
+        Irradiate i ->
+            "Irradiate (" ++ irradiationToString i ++ ")"
+
+        LimitedFire i ->
+            "Limited Fire (" ++ String.fromInt i ++ ")"
+
+        Line ->
+            "Line"
+
+        Point i ->
+            "Point (" ++ String.fromInt i ++ ")"
+
+        Quantum ->
+            "Quantum"
+
+        Ripper ->
+            "Ripper"
+
+        TractorBeam ->
+            "TractorBeam"
+
+        Vortex ->
+            "Vortex"
 
 
 type alias Weapon =

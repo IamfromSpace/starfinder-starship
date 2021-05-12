@@ -30,6 +30,7 @@ import Svg exposing (Svg)
 import Svg.Attributes as SA
 import Switch exposing (Switch(..))
 import Togglable exposing (extract, meta)
+import WeaponDescription
 
 
 type PartialState
@@ -1358,6 +1359,48 @@ view starship model =
                     [ A.disabled True ]
                     [ text "Moving Speech" ]
                 )
+        , div [] [ text "-----" ]
+        , div [] <|
+            Arc.foldWithAnArc
+                (\anArc weapons divs ->
+                    let
+                        pre =
+                            case anArc of
+                                Forward ->
+                                    "Forward: "
+
+                                Aft ->
+                                    "Aft: "
+
+                                Starboard ->
+                                    "Starboard: "
+
+                                Port ->
+                                    "Port: "
+                    in
+                    List.map
+                        (\w ->
+                            div []
+                                [ text (pre ++ WeaponDescription.view w)
+                                ]
+                        )
+                        weapons
+                        ++ divs
+                )
+                []
+                starship.arcWeapons
+
+        -- TODO: All weapons should probably be combined in a single foldable
+        -- type with deeper indexing
+        , div [] <|
+            List.map
+                (\w ->
+                    div []
+                        [ text ("Turret: " ++ WeaponDescription.view w)
+                        ]
+                )
+                starship.turretWeapons
+        , div [] [ text "-----" ]
         , patchableDisplay (model.phase == CP Engineering) "Life Support" model.status.systems.lifeSupport LifeSupport
         , patchableDisplay (model.phase == CP Engineering) "Sensors" model.status.systems.sensors Sensors
         , patchableDisplay (model.phase == CP Engineering) "Weapons Array - Forward" model.status.systems.weaponsArray.forward (WeaponsArray Arc.Forward)
