@@ -686,6 +686,12 @@ selectedShieldedFighter unselectedColor selectedColor onClicks selected size =
 shieldedFighter : Starship -> Status -> (Arc.AnArc -> a) -> Arc.Arc (Maybe a) -> Arc.Arc (Maybe a) -> Float -> Svg a
 shieldedFighter starship status arcOnClick onPlus onMinus size =
     let
+        hp =
+            Starship.getMaxHitPoints starship
+
+        fontSize =
+            size / 12.5
+
         damagePercent =
             getDamagePercent starship status
 
@@ -717,7 +723,7 @@ shieldedFighter starship status arcOnClick onPlus onMinus size =
             }
         , CounterArc.view
             { radius = size * 49 / 100
-            , size = size / 12.5
+            , size = fontSize
             , offset = ( size / 2, size / 2 )
             , color = Color.black
             , backgroundColor = grey
@@ -725,6 +731,15 @@ shieldedFighter starship status arcOnClick onPlus onMinus size =
             , onPlus = onPlus
             , onMinus = onMinus
             }
+        , Svg.text_
+            [ SA.fontFamily "mono"
+            , SA.textAnchor "middle"
+            , SA.alignmentBaseline "middle"
+            , SA.fontSize <| String.fromFloat fontSize
+            , SA.fill "black"
+            , SA.transform <| "translate(" ++ String.fromFloat (size / 2) ++ ", " ++ String.fromFloat (size / 2) ++ ")"
+            ]
+            [ Svg.text (String.fromInt (max 0 (hp - status.damage)) ++ "/" ++ String.fromInt hp) ]
         ]
 
 
