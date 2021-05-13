@@ -1239,8 +1239,10 @@ view starship model =
         , case ( model.phase, Status.fullPower model.status { currentRound = model.roundNumber, starship = starship, useComputerNode = model.useComputerNode } ) of
             ( CP Piloting, Just ( _, bonus ) ) ->
                 button
-                    [ E.onClick FullPower ]
-                    [ text ("Full Power (" ++ String.fromInt bonus ++ ")") ]
+                    [ E.onClick FullPower
+                    , A.title "If you have at least 6 ranks in Piloting, you can spend 1 Resolve Point to move your starship up to 1-1/2 times its speed. You can make turns during this movement, but you add 2 to your starship’s distance between turns."
+                    ]
+                    [ text "Full Power (no check)" ]
 
             _ ->
                 button
@@ -1249,8 +1251,10 @@ view starship model =
         , case ( model.phase, Status.audaciousGambit model.status { currentRound = model.roundNumber, starship = starship, useComputerNode = model.useComputerNode } ) of
             ( CP Piloting, Just ( _, bonus ) ) ->
                 button
-                    [ E.onClick AudaciousGambit ]
-                    [ text ("Audacious Gambit (" ++ String.fromInt bonus ++ ")") ]
+                    [ E.onClick AudaciousGambit
+                    , A.title "If you have at least 12 ranks in Piloting, you can spend 1 Resolve Point and attempt a Piloting check (DC = 20 + 1-1/2 × your starship’s tier) to pull off complex maneuvers. You can move your starship up to its speed, treating its distance between turns as if it were 2 lower (minimum 0). You can also fly through hexes occupied by enemy vessels without provoking free attacks. At the end of your starship’s movement, you can rotate your starship to face in any direction. If you fail the check, you instead move as if you had taken the fly action (but still lose the Resolve Point)."
+                    ]
+                    [ text ("Audacious Gambit (" ++ String.fromInt bonus ++ " vs DC " ++ String.fromInt (20 + shipDCMod) ++ ")") ]
 
             _ ->
                 button
