@@ -916,31 +916,31 @@ view starship model =
                     , A.title "PATCH: apply a single patch towards the repair of one level of severity."
                     , E.onClick (Patch CS.Single patchableSystem)
                     ]
-                    [ text "P" ]
+                    [ text ("P (DC " ++ Maybe.withDefault "--" (Maybe.map ((+) shipDCMod >> String.fromInt) (Maybe.andThen (CS.basePatchDC CS.Single) status)) ++ ")") ]
                 , button
                     [ A.disabled (Maybe.andThen (CS.basePatchDC CS.Double) status == Nothing || not isEngineeringPhase)
                     , A.title "PATCH: apply two patches towards the repair of one level of severity."
                     , E.onClick (Patch CS.Double patchableSystem)
                     ]
-                    [ text "Px2" ]
+                    [ text ("Px2 (DC " ++ Maybe.withDefault "--" (Maybe.map ((+) shipDCMod >> String.fromInt) (Maybe.andThen (CS.basePatchDC CS.Double) status)) ++ ")") ]
                 , button
                     [ A.disabled (Maybe.andThen (CS.basePatchDC CS.Triple) status == Nothing || not isEngineeringPhase)
                     , A.title "PATCH: apply three patches towards the repair of one level of severity."
                     , E.onClick (Patch CS.Triple patchableSystem)
                     ]
-                    [ text "Px3" ]
+                    [ text ("Px3 (DC " ++ Maybe.withDefault "--" (Maybe.map ((+) shipDCMod >> String.fromInt) (Maybe.andThen (CS.basePatchDC CS.Triple) status)) ++ ")") ]
                 , button
                     [ A.disabled (impacted || not isEngineeringPhase)
                     , A.title "HOLD IT TOGETHER: temporarily repair two levels of severtity for a single round."
                     , E.onClick (HoldItTogether patchableSystem)
                     ]
-                    [ text "H" ]
+                    [ text ("H (DC " ++ String.fromInt (15 + shipDCMod) ++ ")") ]
                 , button
                     [ A.disabled (impacted || not isEngineeringPhase)
                     , A.title "QUICK FIX (1RP): Completely ignore all critical damage for this system for 1 hour."
                     , E.onClick (QuickFix patchableSystem)
                     ]
-                    [ text "Q" ]
+                    [ text ("Q (DC " ++ String.fromInt (20 + shipDCMod) ++ ")") ]
                 , text (name ++ " " ++ patchDisplay)
                 ]
     in
