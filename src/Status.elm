@@ -633,6 +633,10 @@ turnInPlace status ({ starship } as r) =
     pilotCheckHelper (PilotResult.turnInPlace starship) CombatCrew.turnInPlace status r
 
 
+
+-- TODO: This doesn't require a skill check
+
+
 fullPower : Status -> { a | starship : Starship, currentRound : Int, useComputerNode : Bool } -> Maybe ( Status, Int )
 fullPower status ({ starship } as r) =
     pilotCheckHelper (PilotResult.fullPower starship) CombatCrew.fullPower status r
