@@ -1063,7 +1063,9 @@ view starship model =
         , case ( model.phase, Status.maneuver model.status { currentRound = model.roundNumber, starship = starship, useComputerNode = model.useComputerNode } ) of
             ( CP Piloting, Just ( _, bonus ) ) ->
                 button
-                    [ E.onClick Maneuver ]
+                    [ E.onClick Maneuver
+                    , A.title "You move your starship up to its speed. You can also attempt a Piloting check (DC = 15 + 1-1/2 × your starship’s tier) to reduce your starship’s distance between turns by 1 (to a minimum of 0)."
+                    ]
                     [ text ("Maneuver (" ++ String.fromInt bonus ++ " vs DC " ++ String.fromInt (15 + shipDCMod) ++ ")") ]
 
             _ ->
@@ -1073,7 +1075,9 @@ view starship model =
         , case ( model.phase, Status.backOff model.status { currentRound = model.roundNumber, starship = starship, useComputerNode = model.useComputerNode } ) of
             ( CP Piloting, Just ( _, bonus ) ) ->
                 button
-                    [ E.onClick BackOff ]
+                    [ E.onClick BackOff
+                    , A.title "The starship moves up to half its speed in the direction of the aft edge without changing facing. It can’t take any turns during this movement. To perform this stunt, you must succeed at a Piloting check (DC = 10 + 1½ × your starship’s tier). On a failed check, your starship moves backward only 1 hex. If you fail this check by 5 or more, your starship does not move at all and takes a –4 penalty to its AC and TL until the start of the next round."
+                    ]
                     [ text ("Back Off (" ++ String.fromInt bonus ++ " vs DC " ++ String.fromInt (10 + shipDCMod) ++ ")") ]
 
             _ ->
@@ -1103,7 +1107,9 @@ view starship model =
         , case ( model.phase, Status.barrelRoll model.status { currentRound = model.roundNumber, starship = starship, useComputerNode = model.useComputerNode } ) of
             ( CP Piloting, Just ( _, bonus ) ) ->
                 button
-                    [ E.onClick BarrelRoll ]
+                    [ E.onClick BarrelRoll
+                    , A.title "The starship moves up to half its speed and flips along its central axis. For the next gunnery phase, the starship’s port shields and weapons function as if they were in the starboard firing arc and vice versa. The starship reverts to normal at the beginning of the next round. To perform this stunt, your starship must be Large or smaller and you must succeed at a Piloting check (DC = 10 + 1½ × your starship’s tier). On a failed check, the starship moves half its speed but doesn’t roll. If you fail by 5 or more, your starship moves half its speed, doesn’t roll, and takes a –4 penalty to its AC and TL until the start of the next round."
+                    ]
                     [ text ("Barrel Roll (" ++ String.fromInt bonus ++ " vs DC " ++ String.fromInt (10 + shipDCMod) ++ ")") ]
 
             _ ->
@@ -1133,7 +1139,9 @@ view starship model =
         , case ( model.phase, Status.evade model.status { currentRound = model.roundNumber, starship = starship, useComputerNode = model.useComputerNode } ) of
             ( CP Piloting, Just ( _, bonus ) ) ->
                 button
-                    [ E.onClick Evade ]
+                    [ E.onClick Evade
+                    , A.title "The ship moves up to its speed and can turn as normal, but it gains a +2 circumstance bonus to its AC and TL until the start of the next round. To perform this stunt, you must succeed at a Piloting check (DC = 10 + 1½ × your starship’s tier). If you fail, the starship moves as normal. If you fail the check by 5 or more, the starship moves as normal, but it also takes a –2 penalty to its AC and TL until the start of the next round."
+                    ]
                     [ text ("Evade (" ++ String.fromInt bonus ++ " vs DC " ++ String.fromInt (10 + shipDCMod) ++ ")") ]
 
             _ ->
@@ -1153,7 +1161,9 @@ view starship model =
         , case ( model.phase, Status.flipAndBurn model.status { currentRound = model.roundNumber, starship = starship, useComputerNode = model.useComputerNode } ) of
             ( CP Piloting, Just ( _, bonus ) ) ->
                 button
-                    [ E.onClick FlipAndBurn ]
+                    [ E.onClick FlipAndBurn
+                    , A.title "The ship moves forward up to half its speed (without turning) and rotates 180 degrees to face the aft edge at the end of the movement. To perform this stunt, you must succeed at a Piloting check (DC = 15 + 1½ × your ship’s tier). If you fail this check, your starship moves forward half its speed but doesn’t rotate."
+                    ]
                     [ text ("Flip and Burn (" ++ String.fromInt bonus ++ " vs DC " ++ String.fromInt (15 + shipDCMod) ++ ")") ]
 
             _ ->
@@ -1173,7 +1183,9 @@ view starship model =
         , case ( model.phase, Status.flyby model.status { currentRound = model.roundNumber, starship = starship, useComputerNode = model.useComputerNode } ) of
             ( CP Piloting, Just ( _, bonus ) ) ->
                 button
-                    [ E.onClick Flyby ]
+                    [ E.onClick Flyby
+                    , A.title "The ship moves as normal, but it can move through 1 hex occupied by an enemy starship without provoking a free attack (as described in Moving through Other Starships). During the following gunnery phase, you can select one arc of your starship’s weapons to fire at the enemy vessel as if the vessel were in close range (treat the range as 1 hex), against any quadrant of the enemy starship. To perform this stunt, you must succeed at a Piloting check (DC = 15 + 1½ × the tier of the enemy starship). If you fail this check, your starship still moves as described above, but you follow the normal rules for attacking (based on your starship’s final position and distance), and the movement provokes a free attack from that starship as normal."
+                    ]
                     [ text ("Flyby (" ++ String.fromInt bonus ++ " vs DC " ++ String.fromInt (15 + shipDCMod) ++ ")") ]
 
             _ ->
@@ -1193,7 +1205,9 @@ view starship model =
         , case ( model.phase, Status.slide model.status { currentRound = model.roundNumber, starship = starship, useComputerNode = model.useComputerNode } ) of
             ( CP Piloting, Just ( _, bonus ) ) ->
                 button
-                    [ E.onClick Slide ]
+                    [ E.onClick Slide
+                    , A.title "The starship moves up to its speed in the direction of either the forward-port or forward-starboard edge without changing its facing. To perform this stunt, you must succeed at a Piloting check (DC = 10 + 1½ × your ship’s tier). If you fail this check, the ship moves forward up to half its speed and can’t make any turns."
+                    ]
                     [ text ("Slide (" ++ String.fromInt bonus ++ " vs DC " ++ String.fromInt (10 + shipDCMod) ++ ")") ]
 
             _ ->
@@ -1213,7 +1227,9 @@ view starship model =
         , case ( model.phase, Status.turnInPlace model.status { currentRound = model.roundNumber, starship = starship, useComputerNode = model.useComputerNode } ) of
             ( CP Piloting, Just ( _, bonus ) ) ->
                 button
-                    [ E.onClick TurnInPlace ]
+                    [ E.onClick TurnInPlace
+                    , A.title "The ship does not move but instead can turn to face any direction. If the ship has a maneuverability of clumsy, it takes a –4 penalty to its AC and TL until the start of the next round. If it has a maneuverability of poor, it instead takes a –2 penalty to its AC and TL until the start of the next round. Ships with a maneuverability of average or better do not take a penalty. This stunt doesn’t require a skill check."
+                    ]
                     [ text "Turn in Place (no check)" ]
 
             _ ->
