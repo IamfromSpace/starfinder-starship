@@ -1064,7 +1064,7 @@ view starship model =
             ( CP Piloting, Just ( _, bonus ) ) ->
                 button
                     [ E.onClick Maneuver ]
-                    [ text ("Maneuver (" ++ String.fromInt bonus ++ ")") ]
+                    [ text ("Maneuver (" ++ String.fromInt bonus ++ " vs DC " ++ String.fromInt (15 + shipDCMod) ++ ")") ]
 
             _ ->
                 button
@@ -1074,7 +1074,7 @@ view starship model =
             ( CP Piloting, Just ( _, bonus ) ) ->
                 button
                     [ E.onClick BackOff ]
-                    [ text ("Back Off (" ++ String.fromInt bonus ++ ")") ]
+                    [ text ("Back Off (" ++ String.fromInt bonus ++ " vs DC " ++ String.fromInt (10 + shipDCMod) ++ ")") ]
 
             _ ->
                 button
@@ -1104,7 +1104,7 @@ view starship model =
             ( CP Piloting, Just ( _, bonus ) ) ->
                 button
                     [ E.onClick BarrelRoll ]
-                    [ text ("Barrel Roll (" ++ String.fromInt bonus ++ ")") ]
+                    [ text ("Barrel Roll (" ++ String.fromInt bonus ++ " vs DC " ++ String.fromInt (10 + shipDCMod) ++ ")") ]
 
             _ ->
                 button
@@ -1134,7 +1134,7 @@ view starship model =
             ( CP Piloting, Just ( _, bonus ) ) ->
                 button
                     [ E.onClick Evade ]
-                    [ text ("Evade (" ++ String.fromInt bonus ++ ")") ]
+                    [ text ("Evade (" ++ String.fromInt bonus ++ " vs DC " ++ String.fromInt (10 + shipDCMod) ++ ")") ]
 
             _ ->
                 button
@@ -1154,7 +1154,7 @@ view starship model =
             ( CP Piloting, Just ( _, bonus ) ) ->
                 button
                     [ E.onClick FlipAndBurn ]
-                    [ text ("Flip and Burn (" ++ String.fromInt bonus ++ ")") ]
+                    [ text ("Flip and Burn (" ++ String.fromInt bonus ++ " vs DC " ++ String.fromInt (15 + shipDCMod) ++ ")") ]
 
             _ ->
                 button
@@ -1174,7 +1174,7 @@ view starship model =
             ( CP Piloting, Just ( _, bonus ) ) ->
                 button
                     [ E.onClick Flyby ]
-                    [ text ("Flyby (" ++ String.fromInt bonus ++ ")") ]
+                    [ text ("Flyby (" ++ String.fromInt bonus ++ " vs DC " ++ String.fromInt (15 + shipDCMod) ++ ")") ]
 
             _ ->
                 button
@@ -1194,7 +1194,7 @@ view starship model =
             ( CP Piloting, Just ( _, bonus ) ) ->
                 button
                     [ E.onClick Slide ]
-                    [ text ("Slide (" ++ String.fromInt bonus ++ ")") ]
+                    [ text ("Slide (" ++ String.fromInt bonus ++ " vs DC " ++ String.fromInt (10 + shipDCMod) ++ ")") ]
 
             _ ->
                 button
@@ -1214,7 +1214,7 @@ view starship model =
             ( CP Piloting, Just ( _, bonus ) ) ->
                 button
                     [ E.onClick TurnInPlace ]
-                    [ text ("Turn in Place (" ++ String.fromInt bonus ++ ")") ]
+                    [ text "Turn in Place (no check)" ]
 
             _ ->
                 button
