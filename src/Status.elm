@@ -624,6 +624,10 @@ slideFail status ({ starship } as r) =
     pilotCheckHelper (PilotResult.slideFail starship) CombatCrew.slide status r
 
 
+
+-- TODO: This doesn't require a skill check
+
+
 turnInPlace : Status -> { a | starship : Starship, currentRound : Int, useComputerNode : Bool } -> Maybe ( Status, Int )
 turnInPlace status ({ starship } as r) =
     pilotCheckHelper (PilotResult.turnInPlace starship) CombatCrew.turnInPlace status r
