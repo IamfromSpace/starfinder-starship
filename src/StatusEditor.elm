@@ -869,6 +869,9 @@ view starship model =
         damagePercent =
             getDamagePercent starship model.status
 
+        shipDCMod =
+            (round (Starship.getTierFromBuildPoints (Starship.getStarshipBuildPoints starship)) * 3) // 2
+
         allotmentIsValid =
             maybeAllotting model.partialState
                 |> Maybe.map (\s -> Status.forceAddShields s model.status)
@@ -1260,7 +1263,7 @@ view starship model =
                 _ ->
                     [ A.disabled True ]
             )
-            [ text "Balance to other Shields" ]
+            [ text ("Balance to other Shields (DC " ++ String.fromInt (10 + shipDCMod) ++ ")") ]
         , button
             (case model.partialState of
                 Balancing _ ->
@@ -1287,7 +1290,7 @@ view starship model =
                 _ ->
                     [ A.disabled True ]
             )
-            [ text "Balance Shields Evenly" ]
+            [ text ("Balance Shields Evenly (DC " ++ String.fromInt (10 + shipDCMod) ++ ")") ]
         , button
             (case ( model.partialState, Status.maxDivertPowerToShieldPoints starship model.status <= 0, model.phase ) of
                 ( None, False, CP Engineering ) ->
@@ -1296,7 +1299,7 @@ view starship model =
                 _ ->
                     [ A.disabled True ]
             )
-            [ text "Divert Power to Shields" ]
+            [ text ("Divert Power to Shields (DC " ++ String.fromInt (10 + shipDCMod) ++ ")") ]
         , button
             (case model.partialState of
                 Diverting _ ->
@@ -1323,7 +1326,7 @@ view starship model =
                 _ ->
                     [ A.disabled True ]
             )
-            [ text "Divert Power to Engines" ]
+            [ text ("Divert Power to Engines (DC " ++ String.fromInt (10 + shipDCMod) ++ ")") ]
         , button
             [ E.onClick AcceptAllotmentToShields, A.disabled (not allotmentIsValid) ]
             [ text "Accept Allotted Shields" ]
