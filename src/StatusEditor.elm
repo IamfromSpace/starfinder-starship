@@ -1271,18 +1271,19 @@ view starship model =
                     [ A.disabled True ]
                     [ text "Audacious Gambit (Fail)" ]
         , button
-            (case ( model.partialState, model.phase ) of
+            [ case ( model.partialState, model.phase ) of
                 ( Selected arc, CP Piloting ) ->
                     case Status.canBalanceFromTo arc model.status.shields of
                         [] ->
-                            [ A.disabled True ]
+                            A.disabled True
 
                         _ ->
-                            [ E.onClick StartBalanceFromArc ]
+                            E.onClick StartBalanceFromArc
 
                 _ ->
-                    [ A.disabled True ]
-            )
+                    A.disabled True
+            , A.title "You can balance the shields, redirecting power from one quadrant to protect another. With a successful Computers check (DC = 10 + 1-1/2 × your starship’s tier), you can shift Shield Points (SP) from the shield in one quadrant to the shield in another quadrant, including to depleted shields (after rebalancing, every shield must have at least 10% of the total current SP)."
+            ]
             [ text ("Balance to other Shields (DC " ++ String.fromInt (10 + shipDCMod) ++ ")") ]
         , button
             (case model.partialState of
@@ -1303,22 +1304,24 @@ view starship model =
             )
             [ text "Accept Balance to other Shields" ]
         , button
-            (case ( model.partialState, model.phase ) of
+            [ case ( model.partialState, model.phase ) of
                 ( None, CP Piloting ) ->
-                    [ E.onClick BalanceEvenly ]
+                    E.onClick BalanceEvenly
 
                 _ ->
-                    [ A.disabled True ]
-            )
+                    A.disabled True
+            , A.title "You can balance the shields, redirecting power from one quadrant to protect another. With a successful Computers check (DC = 10 + 1-1/2 × your starship’s tier), you can add up the SP from all the remaining shields and evenly distribute them to all four quadrants, putting any excess SP in the forward quadrant."
+            ]
             [ text ("Balance Shields Evenly (DC " ++ String.fromInt (10 + shipDCMod) ++ ")") ]
         , button
-            (case ( model.partialState, Status.maxDivertPowerToShieldPoints starship model.status <= 0, model.phase ) of
+            [ case ( model.partialState, Status.maxDivertPowerToShieldPoints starship model.status <= 0, model.phase ) of
                 ( None, False, CP Engineering ) ->
-                    [ E.onClick StartDivertToShields ]
+                    E.onClick StartDivertToShields
 
                 _ ->
-                    [ A.disabled True ]
-            )
+                    A.disabled True
+            , A.title "You can divert auxiliary power into one of your starship’s systems, giving it a boost. This requires a successful Engineering check (DC = 10 + 1-1/2 × your starship’s tier), and the results depend on where you decide to send this extra power. If you send it to the shields, restore an amount of Shield Points equal to 5% of the PCU rating of the starship’s power core (see page 296), up to the shields’ maximum value. You can distribute the restored Shield Points across the shields’ four quadrants as you see fit."
+            ]
             [ text ("Divert Power to Shields (DC " ++ String.fromInt (10 + shipDCMod) ++ ")") ]
         , button
             (case model.partialState of
@@ -1339,13 +1342,14 @@ view starship model =
             )
             [ text "Accept Divert Power to Shields" ]
         , button
-            (case ( model.partialState, model.phase ) of
+            [ case ( model.partialState, model.phase ) of
                 ( None, CP Engineering ) ->
-                    [ E.onClick DivertToEngines ]
+                    E.onClick DivertToEngines
 
                 _ ->
-                    [ A.disabled True ]
-            )
+                    A.disabled True
+            , A.title "You can divert auxiliary power into one of your starship’s systems, giving it a boost. This requires a successful Engineering check (DC = 10 + 1-1/2 × your starship’s tier), and the results depend on where you decide to send this extra power. If you send it to the engines, your starship’s speed increases by 2 this round."
+            ]
             [ text ("Divert Power to Engines (DC " ++ String.fromInt (10 + shipDCMod) ++ ")") ]
         , button
             [ E.onClick AcceptAllotmentToShields, A.disabled (not allotmentIsValid) ]
