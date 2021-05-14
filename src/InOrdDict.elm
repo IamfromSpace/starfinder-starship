@@ -3,7 +3,7 @@ module InOrdDict exposing (InOrdDict, empty, foldl, insert, reKey, toDict)
 import Dict exposing (Dict)
 
 
-toDict : InOrdDict k v -> Dict k v
+toDict : InOrdDict comparable v -> Dict comparable v
 toDict =
     .dict >> Dict.map (\_ ( _, v ) -> v)
 
