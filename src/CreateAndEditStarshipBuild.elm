@@ -31,7 +31,7 @@ initialModel =
 
 
 type FlightStatus
-    = SelectingCrew Crew
+    = SelectingCrew ( Crew, Maybe StatusEditor.Model )
     | Flying StatusEditor.Model
 
 
@@ -253,7 +253,7 @@ update { getStarshipBuild, getStarshipBuilds, createStarshipBuild, updateStarshi
                         ( { s
                             | isFetching = False
                             , starshipBuild = Just ( Nothing, sb )
-                            , flightStatus = Just (SelectingCrew emptyCrew)
+                            , flightStatus = Just (SelectingCrew ( emptyCrew, Nothing ))
                           }
                         , Cmd.none
                         )
@@ -286,16 +286,26 @@ update { getStarshipBuild, getStarshipBuilds, createStarshipBuild, updateStarshi
 
         CrewUpdate newCrew ->
             case ( starshipBuild, flightStatus ) of
-                ( Just ( _, sModel ), Just (SelectingCrew _) ) ->
-                    ( { s | flightStatus = Just (SelectingCrew newCrew) }, Cmd.none )
+                ( Just ( _, sModel ), Just (SelectingCrew ( _, se )) ) ->
+                    ( { s | flightStatus = Just (SelectingCrew ( newCrew, se )) }, Cmd.none )
 
                 _ ->
                     ( s, Cmd.none )
 
         AcceptCrew ->
             case ( starshipBuild, flightStatus ) of
-                ( Just ( _, sModel ), Just (SelectingCrew crew) ) ->
-                    ( { s | flightStatus = Just (Flying (StatusEditor.init (toDict crew) sModel)) }, Cmd.none )
+                ( Just ( _, sModel ), Just (SelectingCrew ( crew, mse )) ) ->
+                    ( { s
+                        | flightStatus =
+                            Just
+                                (Flying
+                                    (StatusEditor.updateCrew (toDict crew)
+                                        (Maybe.withDefault (StatusEditor.init sModel) mse)
+                                    )
+                                )
+                      }
+                    , Cmd.none
+                    )
 
                 _ ->
                     ( s, Cmd.none )
@@ -305,9 +315,8 @@ update { getStarshipBuild, getStarshipBuilds, createStarshipBuild, updateStarshi
                 ( Just _, _ ) ->
                     ( { s | error = Nothing }, Cmd.none )
 
-                ( Nothing, Just (Flying _) ) ->
-                    -- TODO: This could lose saved progress!
-                    ( { s | flightStatus = Just (SelectingCrew emptyCrew) }, Cmd.none )
+                ( Nothing, Just (Flying se) ) ->
+                    ( { s | flightStatus = Just (SelectingCrew ( CrewEditor.fromDict (StatusEditor.getCrew se), Just se )) }, Cmd.none )
 
                 ( Nothing, _ ) ->
                     -- TODO: This could lose saved progress!
@@ -327,7 +336,7 @@ view { starshipBuild, error, isFetching, shipName, ships, flightStatus } =
                 , button [ onClick Back ] [ text "BACK" ]
                 ]
 
-            ( ( Just ( _, starship ), Just (SelectingCrew crew) ), _, _ ) ->
+            ( ( Just ( _, starship ), Just (SelectingCrew ( crew, _ )) ), _, _ ) ->
                 [ Html.map CrewUpdate <| CrewEditor.view crew
                 , button [ onClick AcceptCrew ] [ text "ACCEPT" ]
                 , button [ onClick Back ] [ text "BACK" ]
@@ -335,7 +344,7 @@ view { starshipBuild, error, isFetching, shipName, ships, flightStatus } =
 
             ( ( Just ( _, starship ), Just (Flying status) ), _, _ ) ->
                 [ Html.map StatusUpdate <| StatusEditor.view starship status
-                , button [ onClick Back ] [ text "BACK" ]
+                , button [ onClick Back ] [ text "MODIFY CREW" ]
                 ]
 
             ( ( Just ( _, starship ), Nothing ), _, _ ) ->

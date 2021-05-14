@@ -1,4 +1,4 @@
-module Status exposing (ExtraPoweredSystem(..), Status, areShieldsFull, audaciousGambit, audaciousGambitFail, backOff, backOffFail, backOffFailBy5OrMore, balanceEvenly, balanceFromArc, barrelRoll, barrelRollFail, barrelRollFailBy5OrMore, basePatchDC, canBalanceFromTo, damageArc, damageSystem, divertPowerToEngines, divertPowerToShields, evade, evadeFailBy5OrMore, flipAndBurn, flipAndBurnFail, flyby, flybyFail, forceAddShields, forceMoveShields, fullPower, getEffectiveAcAndTl, getEffectiveBonusOld, getEffectiveDistanceBetweenTurns, getEffectiveSpecialPilotResult, getEffectiveSpeed, hasExtraPower, holdItTogether, init, maneuver, maxDivertPowerToShieldPoints, movingSpeechSource, movingSpeechTarget, patch, quickFix, slide, slideFail, turnInPlace)
+module Status exposing (ExtraPoweredSystem(..), Status, areShieldsFull, audaciousGambit, audaciousGambitFail, backOff, backOffFail, backOffFailBy5OrMore, balanceEvenly, balanceFromArc, barrelRoll, barrelRollFail, barrelRollFailBy5OrMore, basePatchDC, canBalanceFromTo, damageArc, damageSystem, divertPowerToEngines, divertPowerToShields, evade, evadeFailBy5OrMore, flipAndBurn, flipAndBurnFail, flyby, flybyFail, forceAddShields, forceMoveShields, fullPower, getCrew, getEffectiveAcAndTl, getEffectiveBonusOld, getEffectiveDistanceBetweenTurns, getEffectiveSpecialPilotResult, getEffectiveSpeed, hasExtraPower, holdItTogether, init, maneuver, maxDivertPowerToShieldPoints, movingSpeechSource, movingSpeechTarget, patch, quickFix, slide, slideFail, turnInPlace, updateCrew)
 
 import Arc exposing (AnArc, Arc)
 import Assignments exposing (Assignments, allInEngineering)
@@ -62,17 +62,41 @@ type alias Status =
     }
 
 
-init : Dict String Crewmate -> Status
-init crew =
+init : Status
+init =
     { damage = 0
     , shields = Arc.pure 0
     , systems = PS.pure Nothing
     , powerAction = ( -1, Divert Shields ) -- The -1 round acts as a No-op
     , pilotResult = ( -1, noPilotResult ) -- The -1 round acts as a No-op
     , computerNodesUsed = ( -1, 0 ) -- The -1 round acts as a No-op
-    , crew = Dict.map (\_ cm -> ( cm, CrewmateStatus.init )) crew
-    , assignments = allInEngineering (Dict.keys crew)
+    , crew = CombatCrew.empty
+    , assignments = Assignments.empty
     , tauntedBy = Dict.empty
+    }
+
+
+getCrew : Status -> Dict String Crewmate
+getCrew =
+    .crew >> CombatCrew.getCrew
+
+
+updateCrew : Dict String Crewmate -> Status -> Status
+updateCrew newCrew status =
+    { status
+        | crew = CombatCrew.updateCrew newCrew status.crew
+        , assignments =
+            List.foldr
+                (\( name, assignment ) assignments ->
+                    case ( Dict.member name newCrew, Assignments.move name assignment assignments ) of
+                        ( True, Just newAssignments ) ->
+                            newAssignments
+
+                        _ ->
+                            assignments
+                )
+                (allInEngineering (Dict.keys newCrew))
+                (Assignments.toList status.assignments)
     }
 
 

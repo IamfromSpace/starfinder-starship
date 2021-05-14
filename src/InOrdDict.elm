@@ -1,4 +1,4 @@
-module InOrdDict exposing (InOrdDict, empty, foldl, insert, reKey, toDict)
+module InOrdDict exposing (InOrdDict, empty, foldl, fromDict, insert, reKey, toDict)
 
 import Dict exposing (Dict)
 
@@ -6,6 +6,12 @@ import Dict exposing (Dict)
 toDict : InOrdDict comparable v -> Dict comparable v
 toDict =
     .dict >> Dict.map (\_ ( _, v ) -> v)
+
+
+fromDict : Dict comparable v -> InOrdDict comparable v
+fromDict =
+    List.foldl (\( k, v ) -> insert k v) empty
+        << Dict.toList
 
 
 type alias InOrdDict k v =

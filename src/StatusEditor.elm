@@ -1,4 +1,4 @@
-module StatusEditor exposing (Model, Msg(..), colorTransition, criticalStatusToRgb, init, main, maybeSeverityToPercent, update, view)
+module StatusEditor exposing (Model, Msg(..), colorTransition, criticalStatusToRgb, getCrew, init, main, maybeSeverityToPercent, update, updateCrew, view)
 
 import Arc exposing (AnArc(..))
 import Assignments exposing (Assignments, allInEngineering)
@@ -129,9 +129,9 @@ type alias Model =
     }
 
 
-init : Dict String Crewmate -> Starship -> Model
-init crew starship =
-    { status = Status.init crew
+init : Starship -> Model
+init starship =
+    { status = Status.init
     , critsRemaining = 0
     , useComputerNode = False
     , damageInput = Nothing
@@ -139,6 +139,16 @@ init crew starship =
     , roundNumber = 0
     , phase = Assign
     }
+
+
+getCrew : Model -> Dict String Crewmate
+getCrew =
+    .status >> Status.getCrew
+
+
+updateCrew : Dict String Crewmate -> Model -> Model
+updateCrew newCrew model =
+    { model | status = Status.updateCrew newCrew model.status }
 
 
 type Msg
@@ -1447,7 +1457,7 @@ view starship model =
 main : Program () Model Msg
 main =
     element
-        { init = \_ -> ( init Dict.empty norikamaDropship, Cmd.none )
+        { init = \_ -> ( init norikamaDropship, Cmd.none )
         , update = update norikamaDropship
         , view = view norikamaDropship
         , subscriptions = \_ -> Sub.none

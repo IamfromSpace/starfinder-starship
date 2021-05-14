@@ -1,8 +1,9 @@
-module CrewEditor exposing (Crew, emptyCrew, view)
+module CrewEditor exposing (Crew, emptyCrew, fromDict, view)
 
 import Browser exposing (element)
 import Crewmate exposing (Crewmate)
 import CrewmateEditor exposing (init, update, view)
+import Dict exposing (Dict)
 import Html exposing (..)
 import Html.Attributes exposing (type_, value)
 import Html.Events exposing (onClick, onInput)
@@ -13,6 +14,11 @@ import Task
 
 type alias Crew =
     InOrdDict String Crewmate
+
+
+fromDict : Dict String Crewmate -> Crew
+fromDict =
+    InOrdDict.fromDict
 
 
 type alias Model =
@@ -60,6 +66,10 @@ update { updateCrew } msg model =
 
         ClientMsg (Err err) ->
             ( { model | waiting = False, error = Just err }, Cmd.none )
+
+
+
+-- TODO: Allow disabled name changes (can't change name once flying)
 
 
 crewmateView : Crew -> String -> Crewmate -> List (Html Crew)

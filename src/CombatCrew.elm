@@ -1,4 +1,4 @@
-module CombatCrew exposing (CombatCrew, audaciousGambit, backOff, barrelRoll, demandSource, demandTarget, encourageSource, encourageTarget, evade, flipAndBurn, flyby, fullPower, getAcModifier, getTlModifier, maneuver, movingSpeechSource, ordersSource, ordersTarget, slide, tauntSource, turnInPlace)
+module CombatCrew exposing (CombatCrew, audaciousGambit, backOff, barrelRoll, demandSource, demandTarget, empty, encourageSource, encourageTarget, evade, flipAndBurn, flyby, fullPower, getAcModifier, getCrew, getTlModifier, maneuver, movingSpeechSource, ordersSource, ordersTarget, slide, tauntSource, turnInPlace, updateCrew)
 
 import Assignments exposing (Assignments)
 import Crewmate exposing (Crewmate)
@@ -8,6 +8,31 @@ import Dict exposing (Dict)
 
 type alias CombatCrew a =
     Dict a ( Crewmate, CrewmateStatus )
+
+
+empty : CombatCrew a
+empty =
+    Dict.empty
+
+
+getCrew : CombatCrew comparable -> Dict comparable Crewmate
+getCrew =
+    Dict.map (always Tuple.first)
+
+
+updateCrew : Dict comparable Crewmate -> CombatCrew comparable -> CombatCrew comparable
+updateCrew cmDict cc =
+    Dict.foldr
+        (\k newCm newCC ->
+            case Dict.get k cc of
+                Just ( _, cs ) ->
+                    Dict.insert k ( newCm, cs ) newCC
+
+                Nothing ->
+                    Dict.insert k ( newCm, CrewmateStatus.init ) newCC
+        )
+        Dict.empty
+        cmDict
 
 
 tupleHelper : (Crewmate -> Maybe Int) -> (CrewmateStatus -> a -> Maybe ( CrewmateStatus, Int )) -> ( Crewmate, CrewmateStatus ) -> a -> Maybe ( ( Crewmate, CrewmateStatus ), Int )
