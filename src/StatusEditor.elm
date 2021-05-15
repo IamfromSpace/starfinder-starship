@@ -1,14 +1,16 @@
-module StatusEditor exposing (Model, Msg(..), colorTransition, criticalStatusToRgb, getCrew, init, main, maybeSeverityToPercent, update, updateCrew, view)
+module StatusEditor exposing (Model, Msg(..), criticalStatusToRgb, getCrew, init, main, maybeSeverityToPercent, update, updateCrew, view)
 
 import Arc exposing (AnArc(..))
 import Assignments exposing (Assignments, allInEngineering)
 import AssignmentsEditor
+import BattlePhase exposing (BattlePhase(..))
 import Browser exposing (element)
 import Color exposing (Color, blue, green, grey, red, yellow)
 import Color.Convert exposing (colorToCssRgb)
-import Color.Manipulate exposing (weightedMix)
+import ColorUtils
 import CombatPhase exposing (CombatPhase(..))
 import CounterArc
+import CrewEditor exposing (Crew)
 import Crewmate exposing (Crewmate)
 import CriticalStatus as CS exposing (CriticalStatus, Severity(..))
 import Dict exposing (Dict)
@@ -23,6 +25,7 @@ import Platform.Sub
 import Random
 import ShieldArc
 import Shielded
+import ShieldedFighter
 import ShipAssets exposing (..)
 import Starship exposing (Starship)
 import Status exposing (Status)
@@ -38,6 +41,7 @@ type PartialState
     | Diverting (Arc.Arc Int)
     | Allotting (Arc.Arc Int)
     | Balancing ( Arc.AnArc, Arc.AnArc, Int )
+    | EditingCrew
     | None
 
 
@@ -81,51 +85,12 @@ maybeBalancing ps =
             Nothing
 
 
-type Phase
-    = Assign
-    | CP CombatPhase
-
-
-nextPhase : Model -> Phase
-nextPhase model =
-    case model.phase of
-        Assign ->
-            CP Engineering
-
-        CP Engineering ->
-            CP Piloting
-
-        CP Piloting ->
-            CP Gunnery
-
-        CP Gunnery ->
-            Assign
-
-
-phaseToString : Phase -> String
-phaseToString phase =
-    case phase of
-        Assign ->
-            "Assignments"
-
-        CP Engineering ->
-            "Engineering"
-
-        CP Piloting ->
-            "Piloting"
-
-        CP Gunnery ->
-            "Gunnery"
-
-
 type alias Model =
     { status : Status
     , critsRemaining : Int
     , useComputerNode : Bool
     , damageInput : Maybe Int
     , partialState : PartialState
-    , roundNumber : Int
-    , phase : Phase
     }
 
 
@@ -136,8 +101,6 @@ init starship =
     , useComputerNode = False
     , damageInput = Nothing
     , partialState = Allotting (Arc.pure ((extract starship.shields).shieldPoints // 4))
-    , roundNumber = 0
-    , phase = Assign
     }
 
 
@@ -158,6 +121,9 @@ type Msg
     | DeselectSheildArc
     | ChangeDamageInput (Maybe Int)
     | ToggleUseComputerNode
+    | StartCrewEdit
+    | UpdateCrew Crew
+    | AcceptCrew
     | StartDivertToShields
     | EditDivertToShields AnArc (Int -> Int)
     | CancelDivertToShields
@@ -194,11 +160,10 @@ type Msg
     | QuickFix PatchableSystem
     | MovingSpeech
     | SetAssignments (Assignments String)
-    | NextPhase
 
 
-update : Starship -> Msg -> Model -> ( Model, Cmd Msg )
-update starship msg model =
+update : { a | starship : Starship, currentRound : Int, currentPhase : BattlePhase } -> Msg -> Model -> ( Model, Cmd Msg )
+update { starship, currentRound, currentPhase } msg model =
     -- TODO: Restrict actions based on the current phase of the round
     case msg of
         Damage damage wasCrit ->
@@ -278,6 +243,19 @@ update starship msg model =
         ToggleUseComputerNode ->
             ( { model | useComputerNode = not model.useComputerNode }, Cmd.none )
 
+        StartCrewEdit ->
+            if model.partialState /= None then
+                ( model, Cmd.none )
+
+            else
+                ( { model | partialState = EditingCrew }, Cmd.none )
+
+        UpdateCrew crew ->
+            ( updateCrew (CrewEditor.toDict crew) model, Cmd.none )
+
+        AcceptCrew ->
+            ( { model | partialState = None }, Cmd.none )
+
         ChangeDamageInput Nothing ->
             ( { model | damageInput = Nothing }, Cmd.none )
 
@@ -312,7 +290,7 @@ update starship msg model =
         AcceptDivertToShields ->
             case model.partialState of
                 Diverting added ->
-                    ( Status.divertPowerToShields starship added model.roundNumber model.status
+                    ( Status.divertPowerToShields starship added currentRound model.status
                         |> Maybe.map
                             (\newStatus ->
                                 { model | partialState = None, status = newStatus }
@@ -331,7 +309,7 @@ update starship msg model =
                 None ->
                     ( { model
                         | status =
-                            Status.divertPowerToEngines starship model.roundNumber model.status
+                            Status.divertPowerToEngines starship currentRound model.status
                       }
                     , Cmd.none
                     )
@@ -370,7 +348,7 @@ update starship msg model =
                     ( model, Cmd.none )
 
         Maneuver ->
-            case ( model.phase, Status.maneuver model.status { currentRound = model.roundNumber, useComputerNode = model.useComputerNode, starship = starship } ) of
+            case ( currentPhase, Status.maneuver model.status { currentRound = currentRound, useComputerNode = model.useComputerNode, starship = starship } ) of
                 ( CP Piloting, Just ( newStatus, _ ) ) ->
                     ( { model | status = newStatus }, Cmd.none )
 
@@ -378,7 +356,7 @@ update starship msg model =
                     ( model, Cmd.none )
 
         BackOff ->
-            case ( model.phase, Status.backOff model.status { currentRound = model.roundNumber, starship = starship, useComputerNode = model.useComputerNode } ) of
+            case ( currentPhase, Status.backOff model.status { currentRound = currentRound, starship = starship, useComputerNode = model.useComputerNode } ) of
                 ( CP Piloting, Just ( newStatus, _ ) ) ->
                     ( { model | status = newStatus }, Cmd.none )
 
@@ -386,7 +364,7 @@ update starship msg model =
                     ( model, Cmd.none )
 
         BackOffFail ->
-            case ( model.phase, Status.backOffFail model.status { currentRound = model.roundNumber, useComputerNode = model.useComputerNode, starship = starship } ) of
+            case ( currentPhase, Status.backOffFail model.status { currentRound = currentRound, useComputerNode = model.useComputerNode, starship = starship } ) of
                 ( CP Piloting, Just ( newStatus, _ ) ) ->
                     ( { model | status = newStatus }, Cmd.none )
 
@@ -394,7 +372,7 @@ update starship msg model =
                     ( model, Cmd.none )
 
         BackOffFailBy5OrMore ->
-            case ( model.phase, Status.backOffFailBy5OrMore model.status { currentRound = model.roundNumber, starship = starship, useComputerNode = model.useComputerNode } ) of
+            case ( currentPhase, Status.backOffFailBy5OrMore model.status { currentRound = currentRound, starship = starship, useComputerNode = model.useComputerNode } ) of
                 ( CP Piloting, Just ( newStatus, _ ) ) ->
                     ( { model | status = newStatus }, Cmd.none )
 
@@ -402,7 +380,7 @@ update starship msg model =
                     ( model, Cmd.none )
 
         BarrelRoll ->
-            case ( model.phase, Status.barrelRoll model.status { currentRound = model.roundNumber, starship = starship, useComputerNode = model.useComputerNode } ) of
+            case ( currentPhase, Status.barrelRoll model.status { currentRound = currentRound, starship = starship, useComputerNode = model.useComputerNode } ) of
                 ( CP Piloting, Just ( newStatus, _ ) ) ->
                     ( { model | status = newStatus }, Cmd.none )
 
@@ -410,7 +388,7 @@ update starship msg model =
                     ( model, Cmd.none )
 
         BarrelRollFail ->
-            case ( model.phase, Status.barrelRollFail model.status { currentRound = model.roundNumber, starship = starship, useComputerNode = model.useComputerNode } ) of
+            case ( currentPhase, Status.barrelRollFail model.status { currentRound = currentRound, starship = starship, useComputerNode = model.useComputerNode } ) of
                 ( CP Piloting, Just ( newStatus, _ ) ) ->
                     ( { model | status = newStatus }, Cmd.none )
 
@@ -418,7 +396,7 @@ update starship msg model =
                     ( model, Cmd.none )
 
         BarrelRollFailBy5OrMore ->
-            case ( model.phase, Status.barrelRollFailBy5OrMore model.status { currentRound = model.roundNumber, starship = starship, useComputerNode = model.useComputerNode } ) of
+            case ( currentPhase, Status.barrelRollFailBy5OrMore model.status { currentRound = currentRound, starship = starship, useComputerNode = model.useComputerNode } ) of
                 ( CP Piloting, Just ( newStatus, _ ) ) ->
                     ( { model | status = newStatus }, Cmd.none )
 
@@ -426,7 +404,7 @@ update starship msg model =
                     ( model, Cmd.none )
 
         Evade ->
-            case ( model.phase, Status.evade model.status { currentRound = model.roundNumber, useComputerNode = model.useComputerNode, starship = starship } ) of
+            case ( currentPhase, Status.evade model.status { currentRound = currentRound, useComputerNode = model.useComputerNode, starship = starship } ) of
                 ( CP Piloting, Just ( newStatus, _ ) ) ->
                     ( { model | status = newStatus }, Cmd.none )
 
@@ -434,7 +412,7 @@ update starship msg model =
                     ( model, Cmd.none )
 
         EvadeFailBy5OrMore ->
-            case ( model.phase, Status.evadeFailBy5OrMore model.status { currentRound = model.roundNumber, starship = starship, useComputerNode = model.useComputerNode } ) of
+            case ( currentPhase, Status.evadeFailBy5OrMore model.status { currentRound = currentRound, starship = starship, useComputerNode = model.useComputerNode } ) of
                 ( CP Piloting, Just ( newStatus, _ ) ) ->
                     ( { model | status = newStatus }, Cmd.none )
 
@@ -442,7 +420,7 @@ update starship msg model =
                     ( model, Cmd.none )
 
         FlipAndBurn ->
-            case ( model.phase, Status.flipAndBurn model.status { currentRound = model.roundNumber, starship = starship, useComputerNode = model.useComputerNode } ) of
+            case ( currentPhase, Status.flipAndBurn model.status { currentRound = currentRound, starship = starship, useComputerNode = model.useComputerNode } ) of
                 ( CP Piloting, Just ( newStatus, _ ) ) ->
                     ( { model | status = newStatus }, Cmd.none )
 
@@ -450,7 +428,7 @@ update starship msg model =
                     ( model, Cmd.none )
 
         FlipAndBurnFail ->
-            case ( model.phase, Status.flipAndBurnFail model.status { currentRound = model.roundNumber, starship = starship, useComputerNode = model.useComputerNode } ) of
+            case ( currentPhase, Status.flipAndBurnFail model.status { currentRound = currentRound, starship = starship, useComputerNode = model.useComputerNode } ) of
                 ( CP Piloting, Just ( newStatus, _ ) ) ->
                     ( { model | status = newStatus }, Cmd.none )
 
@@ -458,7 +436,7 @@ update starship msg model =
                     ( model, Cmd.none )
 
         Flyby ->
-            case ( model.phase, Status.flyby model.status { currentRound = model.roundNumber, useComputerNode = model.useComputerNode, starship = starship } ) of
+            case ( currentPhase, Status.flyby model.status { currentRound = currentRound, useComputerNode = model.useComputerNode, starship = starship } ) of
                 ( CP Piloting, Just ( newStatus, _ ) ) ->
                     ( { model | status = newStatus }, Cmd.none )
 
@@ -466,7 +444,7 @@ update starship msg model =
                     ( model, Cmd.none )
 
         FlybyFail ->
-            case ( model.phase, Status.flybyFail model.status { currentRound = model.roundNumber, useComputerNode = model.useComputerNode, starship = starship } ) of
+            case ( currentPhase, Status.flybyFail model.status { currentRound = currentRound, useComputerNode = model.useComputerNode, starship = starship } ) of
                 ( CP Piloting, Just ( newStatus, _ ) ) ->
                     ( { model | status = newStatus }, Cmd.none )
 
@@ -474,7 +452,7 @@ update starship msg model =
                     ( model, Cmd.none )
 
         Slide ->
-            case ( model.phase, Status.slide model.status { currentRound = model.roundNumber, useComputerNode = model.useComputerNode, starship = starship } ) of
+            case ( currentPhase, Status.slide model.status { currentRound = currentRound, useComputerNode = model.useComputerNode, starship = starship } ) of
                 ( CP Piloting, Just ( newStatus, _ ) ) ->
                     ( { model | status = newStatus }, Cmd.none )
 
@@ -482,7 +460,7 @@ update starship msg model =
                     ( model, Cmd.none )
 
         SlideFail ->
-            case ( model.phase, Status.slideFail model.status { currentRound = model.roundNumber, starship = starship, useComputerNode = model.useComputerNode } ) of
+            case ( currentPhase, Status.slideFail model.status { currentRound = currentRound, starship = starship, useComputerNode = model.useComputerNode } ) of
                 ( CP Piloting, Just ( newStatus, _ ) ) ->
                     ( { model | status = newStatus }, Cmd.none )
 
@@ -490,7 +468,7 @@ update starship msg model =
                     ( model, Cmd.none )
 
         TurnInPlace ->
-            case ( model.phase, Status.turnInPlace model.status { currentRound = model.roundNumber, starship = starship, useComputerNode = model.useComputerNode } ) of
+            case ( currentPhase, Status.turnInPlace model.status { currentRound = currentRound, starship = starship, useComputerNode = model.useComputerNode } ) of
                 ( CP Piloting, Just ( newStatus, _ ) ) ->
                     ( { model | status = newStatus }, Cmd.none )
 
@@ -498,7 +476,7 @@ update starship msg model =
                     ( model, Cmd.none )
 
         FullPower ->
-            case ( model.phase, Status.fullPower model.status { currentRound = model.roundNumber, starship = starship, useComputerNode = model.useComputerNode } ) of
+            case ( currentPhase, Status.fullPower model.status { currentRound = currentRound, starship = starship, useComputerNode = model.useComputerNode } ) of
                 ( CP Piloting, Just ( newStatus, _ ) ) ->
                     ( { model | status = newStatus }, Cmd.none )
 
@@ -506,7 +484,7 @@ update starship msg model =
                     ( model, Cmd.none )
 
         AudaciousGambit ->
-            case ( model.phase, Status.audaciousGambit model.status { currentRound = model.roundNumber, useComputerNode = model.useComputerNode, starship = starship } ) of
+            case ( currentPhase, Status.audaciousGambit model.status { currentRound = currentRound, useComputerNode = model.useComputerNode, starship = starship } ) of
                 ( CP Piloting, Just ( newStatus, _ ) ) ->
                     ( { model | status = newStatus }, Cmd.none )
 
@@ -514,7 +492,7 @@ update starship msg model =
                     ( model, Cmd.none )
 
         AudaciousGambitFail ->
-            case ( model.phase, Status.audaciousGambitFail model.status { currentRound = model.roundNumber, useComputerNode = model.useComputerNode, starship = starship } ) of
+            case ( currentPhase, Status.audaciousGambitFail model.status { currentRound = currentRound, useComputerNode = model.useComputerNode, starship = starship } ) of
                 ( CP Piloting, Just ( newStatus, _ ) ) ->
                     ( { model | status = newStatus }, Cmd.none )
 
@@ -571,17 +549,17 @@ update starship msg model =
             ( { model | status = Status.patch pe patchableSystem model.status }, Cmd.none )
 
         HoldItTogether patchableSystem ->
-            ( { model | status = Status.holdItTogether model.roundNumber patchableSystem model.status }, Cmd.none )
+            ( { model | status = Status.holdItTogether currentRound patchableSystem model.status }, Cmd.none )
 
         QuickFix patchableSystem ->
             ( { model | status = Status.quickFix patchableSystem model.status }, Cmd.none )
 
         MovingSpeech ->
-            case model.phase of
+            case currentPhase of
                 CP combatPhase ->
                     let
                         r =
-                            { currentRound = model.roundNumber, currentPhase = combatPhase, starship = starship, useComputerNode = model.useComputerNode }
+                            { currentRound = currentRound, currentPhase = combatPhase, starship = starship, useComputerNode = model.useComputerNode }
 
                         ( afterTargetStatus, _ ) =
                             Status.movingSpeechTarget model.status r
@@ -604,37 +582,6 @@ update starship msg model =
             in
             ( { model | status = { s | assignments = a } }, Cmd.none )
 
-        NextPhase ->
-            ( { model
-                | roundNumber =
-                    model.roundNumber
-                        + (case model.phase of
-                            CP Gunnery ->
-                                1
-
-                            _ ->
-                                0
-                          )
-                , phase = nextPhase model
-              }
-            , Cmd.none
-            )
-
-
-colorTransition : Float -> Color
-colorTransition x =
-    if x > 1 then
-        weightedMix Color.blue green ((x - 1) / 1.8)
-
-    else if x > 0.5 then
-        weightedMix green yellow (2 * (x - 0.5))
-
-    else if x > 0 then
-        weightedMix yellow red (2 * x)
-
-    else
-        grey
-
 
 maybeSeverityToPercent : Maybe Severity -> Float
 maybeSeverityToPercent mSeverity =
@@ -655,10 +602,10 @@ maybeSeverityToPercent mSeverity =
 
 
 criticalStatusToRgb : Int -> Maybe CriticalStatus -> Color
-criticalStatusToRgb roundNumber =
-    Maybe.andThen (CS.getEffectiveSeverity roundNumber)
+criticalStatusToRgb currentRound =
+    Maybe.andThen (CS.getEffectiveSeverity currentRound)
         >> maybeSeverityToPercent
-        >> colorTransition
+        >> ColorUtils.colorTransition
 
 
 getDamagePercent starship status =
@@ -694,66 +641,6 @@ selectedShieldedFighter unselectedColor selectedColor onClicks selected size =
         }
 
 
-shieldedFighter : Starship -> Status -> (Arc.AnArc -> a) -> Arc.Arc (Maybe a) -> Arc.Arc (Maybe a) -> Float -> Svg a
-shieldedFighter starship status arcOnClick onPlus onMinus size =
-    let
-        hp =
-            Starship.getMaxHitPoints starship
-
-        fontSize =
-            size / 12.5
-
-        damagePercent =
-            getDamagePercent starship status
-
-        shieldDamagePercents =
-            Arc.map
-                (\points ->
-                    if damagePercent > 0 && meta starship.shields == On then
-                        toFloat points
-                            / (toFloat (extract starship.shields).shieldPoints / 4)
-
-                    else
-                        0
-                )
-                status.shields
-    in
-    Svg.g
-        []
-        [ Shielded.view
-            (\size_ color ->
-                Fighter.view
-                    { size = size_
-                    , color = color
-                    }
-            )
-            { size = size
-            , arcColors = Arc.map colorTransition shieldDamagePercents
-            , arcOnClick = arcOnClick
-            , shielded = colorTransition damagePercent
-            }
-        , CounterArc.view
-            { radius = size * 49 / 100
-            , size = fontSize
-            , offset = ( size / 2, size / 2 )
-            , color = Color.black
-            , backgroundColor = grey
-            , counts = status.shields
-            , onPlus = onPlus
-            , onMinus = onMinus
-            }
-        , Svg.text_
-            [ SA.fontFamily "mono"
-            , SA.textAnchor "middle"
-            , SA.alignmentBaseline "middle"
-            , SA.fontSize <| String.fromFloat fontSize
-            , SA.fill "black"
-            , SA.transform <| "translate(" ++ String.fromFloat (size / 2) ++ ", " ++ String.fromFloat (size / 2) ++ ")"
-            ]
-            [ Svg.text (String.fromInt (max 0 (hp - status.damage)) ++ "/" ++ String.fromInt hp) ]
-        ]
-
-
 divertingShieldedFighter : Starship -> Status -> Arc.Arc Int -> Float -> Svg Msg
 divertingShieldedFighter starship status added size =
     let
@@ -783,7 +670,7 @@ divertingShieldedFighter starship status added size =
                         Nothing
                 )
     in
-    shieldedFighter starship statusWithNew SelectSheildArc onPlus onMinus size
+    ShieldedFighter.view starship statusWithNew SelectSheildArc onPlus onMinus size
 
 
 allottingShieldedFighter : Starship -> Status -> Arc.Arc Int -> Float -> Svg Msg
@@ -819,7 +706,7 @@ allottingShieldedFighter starship status allotment size =
                         Nothing
                 )
     in
-    shieldedFighter starship statusWithAllotted SelectSheildArc onPlus onMinus size
+    ShieldedFighter.view starship statusWithAllotted SelectSheildArc onPlus onMinus size
 
 
 balancingShieldedFighter : Starship -> Status -> ( Arc.AnArc, Arc.AnArc, Int ) -> Float -> Svg Msg
@@ -864,11 +751,24 @@ balancingShieldedFighter starship status ( from, to, amount ) size =
                         Nothing
                 )
     in
-    shieldedFighter starship statusWithAltered SelectSheildArc onPlus onMinus size
+    ShieldedFighter.view starship statusWithAltered SelectSheildArc onPlus onMinus size
 
 
-view : Starship -> Model -> Html Msg
-view starship model =
+view : { a | starship : Starship, currentRound : Int, currentPhase : BattlePhase } -> Model -> Html Msg
+view a model =
+    case model.partialState of
+        EditingCrew ->
+            div []
+                [ Html.map UpdateCrew <| CrewEditor.view (CrewEditor.fromDict (getCrew model))
+                , button [ E.onClick AcceptCrew ] [ text "ACCEPT" ]
+                ]
+
+        _ ->
+            view_ a model
+
+
+view_ : { a | starship : Starship, currentRound : Int, currentPhase : BattlePhase } -> Model -> Html Msg
+view_ { starship, currentRound, currentPhase } model =
     let
         size =
             200
@@ -889,12 +789,12 @@ view starship model =
                 |> Maybe.withDefault False
 
         ( effectiveAc, effectiveTl ) =
-            Status.getEffectiveAcAndTl starship model.roundNumber model.status
+            Status.getEffectiveAcAndTl starship currentRound model.status
 
         patchableDisplay isEngineeringPhase name status patchableSystem =
             let
                 effectiveSeverity =
-                    Maybe.andThen (CS.getEffectiveSeverity model.roundNumber) status
+                    Maybe.andThen (CS.getEffectiveSeverity currentRound) status
 
                 impacted =
                     effectiveSeverity == Nothing
@@ -915,7 +815,7 @@ view starship model =
                     "background-color"
                     (colorToCssRgb <|
                         if damagePercent > 0 then
-                            criticalStatusToRgb model.roundNumber status
+                            criticalStatusToRgb currentRound status
 
                         else
                             grey
@@ -961,9 +861,6 @@ view starship model =
             , SA.viewBox <| "0 0 " ++ sizeStr ++ " " ++ sizeStr
             ]
             [ case model.partialState of
-                None ->
-                    shieldedFighter starship model.status SelectSheildArc (Arc.pure Nothing) (Arc.pure Nothing) size
-
                 Selected selected ->
                     selectedShieldedFighter Color.grey
                         Color.black
@@ -985,12 +882,15 @@ view starship model =
 
                 Balancing balance ->
                     balancingShieldedFighter starship model.status balance size
+
+                _ ->
+                    ShieldedFighter.view starship model.status SelectSheildArc (Arc.pure Nothing) (Arc.pure Nothing) size
             ]
         , div [] [ text ("AC: " ++ String.fromInt effectiveAc) ]
         , div [] [ text ("TL: " ++ String.fromInt effectiveTl) ]
-        , div [] [ text ("Speed (hexes): " ++ String.fromInt (Status.getEffectiveSpeed starship model.roundNumber model.status)) ]
+        , div [] [ text ("Speed (hexes): " ++ String.fromInt (Status.getEffectiveSpeed starship currentRound model.status)) ]
         , div []
-            [ Status.getEffectiveDistanceBetweenTurns starship model.roundNumber model.status
+            [ Status.getEffectiveDistanceBetweenTurns starship currentRound model.status
                 |> Maybe.map String.fromInt
                 |> Maybe.withDefault "None allowed"
                 |> (++) "Turn: "
@@ -999,7 +899,7 @@ view starship model =
         , div []
             [ text
                 ("Special: "
-                    ++ (case Status.getEffectiveSpecialPilotResult model.status { currentRound = model.roundNumber } of
+                    ++ (case Status.getEffectiveSpecialPilotResult model.status { currentRound = currentRound } of
                             Just MoveForwardFullSpeed ->
                                 "Move forward at full speed"
 
@@ -1039,7 +939,7 @@ view starship model =
         , input
             [ A.value (Maybe.map String.fromInt model.damageInput |> Maybe.withDefault "")
             , A.disabled
-                (case ( model.partialState, model.phase ) of
+                (case ( model.partialState, currentPhase ) of
                     ( Selected _, CP Gunnery ) ->
                         False
 
@@ -1053,7 +953,7 @@ view starship model =
 
         -- TODO: Allow weapon effects (most notably EMP)
         , button
-            (case ( model.partialState, model.damageInput, model.phase ) of
+            (case ( model.partialState, model.damageInput, currentPhase ) of
                 ( Selected arc, Just damageInput, CP Gunnery ) ->
                     [ E.onClick (Damage damageInput True) ]
 
@@ -1062,7 +962,7 @@ view starship model =
             )
             [ text "Damage w/Crit" ]
         , button
-            (case ( model.partialState, model.damageInput, model.phase ) of
+            (case ( model.partialState, model.damageInput, currentPhase ) of
                 ( Selected arc, Just damageInput, CP Gunnery ) ->
                     [ E.onClick (Damage damageInput False) ]
 
@@ -1070,7 +970,7 @@ view starship model =
                     [ A.disabled True ]
             )
             [ text "Damage" ]
-        , case ( model.phase, Status.maneuver model.status { currentRound = model.roundNumber, starship = starship, useComputerNode = model.useComputerNode } ) of
+        , case ( currentPhase, Status.maneuver model.status { currentRound = currentRound, starship = starship, useComputerNode = model.useComputerNode } ) of
             ( CP Piloting, Just ( _, bonus ) ) ->
                 button
                     [ E.onClick Maneuver
@@ -1082,7 +982,7 @@ view starship model =
                 button
                     [ A.disabled True ]
                     [ text "Maneuver" ]
-        , case ( model.phase, Status.backOff model.status { currentRound = model.roundNumber, starship = starship, useComputerNode = model.useComputerNode } ) of
+        , case ( currentPhase, Status.backOff model.status { currentRound = currentRound, starship = starship, useComputerNode = model.useComputerNode } ) of
             ( CP Piloting, Just ( _, bonus ) ) ->
                 button
                     [ E.onClick BackOff
@@ -1094,7 +994,7 @@ view starship model =
                 button
                     [ A.disabled True ]
                     [ text "Back Off" ]
-        , case ( model.phase, Status.backOffFail model.status { currentRound = model.roundNumber, useComputerNode = model.useComputerNode, starship = starship } ) of
+        , case ( currentPhase, Status.backOffFail model.status { currentRound = currentRound, useComputerNode = model.useComputerNode, starship = starship } ) of
             ( CP Piloting, Just _ ) ->
                 button
                     [ E.onClick BackOffFail ]
@@ -1104,7 +1004,7 @@ view starship model =
                 button
                     [ A.disabled True ]
                     [ text "Back Off (Fail)" ]
-        , case ( model.phase, Status.backOffFailBy5OrMore model.status { currentRound = model.roundNumber, starship = starship, useComputerNode = model.useComputerNode } ) of
+        , case ( currentPhase, Status.backOffFailBy5OrMore model.status { currentRound = currentRound, starship = starship, useComputerNode = model.useComputerNode } ) of
             ( CP Piloting, Just _ ) ->
                 button
                     [ E.onClick BackOffFailBy5OrMore ]
@@ -1114,7 +1014,7 @@ view starship model =
                 button
                     [ A.disabled True ]
                     [ text "Back Off (Fail by 5 or More)" ]
-        , case ( model.phase, Status.barrelRoll model.status { currentRound = model.roundNumber, starship = starship, useComputerNode = model.useComputerNode } ) of
+        , case ( currentPhase, Status.barrelRoll model.status { currentRound = currentRound, starship = starship, useComputerNode = model.useComputerNode } ) of
             ( CP Piloting, Just ( _, bonus ) ) ->
                 button
                     [ E.onClick BarrelRoll
@@ -1126,7 +1026,7 @@ view starship model =
                 button
                     [ A.disabled True ]
                     [ text "Barrel Roll" ]
-        , case ( model.phase, Status.barrelRollFail model.status { currentRound = model.roundNumber, starship = starship, useComputerNode = model.useComputerNode } ) of
+        , case ( currentPhase, Status.barrelRollFail model.status { currentRound = currentRound, starship = starship, useComputerNode = model.useComputerNode } ) of
             ( CP Piloting, Just _ ) ->
                 button
                     [ E.onClick BarrelRollFail ]
@@ -1136,7 +1036,7 @@ view starship model =
                 button
                     [ A.disabled True ]
                     [ text "Barrel Roll (Fail)" ]
-        , case ( model.phase, Status.barrelRollFailBy5OrMore model.status { currentRound = model.roundNumber, starship = starship, useComputerNode = model.useComputerNode } ) of
+        , case ( currentPhase, Status.barrelRollFailBy5OrMore model.status { currentRound = currentRound, starship = starship, useComputerNode = model.useComputerNode } ) of
             ( CP Piloting, Just _ ) ->
                 button
                     [ E.onClick BarrelRollFailBy5OrMore ]
@@ -1146,7 +1046,7 @@ view starship model =
                 button
                     [ A.disabled True ]
                     [ text "Barrel Roll (Fail by 5 or More)" ]
-        , case ( model.phase, Status.evade model.status { currentRound = model.roundNumber, starship = starship, useComputerNode = model.useComputerNode } ) of
+        , case ( currentPhase, Status.evade model.status { currentRound = currentRound, starship = starship, useComputerNode = model.useComputerNode } ) of
             ( CP Piloting, Just ( _, bonus ) ) ->
                 button
                     [ E.onClick Evade
@@ -1158,7 +1058,7 @@ view starship model =
                 button
                     [ A.disabled True ]
                     [ text "Evade" ]
-        , case ( model.phase, Status.evadeFailBy5OrMore model.status { currentRound = model.roundNumber, starship = starship, useComputerNode = model.useComputerNode } ) of
+        , case ( currentPhase, Status.evadeFailBy5OrMore model.status { currentRound = currentRound, starship = starship, useComputerNode = model.useComputerNode } ) of
             ( CP Piloting, Just _ ) ->
                 button
                     [ E.onClick EvadeFailBy5OrMore ]
@@ -1168,7 +1068,7 @@ view starship model =
                 button
                     [ A.disabled True ]
                     [ text "Evade (Fail by 5 or More)" ]
-        , case ( model.phase, Status.flipAndBurn model.status { currentRound = model.roundNumber, starship = starship, useComputerNode = model.useComputerNode } ) of
+        , case ( currentPhase, Status.flipAndBurn model.status { currentRound = currentRound, starship = starship, useComputerNode = model.useComputerNode } ) of
             ( CP Piloting, Just ( _, bonus ) ) ->
                 button
                     [ E.onClick FlipAndBurn
@@ -1180,7 +1080,7 @@ view starship model =
                 button
                     [ A.disabled True ]
                     [ text "Flip and Burn" ]
-        , case ( model.phase, Status.flipAndBurnFail model.status { currentRound = model.roundNumber, starship = starship, useComputerNode = model.useComputerNode } ) of
+        , case ( currentPhase, Status.flipAndBurnFail model.status { currentRound = currentRound, starship = starship, useComputerNode = model.useComputerNode } ) of
             ( CP Piloting, Just _ ) ->
                 button
                     [ E.onClick FlipAndBurnFail ]
@@ -1190,7 +1090,7 @@ view starship model =
                 button
                     [ A.disabled True ]
                     [ text "Flip and Burn (Fail)" ]
-        , case ( model.phase, Status.flyby model.status { currentRound = model.roundNumber, starship = starship, useComputerNode = model.useComputerNode } ) of
+        , case ( currentPhase, Status.flyby model.status { currentRound = currentRound, starship = starship, useComputerNode = model.useComputerNode } ) of
             ( CP Piloting, Just ( _, bonus ) ) ->
                 button
                     [ E.onClick Flyby
@@ -1202,7 +1102,7 @@ view starship model =
                 button
                     [ A.disabled True ]
                     [ text "Flyby" ]
-        , case ( model.phase, Status.flybyFail model.status { currentRound = model.roundNumber, useComputerNode = model.useComputerNode, starship = starship } ) of
+        , case ( currentPhase, Status.flybyFail model.status { currentRound = currentRound, useComputerNode = model.useComputerNode, starship = starship } ) of
             ( CP Piloting, Just _ ) ->
                 button
                     [ E.onClick FlybyFail ]
@@ -1212,7 +1112,7 @@ view starship model =
                 button
                     [ A.disabled True ]
                     [ text "Flyby (Fail)" ]
-        , case ( model.phase, Status.slide model.status { currentRound = model.roundNumber, starship = starship, useComputerNode = model.useComputerNode } ) of
+        , case ( currentPhase, Status.slide model.status { currentRound = currentRound, starship = starship, useComputerNode = model.useComputerNode } ) of
             ( CP Piloting, Just ( _, bonus ) ) ->
                 button
                     [ E.onClick Slide
@@ -1224,7 +1124,7 @@ view starship model =
                 button
                     [ A.disabled True ]
                     [ text "Slide" ]
-        , case ( model.phase, Status.slideFail model.status { currentRound = model.roundNumber, starship = starship, useComputerNode = model.useComputerNode } ) of
+        , case ( currentPhase, Status.slideFail model.status { currentRound = currentRound, starship = starship, useComputerNode = model.useComputerNode } ) of
             ( CP Piloting, Just _ ) ->
                 button
                     [ E.onClick SlideFail ]
@@ -1234,7 +1134,7 @@ view starship model =
                 button
                     [ A.disabled True ]
                     [ text "Slide (Fail)" ]
-        , case ( model.phase, Status.turnInPlace model.status { currentRound = model.roundNumber, starship = starship, useComputerNode = model.useComputerNode } ) of
+        , case ( currentPhase, Status.turnInPlace model.status { currentRound = currentRound, starship = starship, useComputerNode = model.useComputerNode } ) of
             ( CP Piloting, Just ( _, bonus ) ) ->
                 button
                     [ E.onClick TurnInPlace
@@ -1246,7 +1146,7 @@ view starship model =
                 button
                     [ A.disabled True ]
                     [ text "Turn in Place" ]
-        , case ( model.phase, Status.fullPower model.status { currentRound = model.roundNumber, starship = starship, useComputerNode = model.useComputerNode } ) of
+        , case ( currentPhase, Status.fullPower model.status { currentRound = currentRound, starship = starship, useComputerNode = model.useComputerNode } ) of
             ( CP Piloting, Just ( _, bonus ) ) ->
                 button
                     [ E.onClick FullPower
@@ -1258,7 +1158,7 @@ view starship model =
                 button
                     [ A.disabled True ]
                     [ text "Full Power" ]
-        , case ( model.phase, Status.audaciousGambit model.status { currentRound = model.roundNumber, starship = starship, useComputerNode = model.useComputerNode } ) of
+        , case ( currentPhase, Status.audaciousGambit model.status { currentRound = currentRound, starship = starship, useComputerNode = model.useComputerNode } ) of
             ( CP Piloting, Just ( _, bonus ) ) ->
                 button
                     [ E.onClick AudaciousGambit
@@ -1270,7 +1170,7 @@ view starship model =
                 button
                     [ A.disabled True ]
                     [ text "Audacious Gambit" ]
-        , case ( model.phase, Status.audaciousGambitFail model.status { currentRound = model.roundNumber, useComputerNode = model.useComputerNode, starship = starship } ) of
+        , case ( currentPhase, Status.audaciousGambitFail model.status { currentRound = currentRound, useComputerNode = model.useComputerNode, starship = starship } ) of
             ( CP Piloting, Just _ ) ->
                 button
                     [ E.onClick AudaciousGambitFail ]
@@ -1281,7 +1181,7 @@ view starship model =
                     [ A.disabled True ]
                     [ text "Audacious Gambit (Fail)" ]
         , button
-            [ case ( model.partialState, model.phase ) of
+            [ case ( model.partialState, currentPhase ) of
                 ( Selected arc, CP Piloting ) ->
                     case Status.canBalanceFromTo arc model.status.shields of
                         [] ->
@@ -1314,7 +1214,7 @@ view starship model =
             )
             [ text "Accept Balance to other Shields" ]
         , button
-            [ case ( model.partialState, model.phase ) of
+            [ case ( model.partialState, currentPhase ) of
                 ( None, CP Piloting ) ->
                     E.onClick BalanceEvenly
 
@@ -1324,7 +1224,7 @@ view starship model =
             ]
             [ text ("Balance Shields Evenly (DC " ++ String.fromInt (10 + shipDCMod) ++ ")") ]
         , button
-            [ case ( model.partialState, Status.maxDivertPowerToShieldPoints starship model.status <= 0, model.phase ) of
+            [ case ( model.partialState, Status.maxDivertPowerToShieldPoints starship model.status <= 0, currentPhase ) of
                 ( None, False, CP Engineering ) ->
                     E.onClick StartDivertToShields
 
@@ -1343,7 +1243,7 @@ view starship model =
             )
             [ text "Cancel Divert Power to Shields" ]
         , button
-            (case Maybe.andThen (\x -> Status.divertPowerToShields starship x model.roundNumber model.status) (maybeDiverting model.partialState) of
+            (case Maybe.andThen (\x -> Status.divertPowerToShields starship x currentRound model.status) (maybeDiverting model.partialState) of
                 Nothing ->
                     [ A.disabled True ]
 
@@ -1352,7 +1252,7 @@ view starship model =
             )
             [ text "Accept Divert Power to Shields" ]
         , button
-            [ case ( model.partialState, model.phase ) of
+            [ case ( model.partialState, currentPhase ) of
                 ( None, CP Engineering ) ->
                     E.onClick DivertToEngines
 
@@ -1366,7 +1266,7 @@ view starship model =
             [ text "Accept Allotted Shields" ]
         , let
             mCombatPhase =
-                case model.phase of
+                case currentPhase of
                     CP combatPhase ->
                         Just combatPhase
 
@@ -1378,7 +1278,7 @@ view starship model =
                 (\combatPhase ->
                     let
                         r =
-                            { currentRound = model.roundNumber, currentPhase = combatPhase, starship = starship, useComputerNode = model.useComputerNode }
+                            { currentRound = currentRound, currentPhase = combatPhase, starship = starship, useComputerNode = model.useComputerNode }
 
                         ( s1, b1 ) =
                             Status.movingSpeechTarget model.status r
@@ -1438,27 +1338,35 @@ view starship model =
                 )
                 starship.turretWeapons
         , div [] [ text "-----" ]
-        , patchableDisplay (model.phase == CP Engineering) "Life Support" model.status.systems.lifeSupport LifeSupport
-        , patchableDisplay (model.phase == CP Engineering) "Sensors" model.status.systems.sensors Sensors
-        , patchableDisplay (model.phase == CP Engineering) "Weapons Array - Forward" model.status.systems.weaponsArray.forward (WeaponsArray Arc.Forward)
-        , patchableDisplay (model.phase == CP Engineering) "Weapons Array - Aft" model.status.systems.weaponsArray.aft (WeaponsArray Arc.Aft)
-        , patchableDisplay (model.phase == CP Engineering) "Weapons Array - Port" model.status.systems.weaponsArray.portSide (WeaponsArray Arc.Port)
-        , patchableDisplay (model.phase == CP Engineering) "Weapons Array - Starboard" model.status.systems.weaponsArray.starboard (WeaponsArray Arc.Starboard)
-        , patchableDisplay (model.phase == CP Engineering) "Engines" model.status.systems.engines Engines
-        , patchableDisplay (model.phase == CP Engineering) "Power Core" model.status.systems.powerCore PowerCore
-        , AssignmentsEditor.view (model.phase /= Assign) model.status.assignments
+        , patchableDisplay (currentPhase == CP Engineering) "Life Support" model.status.systems.lifeSupport LifeSupport
+        , patchableDisplay (currentPhase == CP Engineering) "Sensors" model.status.systems.sensors Sensors
+        , patchableDisplay (currentPhase == CP Engineering) "Weapons Array - Forward" model.status.systems.weaponsArray.forward (WeaponsArray Arc.Forward)
+        , patchableDisplay (currentPhase == CP Engineering) "Weapons Array - Aft" model.status.systems.weaponsArray.aft (WeaponsArray Arc.Aft)
+        , patchableDisplay (currentPhase == CP Engineering) "Weapons Array - Port" model.status.systems.weaponsArray.portSide (WeaponsArray Arc.Port)
+        , patchableDisplay (currentPhase == CP Engineering) "Weapons Array - Starboard" model.status.systems.weaponsArray.starboard (WeaponsArray Arc.Starboard)
+        , patchableDisplay (currentPhase == CP Engineering) "Engines" model.status.systems.engines Engines
+        , patchableDisplay (currentPhase == CP Engineering) "Power Core" model.status.systems.powerCore PowerCore
+        , AssignmentsEditor.view (currentPhase /= Assign) model.status.assignments
             |> Html.map SetAssignments
-        , button
-            [ E.onClick NextPhase, A.disabled (maybeAllotting model.partialState /= Nothing) ]
-            [ text ("PROCEED TO " ++ String.toUpper (phaseToString (nextPhase model)) ++ " PHASE") ]
+        , div []
+            [ button
+                [ E.onClick StartCrewEdit
+                , A.disabled (model.partialState /= None)
+                ]
+                [ text "MODIFY CREW" ]
+            ]
         ]
 
 
 main : Program () Model Msg
 main =
+    let
+        r =
+            { starship = norikamaDropship, currentRound = 0, currentPhase = CP Gunnery }
+    in
     element
-        { init = \_ -> ( init norikamaDropship, Cmd.none )
-        , update = update norikamaDropship
-        , view = view norikamaDropship
+        { init = \_ -> ( init r.starship, Cmd.none )
+        , update = update r
+        , view = view r
         , subscriptions = \_ -> Sub.none
         }

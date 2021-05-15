@@ -1,4 +1,4 @@
-module CrewEditor exposing (Crew, emptyCrew, fromDict, view)
+module CrewEditor exposing (Crew, emptyCrew, fromDict, toDict, view)
 
 import Browser exposing (element)
 import Crewmate exposing (Crewmate)
@@ -19,6 +19,11 @@ type alias Crew =
 fromDict : Dict String Crewmate -> Crew
 fromDict =
     InOrdDict.fromDict
+
+
+toDict : Crew -> Dict String Crewmate
+toDict =
+    InOrdDict.toDict
 
 
 type alias Model =
