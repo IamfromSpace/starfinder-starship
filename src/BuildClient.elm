@@ -6,7 +6,7 @@ import DefenseLevel exposing (DefenseLevel(..))
 import Dict
 import ExpansionBay exposing (ExpansionBay(..))
 import Frame exposing (Frame)
-import Http exposing (Expect, Response(..), emptyBody, expectStringResponse, header, request, stringBody)
+import Http exposing (Expect, Response(..), emptyBody, expectStringResponse, header, request, stringBody, stringResolver, task)
 import Json.Decode as D exposing (Decoder, decodeString)
 import Json.Decode.Pipeline exposing (optional, required)
 import Json.Encode as E exposing (Value, encode)
@@ -17,7 +17,7 @@ import LinkAndTogglable exposing (LinkAndTogglable(..))
 import ShipAssets exposing (frames, shields, weapons)
 import Starship exposing (BuildError, CrewQuarters(..), DriftEngine(..), Sensor, Shields, Starship)
 import Switch exposing (Switch(..))
-import Task
+import Task exposing (Task)
 import Togglable exposing (Togglable(..))
 import Weapon exposing (Range(..), Weapon)
 
@@ -42,6 +42,16 @@ subDecoder =
 
 -- TODO: This feels like a classic case of "compression" rather than a well
 -- thought through and reusable  abstraction
+
+
+withSubFromTokenTask : String -> (String -> Task (HttpClientError a) b) -> Task (HttpClientError a) b
+withSubFromTokenTask token f =
+    case Jwt.decodeToken subDecoder token of
+        Ok sub ->
+            f sub
+
+        Err _ ->
+            Task.fail (UnexpectedResponse "JWT Token is invalid")
 
 
 withSubFromToken : String -> (String -> Cmd (Result (HttpClientError a) b)) -> Cmd (Result (HttpClientError a) b)
@@ -699,22 +709,21 @@ responseToGetBuildClientResult r =
 
 
 type alias GetStarshipBuild =
-    Link -> Cmd (Result (HttpClientError GetStarshipBuildError) ( String, Starship ))
+    Link -> Task (HttpClientError GetStarshipBuildError) ( String, Starship )
 
 
 getStarshipBuild : String -> GetStarshipBuild
 getStarshipBuild token (Link url) =
-    withSubFromToken token
+    withSubFromTokenTask token
         (\userId ->
-            request
+            task
                 { method = "GET"
                 , headers =
                     [ header "Authorization" ("Bearer " ++ token) ]
                 , url = url
                 , body = emptyBody
-                , expect = expectResponse responseToGetBuildClientResult
+                , resolver = stringResolver responseToGetBuildClientResult
                 , timeout = Just 5000
-                , tracker = Nothing
                 }
         )
 
@@ -942,14 +951,12 @@ mockCreateStarshipBuild _ =
 
 makeMockGetStarshipBuild : Starship -> GetStarshipBuild
 makeMockGetStarshipBuild defaultShip link =
-    Task.perform identity <|
-        Task.succeed <|
-            case link of
-                Link "hey" ->
-                    Ok ( "eTag", defaultShip )
+    case link of
+        Link "hey" ->
+            Task.succeed ( "eTag", defaultShip )
 
-                _ ->
-                    Err <| ExpectedError DoesNotExistG
+        _ ->
+            Task.fail <| ExpectedError DoesNotExistG
 
 
 makeMockUpdateStarshipBuild : Starship -> UpdateStarshipBuild

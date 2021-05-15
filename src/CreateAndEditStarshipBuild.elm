@@ -14,6 +14,7 @@ import Platform.Cmd exposing (Cmd)
 import ShipAssets
 import Starship exposing (Starship)
 import StarshipEditor
+import Task
 import Togglable
 import Weapon
 
@@ -78,7 +79,7 @@ update { getStarshipBuild, getStarshipBuilds, createStarshipBuild, updateStarshi
             ( { s | isFetching = True }
             , Cmd.map
                 (GetStarshipBuildResult link)
-                (getStarshipBuild link)
+                (Task.attempt identity <| getStarshipBuild link)
             )
 
         GetShips ->
@@ -95,7 +96,7 @@ update { getStarshipBuild, getStarshipBuilds, createStarshipBuild, updateStarshi
             ( { s | isFetching = True }
             , Cmd.map
                 FlyStarshipGetResult
-                (getStarshipBuild link)
+                (Task.attempt identity <| getStarshipBuild link)
             )
 
         SaveShip ->
