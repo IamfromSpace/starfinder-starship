@@ -953,7 +953,10 @@ makeMockGetStarshipBuild : Starship -> GetStarshipBuild
 makeMockGetStarshipBuild defaultShip link =
     case link of
         Link "hey" ->
-            Task.succeed ( "eTag", defaultShip )
+            Task.succeed ( "eTag", { defaultShip | name = "hey" } )
+
+        Link "sup" ->
+            Task.succeed ( "eTag", { defaultShip | name = "sup" } )
 
         _ ->
             Task.fail <| ExpectedError DoesNotExistG
@@ -978,4 +981,7 @@ mockGetStarshipBuilds : GetStarshipBuilds
 mockGetStarshipBuilds =
     Task.perform identity <|
         Task.succeed <|
-            Ok [ { link = Link "hey", name = "hey" } ]
+            Ok
+                [ { link = Link "hey", name = "hey" }
+                , { link = Link "sup", name = "sup" }
+                ]

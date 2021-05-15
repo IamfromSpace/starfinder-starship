@@ -5,8 +5,8 @@ import BattleEditor
 import BuildClient exposing (CreateStarshipBuild, CreateStarshipBuildError, GetStarshipBuild, GetStarshipBuildError, GetStarshipBuilds, GetStarshipBuildsError(..), HttpClientError, Link, StarshipBuildLink, UpdateStarshipBuild, UpdateStarshipBuildError, createStarshipBuild, createStarshipBuildErrorToString, getStarshipBuild, getStarshipBuildErrorToString, getStarshipBuilds, getStarshipBuildsErrorToString, httpClientErrorToString, updateStarshipBuild, updateStarshipBuildErrorToString)
 import Dict
 import Html exposing (Html, button, div, input, label, text)
-import Html.Attributes exposing (disabled, value)
-import Html.Events exposing (onClick, onInput)
+import Html.Attributes as A exposing (disabled, value)
+import Html.Events as E exposing (onClick, onInput)
 import InOrdDict exposing (toDict)
 import InputConfigured as IC
 import KeyedSet as KS
@@ -27,6 +27,7 @@ initialModel =
     , isFetching = False
     , shipName = ""
     , ships = Nothing
+    , selected = []
     }
 
 
@@ -39,6 +40,10 @@ type alias Model =
     , isFetching : Bool
     , shipName : String
     , ships : Maybe (List StarshipBuildLink)
+
+    -- So irritating how it's impossible to implement comparable.
+    -- This should really be a Set.
+    , selected : List Link
     }
 
 
@@ -47,12 +52,13 @@ type Msg
     | GetStarshipBuildResult Link (Result (HttpClientError GetStarshipBuildError) ( String, Starship ))
     | GetStarshipBuildsResult (Result (HttpClientError GetStarshipBuildsError) (List StarshipBuildLink))
     | UpdateStarshipBuildResult (Result (HttpClientError UpdateStarshipBuildError) String)
-    | FlyStarshipGetResult (Result (HttpClientError GetStarshipBuildError) ( String, Starship ))
+    | StartBattleResult (Result (HttpClientError GetStarshipBuildError) (List Starship))
     | CreateShip
     | SaveShip
     | GetShip Link
     | GetShips
-    | FlyShip Link
+    | ToggleShipSelected Link
+    | StartBattle
     | SetShipName String
     | StarshipUpdate StarshipEditor.Msg
     | BattleUpdate BattleEditor.Msg
@@ -73,7 +79,7 @@ update :
     -> Msg
     -> Model
     -> ( Model, Cmd Msg )
-update { getStarshipBuild, getStarshipBuilds, createStarshipBuild, updateStarshipBuild } msg ({ starshipBuild, error, isFetching, shipName, battle } as s) =
+update { getStarshipBuild, getStarshipBuilds, createStarshipBuild, updateStarshipBuild } msg ({ starshipBuild, error, isFetching, shipName, battle, selected } as s) =
     case msg of
         GetShip link ->
             ( { s | isFetching = True }
@@ -91,13 +97,6 @@ update { getStarshipBuild, getStarshipBuilds, createStarshipBuild, updateStarshi
 
         CreateShip ->
             ( { s | starshipBuild = Just ( Nothing, StarshipEditor.init ) }, Cmd.none )
-
-        FlyShip link ->
-            ( { s | isFetching = True }
-            , Cmd.map
-                FlyStarshipGetResult
-                (Task.attempt identity <| getStarshipBuild link)
-            )
 
         SaveShip ->
             case starshipBuild of
@@ -117,6 +116,30 @@ update { getStarshipBuild, getStarshipBuilds, createStarshipBuild, updateStarshi
 
                 _ ->
                     ( s, Cmd.none )
+
+        ToggleShipSelected link ->
+            ( { s
+                | selected =
+                    if List.member link selected then
+                        List.filter ((/=) link) selected
+
+                    else
+                        link :: selected
+              }
+            , Cmd.none
+            )
+
+        StartBattle ->
+            if List.length selected < 1 then
+                ( s, Cmd.none )
+
+            else
+                ( { s | isFetching = True }
+                , List.map (getStarshipBuild >> Task.map Tuple.second) selected
+                    |> Task.sequence
+                    |> Task.attempt identity
+                    |> Cmd.map StartBattleResult
+                )
 
         CreateStarshipBuildResult r ->
             if isFetching then
@@ -230,7 +253,7 @@ update { getStarshipBuild, getStarshipBuilds, createStarshipBuild, updateStarshi
             else
                 ( s, Cmd.none )
 
-        FlyStarshipGetResult r ->
+        StartBattleResult r ->
             if isFetching then
                 case r of
                     Err x ->
@@ -242,11 +265,17 @@ update { getStarshipBuild, getStarshipBuilds, createStarshipBuild, updateStarshi
                         , Cmd.none
                         )
 
-                    Ok ( eTag, sb ) ->
+                    Ok sbs ->
                         ( { s
                             | isFetching = False
-                            , starshipBuild = Just ( Nothing, sb )
-                            , battle = Just (BattleEditor.init (Dict.fromList [ ( sb.name, sb ) ]))
+                            , starshipBuild = Nothing
+
+                            -- TODO: In a lot of ways, it would make more sense
+                            -- to use the name just for rendering, and use the
+                            -- Link as the Dict key.  However, Link can't be
+                            -- comparable, so without making it not opaque,
+                            -- that doesn't work.
+                            , battle = Just (BattleEditor.init (Dict.fromList (List.map (\sb -> ( sb.name, sb )) sbs)))
                           }
                         , Cmd.none
                         )
@@ -266,8 +295,8 @@ update { getStarshipBuild, getStarshipBuilds, createStarshipBuild, updateStarshi
                     ( s, Cmd.none )
 
         BattleUpdate bMsg ->
-            case ( starshipBuild, battle ) of
-                ( Just ( _, bModel ), Just battleModel ) ->
+            case battle of
+                Just battleModel ->
                     let
                         ( newBattle, cmd ) =
                             BattleEditor.update bMsg battleModel
@@ -288,7 +317,7 @@ update { getStarshipBuild, getStarshipBuilds, createStarshipBuild, updateStarshi
 
 
 view : Model -> Html Msg
-view { starshipBuild, error, isFetching, shipName, ships, battle } =
+view { starshipBuild, error, isFetching, shipName, ships, battle, selected } =
     div
         []
         (case ( ( starshipBuild, battle ), error, isFetching ) of
@@ -300,16 +329,16 @@ view { starshipBuild, error, isFetching, shipName, ships, battle } =
                 , button [ onClick Back ] [ text "BACK" ]
                 ]
 
-            ( ( Just ( _, starship ), Just battleModel ), _, _ ) ->
+            ( ( _, Just battleModel ), _, _ ) ->
                 [ Html.map BattleUpdate <| BattleEditor.view battleModel ]
 
-            ( ( Just ( _, starship ), Nothing ), _, _ ) ->
+            ( ( Just ( _, starship ), _ ), _, _ ) ->
                 [ Html.map StarshipUpdate <| StarshipEditor.view starship
                 , button [ onClick SaveShip ] [ text "SAVE" ]
                 , button [ onClick Back ] [ text "BACK" ]
                 ]
 
-            ( ( Nothing, _ ), _, _ ) ->
+            _ ->
                 [ button [ onClick CreateShip ] [ text "CREATE NEW" ]
                 , button [ onClick GetShips ] [ text "GET ALL SHIP NAMES" ]
 
@@ -326,7 +355,16 @@ view { starshipBuild, error, isFetching, shipName, ships, battle } =
                                                 [ onClick (GetShip ship.link)
                                                 ]
                                                 [ text "EDIT" ]
-                                            , button [ onClick (FlyShip ship.link) ] [ text "FLY" ]
+                                            , input
+                                                [ A.type_ "checkbox"
+                                                , A.checked
+                                                    (List.member
+                                                        ship.link
+                                                        selected
+                                                    )
+                                                , E.onClick (ToggleShipSelected ship.link)
+                                                ]
+                                                []
                                             ]
                                     )
                                     s
@@ -334,5 +372,6 @@ view { starshipBuild, error, isFetching, shipName, ships, battle } =
                         Nothing ->
                             [ div [] [ text "Ships Not Fetched" ] ]
                     )
+                , button [ disabled (List.length selected < 1), onClick StartBattle ] [ text "START BATTLE" ]
                 ]
         )
